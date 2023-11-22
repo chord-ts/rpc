@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '../$types';
-import { Composer, rpc, depends, type Composed, buildResponse } from '../../../../../src/';
-import sveltekit from '../../../../../src/middlewares/sveltekit';
+import { Composer, rpc, depends, type Composed, buildResponse } from 'chord-rpc';
+import sveltekit from 'chord-rpc/middlewares/sveltekit';
 import type { ITestRPC, ITestRPC2, Wrapped } from './types';
 
 // THIS IS CONTROLLER

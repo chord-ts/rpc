@@ -14,5 +14,8 @@
     "nodemon": "^3.0.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "chord-rpc": "^0.1.6"
   }
 }

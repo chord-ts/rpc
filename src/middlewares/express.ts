@@ -1,9 +1,9 @@
 async function expressMiddleware(
-  event: { body: unknown; },
+  event: { body: unknown },
   ctx: Record<string, unknown>,
   next: CallableFunction
 ) {
-  ctx.body = event.body
+  ctx.body = event.body;
   next();
 }
 

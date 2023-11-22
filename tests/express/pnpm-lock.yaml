@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+dependencies:
+  chord-rpc:
+    specifier: ^0.1.6
+    version: 0.1.6
+
 devDependencies:
   express:
     specifier: ^4.18.2
@@ -174,6 +179,12 @@ packages:
     optionalDependencies:
       fsevents: 2.3.3
     dev: true
+
+  /chord-rpc@0.1.6:
+    resolution: {integrity: sha512-1U9ALHyYCbzlvdPW78AG9FOnHPN8kxH0aOik/et86MuAnd1AcitFSJULV8iE4BL/gvycAaCXeMUr5fRgNdEPXA==}
+    dependencies:
+      reflect-metadata: 0.1.13
+    dev: false
 
   /concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -613,6 +624,10 @@ packages:
     dependencies:
       picomatch: 2.3.1
     dev: true
+
+  /reflect-metadata@0.1.13:
+    resolution: {integrity: sha512-Ts1Y/anZELhSsjMcU605fU9RE4Oi3p5ORujwbIKXfWa+0Zxs510Qrmrce5/Jowq3cHSZSJqBjypxmHarc+vEWg==}
+    dev: false
 
   /safe-buffer@5.2.1:
     resolution: {integrity: sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==}

@@ -1,17 +1,37 @@
 {
-  "name": "chord",
-  "version": "0.1.0",
+  "name": "chord-rpc",
+  "version": "0.1.6",
   "author": "Din Dmitriy @dmdin",
   "description": "Cutting edge transport framework washing borders between frontend and backend",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dmdin/chord.git"
   },
-  "keywords": ["JSON-RPC", "Client Server", "Transport"],
+  "keywords": [
+    "JSON-RPC",
+    "Client Server",
+    "Transport"
+  ],
   "license": "Apache License 2.0",
-
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./middlewares/*": "./dist/middlewares/*.js",
+    "./specs/": "./dist/specs/index.js"
+  },
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "middlewares/*": [
+        "./dist/middlewares/*.d.ts"
+      ],
+      "specs": [
+        "./dist/specs/index.d.ts"
+      ]
+    }
+  },
   "scripts": {
     "build": "tsc",
     "format": "prettier --write ./src/**/*.{js,json,html,ts}",
@@ -25,8 +45,10 @@
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.1.0",
-    "reflect-metadata": "^0.1.13",
     "tslib": "^2.6.2",
     "typescript": "^5.3.2"
+  },
+  "dependencies": {
+    "reflect-metadata": "^0.1.13"
   }
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { initClient } from '../../../../../src/client';
+  import { initClient } from 'chord-rpc';
   import { onMount } from 'svelte';
   import type { Wrapped, Unwrapped } from './types';
   import { writable } from 'svelte/store';
