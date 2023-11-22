@@ -8,7 +8,7 @@ The revolution in the world of client-server communication. Type-safe RPC commun
 <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178c6?style=for-the-badge&logo=typescript&logoColor=white"></a>
 <a href="https://kit.svelte.dev/"><img src="https://img.shields.io/badge/SvelteKit-191919?style=for-the-badge&logo=svelte&logoColor=FF3E00"></a>
 <a href="https://expressjs.com/"><img src="https://img.shields.io/badge/Express-69b74d?style=for-the-badge&logo=express&logoColor=white"></a>
-<a href="https://www.docker.com/"><img src="https://img.shields.io/badge/JSONRPC-18181a?style=for-the-badge&logo=json&logoColor=white"></a>
+<a href="https://www.jsonrpc.org/specification"><img src="https://img.shields.io/badge/JSONRPC-18181a?style=for-the-badge&logo=json&logoColor=white"></a>
 </div>
 
 ## ⚙️ Installation
@@ -30,7 +30,7 @@ So you need to configure your _tsconfig.json_ first.
 ```json
 {
   "compilerOptions": {
-    /* Other stuff... */
+    // Other stuff...
 
     "target": "ESNext",    
     "experimentalDecorators": true,  
@@ -44,4 +44,3 @@ So you need to configure your _tsconfig.json_ first.
 If you are using [Vite](https://vitejs.dev/) as bundler of your project, you have to note, that [ESbuild](https://esbuild.github.io/) that is used under the hood, [does not support](https://github.com/evanw/esbuild/issues/257) _emitDecoratorMetadata_ flag at the moment.
 
 Thus, you have to use additional plugins for Vite. I personally recommend to try out [SWC](https://www.npmjs.com/package/unplugin-swc). It fixes this issue and doesn't impact on rebuilding performance.
-
