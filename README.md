@@ -13,12 +13,12 @@ The revolution in the world of client-server communication. Type-safe RPC commun
 
 ## ⚙️ Installation
 
-Chord is framework agnostic and can be used with any backend library. Install it freely from __npm__ via your favorite package manager.
+Chord is framework agnostic and can be used with any backend library. Install it freely from [npm](https://www.npmjs.com/package/chord-rpc) via your favorite package manager.
 
 ```bash
-npm install dialute
+npm install chord-rpc
 # or
-pnpm install dialute
+pnpm install chord-rpc
 ```
 
 Chord uses [decorators](https://www.typescriptlang.org/docs/handbook/decorators.html) and [reflection](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect) under the hood, to construct server and client.
