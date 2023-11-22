@@ -27,7 +27,7 @@ So you need to configure your _tsconfig.json_ first.
 
 #### **`./tsconfig.ts`**
 
-```json
+```json5
 {
   "compilerOptions": {
     // Other stuff...
