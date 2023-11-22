@@ -21,7 +21,7 @@ title: "Transport"
 
 ## Source
 
-[types.ts:32](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L32)
+[types.ts:32](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L32)
 
 ***
 

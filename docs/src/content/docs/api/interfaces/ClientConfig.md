@@ -13,7 +13,7 @@ title: "ClientConfig"
 
 #### Source
 
-[types.ts:40](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L40)
+[types.ts:40](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L40)
 
 ***
 
@@ -23,7 +23,7 @@ title: "ClientConfig"
 
 #### Source
 
-[types.ts:39](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L39)
+[types.ts:39](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L39)
 
 ***
 

@@ -13,7 +13,7 @@ title: "MethodConfig"
 
 #### Source
 
-[types.ts:13](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L13)
+[types.ts:13](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L13)
 
 ***
 

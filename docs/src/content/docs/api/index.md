@@ -2,7 +2,7 @@
 editUrl: false
 next: false
 prev: false
-title: "chord"
+title: "chord-rpc"
 ---
 
 ## Enumerations

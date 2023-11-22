@@ -9,7 +9,7 @@ title: "BatchResponse"
 
 ## Source
 
-[specs/JSONRPC\_V2/types.ts:38](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L38)
+[specs/JSONRPC\_V2/types.ts:38](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L38)
 
 ***
 

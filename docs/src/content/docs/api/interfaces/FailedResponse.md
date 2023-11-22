@@ -13,7 +13,7 @@ title: "FailedResponse"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:31](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L31)
+[specs/JSONRPC\_V2/types.ts:31](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L31)
 
 ***
 
@@ -23,7 +23,7 @@ title: "FailedResponse"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:30](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L30)
+[specs/JSONRPC\_V2/types.ts:30](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L30)
 
 ***
 

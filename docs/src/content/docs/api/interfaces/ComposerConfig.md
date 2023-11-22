@@ -13,7 +13,7 @@ title: "ComposerConfig"
 
 #### Source
 
-[types.ts:45](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L45)
+[types.ts:45](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L45)
 
 ***
 
@@ -23,7 +23,7 @@ title: "ComposerConfig"
 
 #### Source
 
-[types.ts:44](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L44)
+[types.ts:44](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L44)
 
 ***
 

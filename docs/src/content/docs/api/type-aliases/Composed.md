@@ -13,7 +13,7 @@ title: "Composed"
 
 ## Source
 
-[types.ts:67](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L67)
+[types.ts:67](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L67)
 
 ***
 

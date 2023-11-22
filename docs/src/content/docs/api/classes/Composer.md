@@ -27,7 +27,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:29](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L29)
+[server.ts:29](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L29)
 
 ## Properties
 
@@ -37,7 +37,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:41](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L41)
+[server.ts:41](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L41)
 
 ***
 
@@ -47,7 +47,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:44](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L44)
+[server.ts:44](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L44)
 
 ## Methods
 
@@ -65,7 +65,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:87](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L87)
+[server.ts:87](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L87)
 
 ***
 
@@ -83,7 +83,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:71](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L71)
+[server.ts:71](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L71)
 
 ***
 
@@ -101,7 +101,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:67](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L67)
+[server.ts:67](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L67)
 
 ***
 
@@ -119,7 +119,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:46](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L46)
+[server.ts:46](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L46)
 
 ***
 
@@ -141,7 +141,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:51](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L51)
+[server.ts:51](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L51)
 
 ***
 
@@ -159,7 +159,7 @@ title: "Composer"
 
 #### Source
 
-[server.ts:57](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L57)
+[server.ts:57](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L57)
 
 ***
 

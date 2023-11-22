@@ -13,7 +13,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:6](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L6)
+[types.ts:6](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L6)
 
 ***
 
@@ -23,7 +23,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:5](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L5)
+[types.ts:5](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L5)
 
 ***
 
@@ -33,7 +33,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:8](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L8)
+[types.ts:8](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L8)
 
 ***
 
@@ -43,7 +43,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:7](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L7)
+[types.ts:7](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L7)
 
 ***
 
@@ -53,7 +53,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:9](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L9)
+[types.ts:9](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L9)
 
 ***
 

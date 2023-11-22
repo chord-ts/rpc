@@ -21,7 +21,7 @@ title: "buildResponse"
 
 ## Source
 
-[specs/JSONRPC\_V2/index.ts:17](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/index.ts#L17)
+[specs/JSONRPC\_V2/index.ts:17](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/index.ts#L17)
 
 ***
 

@@ -13,7 +13,7 @@ title: "Request"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:14](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L14)
+[specs/JSONRPC\_V2/types.ts:14](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L14)
 
 ***
 
@@ -23,7 +23,7 @@ title: "Request"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:11](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L11)
+[specs/JSONRPC\_V2/types.ts:11](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L11)
 
 ***
 
@@ -33,7 +33,7 @@ title: "Request"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:12](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L12)
+[specs/JSONRPC\_V2/types.ts:12](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L12)
 
 ***
 
@@ -43,7 +43,7 @@ title: "Request"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:13](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L13)
+[specs/JSONRPC\_V2/types.ts:13](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L13)
 
 ***
 

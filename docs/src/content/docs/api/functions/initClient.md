@@ -23,7 +23,7 @@ title: "initClient"
 
 ## Source
 
-[client.ts:36](https://github.com/dmdin/chord/blob/3033a5a/src/client.ts#L36)
+[client.ts:36](https://github.com/dmdin/chord/blob/5f43e0e/src/client.ts#L36)
 
 ***
 

@@ -9,7 +9,7 @@ title: "SomeResponse"
 
 ## Source
 
-[specs/JSONRPC\_V2/types.ts:36](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L36)
+[specs/JSONRPC\_V2/types.ts:36](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L36)
 
 ***
 

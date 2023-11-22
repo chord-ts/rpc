@@ -13,7 +13,7 @@ title: "MethodMetadata"
 
 #### Source
 
-[types.ts:23](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L23)
+[types.ts:23](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L23)
 
 ***
 
@@ -23,7 +23,7 @@ title: "MethodMetadata"
 
 #### Source
 
-[types.ts:22](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L22)
+[types.ts:22](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L22)
 
 ***
 

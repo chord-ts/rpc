@@ -9,7 +9,7 @@ title: "PropKey"
 
 ## Source
 
-[types.ts:69](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L69)
+[types.ts:69](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L69)
 
 ***
 

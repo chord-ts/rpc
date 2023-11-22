@@ -21,7 +21,7 @@ title: "ClassConstructor"
 
 ## Source
 
-[types.ts:70](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L70)
+[types.ts:70](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L70)
 
 ***
 

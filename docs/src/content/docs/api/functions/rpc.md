@@ -31,12 +31,12 @@ title: "rpc"
 >
 > ### Source
 >
-> [server.ts:202](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L202)
+> [server.ts:202](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L202)
 >
 
 ## Source
 
-[server.ts:201](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L201)
+[server.ts:201](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L201)
 
 ***
 

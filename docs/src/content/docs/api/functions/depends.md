@@ -25,12 +25,12 @@ title: "depends"
 >
 > ### Source
 >
-> [server.ts:225](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L225)
+> [server.ts:225](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L225)
 >
 
 ## Source
 
-[server.ts:224](https://github.com/dmdin/chord/blob/3033a5a/src/server.ts#L224)
+[server.ts:224](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L224)
 
 ***
 

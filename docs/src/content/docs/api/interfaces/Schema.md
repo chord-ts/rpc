@@ -13,7 +13,7 @@ title: "Schema"
 
 #### Source
 
-[types.ts:28](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L28)
+[types.ts:28](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L28)
 
 ***
 
@@ -23,7 +23,7 @@ title: "Schema"
 
 #### Source
 
-[types.ts:29](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L29)
+[types.ts:29](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L29)
 
 ***
 
@@ -33,7 +33,7 @@ title: "Schema"
 
 #### Source
 
-[types.ts:27](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L27)
+[types.ts:27](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L27)
 
 ***
 

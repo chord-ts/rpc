@@ -13,7 +13,7 @@ title: "Response"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:26](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L26)
+[specs/JSONRPC\_V2/types.ts:26](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L26)
 
 ***
 
@@ -23,7 +23,7 @@ title: "Response"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:24](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L24)
+[specs/JSONRPC\_V2/types.ts:24](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L24)
 
 ***
 
@@ -33,7 +33,7 @@ title: "Response"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:25](https://github.com/dmdin/chord/blob/3033a5a/src/specs/JSONRPC_V2/types.ts#L25)
+[specs/JSONRPC\_V2/types.ts:25](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L25)
 
 ***
 

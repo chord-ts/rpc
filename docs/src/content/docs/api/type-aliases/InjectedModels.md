@@ -13,7 +13,7 @@ title: "InjectedModels"
 
 ## Source
 
-[types.ts:52](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L52)
+[types.ts:52](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L52)
 
 ***
 

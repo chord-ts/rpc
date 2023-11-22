@@ -13,7 +13,7 @@ title: "PropertyDescription"
 
 #### Source
 
-[types.ts:17](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L17)
+[types.ts:17](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L17)
 
 ***
 
@@ -23,7 +23,7 @@ title: "PropertyDescription"
 
 #### Source
 
-[types.ts:18](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L18)
+[types.ts:18](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L18)
 
 ***
 

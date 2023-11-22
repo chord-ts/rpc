@@ -21,7 +21,7 @@ title: "Middleware"
 
 ## Source
 
-[types.ts:71](https://github.com/dmdin/chord/blob/3033a5a/src/types.ts#L71)
+[types.ts:71](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L71)
 
 ***
 
