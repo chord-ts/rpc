@@ -69,7 +69,13 @@ export type Composed<T extends { [s: string]: unknown }> = Composer<T> & Injecte
 export type PropKey = string | symbol;
 export type ClassConstructor<T extends object> = new (...params: unknown[]) => T;
 export type Middleware = (
-  event: unknown,
+  event: Record<string, unknown>,
   ctx: Record<string, unknown>,
   next: CallableFunction
 ) => Promise<unknown>;
+
+
+export interface Call {
+  method: string,
+  params: unknown[]
+}

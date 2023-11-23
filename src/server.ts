@@ -136,14 +136,14 @@ export class Composer<T extends { [s: string]: unknown }> {
     await next();
 
     if (middlewareIndex <= middlewares.length - 1) {
-      console.debug(`"${middlewares[middlewareIndex].name}" stopped execution`);
+      // console.debug(`"${middlewares[middlewareIndex].name}" stopped execution`);
       return { ctx, res: lastMiddlewareResult };
     }
 
     return { ctx, res: undefined };
   }
 
-  private async execProcedure(proc: Request, ctx: unknown) {
+  private async execProcedure(proc: Request, ctx: Record<string, unknown>) {
     if (!proc?.method || !proc?.params) {
       return buildError({
         code: ErrorCode.InvalidRequest,
@@ -167,7 +167,7 @@ export class Composer<T extends { [s: string]: unknown }> {
 
     try {
       let res;
-      ({ ctx, res } = await this.runMiddlewares(use, { ctx, raw: proc, call: { method, params } }));
+      ({ ctx, res } = await this.runMiddlewares(use, { ctx, raw: proc, methodDesc, call: { method, params } }));
       if (res) return res as SomeResponse;
 
       // Inject ctx dependency
@@ -182,11 +182,12 @@ export class Composer<T extends { [s: string]: unknown }> {
         });
       }
 
-      const result = await descriptor.value.apply(target, params.concat(ctx));
+      const result = await descriptor.value.apply(target, params);
       return buildResponse({
         request: proc,
         result
       });
+
     } catch (e) {
       await (this.config?.onError ?? console.error)(e, proc);
       return buildError({

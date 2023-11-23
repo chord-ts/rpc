@@ -3,7 +3,7 @@
 
 # Chord - RPC Framework
 
-The revolution in the world of client-server communication. Type-safe RPC communication on top of [JSON-RPC v2](https://www.jsonrpc.org/specification) protocol.
+The revolution in the world of client-server communication. Type-safe RPC on top of [JSON-RPC v2](https://www.jsonrpc.org/specification) protocol.
 
 <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178c6?style=for-the-badge&logo=typescript&logoColor=white"></a>
 <a href="https://kit.svelte.dev/"><img src="https://img.shields.io/badge/SvelteKit-191919?style=for-the-badge&logo=svelte&logoColor=FF3E00"></a>
