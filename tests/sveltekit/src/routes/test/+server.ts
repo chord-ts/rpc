@@ -56,14 +56,14 @@ class TestRPC2 implements ITestRPC2 {
 
 export const composer = new Composer(
   { TestRPC, TestRPC2 },
-  {
-    route: '/test',
+  // {
+    // route: '/test',
     // onError: async (e, body) => console.log('hello error', body)
-  }
+  // }
 ) as unknown as Composed<Wrapped>;
 
 composer.use(sveltekit());
 
-export async function POST(event: RequestEvent) {
+export async function POST(event) {
   return json(await composer.exec(event));
 }

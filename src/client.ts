@@ -33,7 +33,8 @@ function isPromise(p: unknown | Promise<unknown>) {
   return false;
 }
 
-export function schemaClient<T>(schema: Schema, config?: ClientConfig): Client<T> {
+
+function initClient({schema, config}: {schema: Schema, config?: ClientConfig}) {
   const transport = config?.transport ?? defaultTransport;
   const errorCallback = config?.onError ?? defaultErrorCallback;
 
@@ -49,11 +50,12 @@ export function schemaClient<T>(schema: Schema, config?: ClientConfig): Client<T
   }
 
   async function batch(...calls: BatchRequest) {
+    console.log('batch', calls)
     if (calls.filter((c) => isPromise(c)).length) {
       throw TypeError(
         'You have passed a Callable method that is Promise, ' +
           'but Batched Callable is required for "batch" call. \n' +
-          'Try to use rpc.b.<Model>.<method> instead.'
+          'Try to use rpc.<Model>.<method>.batch(...) instead.'
       );
     }
     const res = (await transport({ route: schema.route, body: calls })) as BatchResponse;
@@ -64,6 +66,12 @@ export function schemaClient<T>(schema: Schema, config?: ClientConfig): Client<T
       return (r as Response).result;
     });
   }
+
+  return {call, batch}
+}
+
+export function schemaClient<T>({schema, config}: {schema: Schema, config?: ClientConfig}): Client<T> {
+  const {call, batch} = initClient({schema, config})
 
   const handler: Record<string, unknown> = {
     batch
@@ -92,20 +100,38 @@ export function schemaClient<T>(schema: Schema, config?: ClientConfig): Client<T
   return handler as unknown as Client<T>;
 }
 
-export function dynamicClient<T>(): T {
+export function dynamicClient<T>(params?: {endpoint?: string, config?: ClientConfig}): Client<T> {
+  const schema = {route: params?.endpoint ?? window.location.href} as Schema
+
+  const {call, batch} = initClient({schema, config: params?.config})
 
   const node = {
-    apply: function (target, thisArg, args) {
-      console.log('apply', target, thisArg, args)
-      // return target(args);
+    apply: function (target, thisArg, params) {
+      const [lastMethod] = target.path.slice(-1)
+
+      // Note: we have to clean target.path after each expression ending
+      if (lastMethod === 'batch') {
+        const method = target.path.slice(0, -1).join('.')
+        target.path = []
+        return buildRequest({ method, params })
+      }
+
+      const method = target.path.join('.')
+      target.path = []
+      return call(method)(params);
     },
-    get: function (target, prop, receiver) {
-      const path = (target?.path ?? []).concat(prop)
-      console.log('get', target, prop, receiver)
-      return new Proxy({path}, node)
+    get: function (target, prop, receiver): unknown{
+      target.path = target.path.concat(prop)
+      if (prop === 'batch' && target.path.length === 1) {
+        target.path = []
+        return batch
+      }
+      return new Proxy(target, node)
       // return (...params: unknown[]) => buildRequest({ method, params });
-    }
+    },
   }
-  const rpc = new Proxy({}, node)
-  return rpc as T
+
+  const entrypoint = Object.assign(function () {}, {path: [], batch});
+  const rpc = new Proxy(entrypoint, node)
+  return rpc as unknown as Client<T>
 }

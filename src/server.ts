@@ -163,6 +163,8 @@ export class Composer<T extends { [s: string]: unknown }> {
     }
 
     // TODO handle Invalid Params error
+
+    console.log(proc)
     const { target, descriptor, use } = methodDesc as MethodDescription;
 
     try {
