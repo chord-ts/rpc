@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+dependencies:
+  reflect-metadata:
+    specifier: ^0.1.13
+    version: 0.1.13
+
 devDependencies:
   '@typescript-eslint/eslint-plugin':
     specifier: ^6.12.0
@@ -17,9 +22,6 @@ devDependencies:
   prettier:
     specifier: ^3.1.0
     version: 3.1.0
-  reflect-metadata:
-    specifier: ^0.1.13
-    version: 0.1.13
   tslib:
     specifier: ^2.6.2
     version: 2.6.2
@@ -831,7 +833,7 @@ packages:
 
   /reflect-metadata@0.1.13:
     resolution: {integrity: sha512-Ts1Y/anZELhSsjMcU605fU9RE4Oi3p5ORujwbIKXfWa+0Zxs510Qrmrce5/Jowq3cHSZSJqBjypxmHarc+vEWg==}
-    dev: true
+    dev: false
 
   /resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}

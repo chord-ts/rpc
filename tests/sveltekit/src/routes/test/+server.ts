@@ -47,6 +47,7 @@ class TestRPC2 implements ITestRPC2 {
   dbReq(param: number): string {
     return `Hello from TestRPC2, ${param}!`;
   }
+  
   @rpc()
   dbReq3(param: string, param2: number): string {
     return `Hello from TestRPC2 dbReq3, ${param} ${param2}!`;

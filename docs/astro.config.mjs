@@ -1,6 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-// import { generateTypeDoc } from 'starlight-typedoc';
+import { generateTypeDoc } from 'starlight-typedoc';
 import sitemap from '@astrojs/sitemap';
 import vercel from '@astrojs/vercel/serverless';
 
@@ -40,6 +40,6 @@ export default defineConfig({
       ]
     })
   ],
-  output: 'server',
-  adapter: vercel()
+  // output: 'server',
+  // adapter: vercel()
 });

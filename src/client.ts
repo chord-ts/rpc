@@ -33,7 +33,7 @@ function isPromise(p: unknown | Promise<unknown>) {
   return false;
 }
 
-export function initClient<T>(schema: Schema, config?: ClientConfig): Client<T> {
+export function schemaClient<T>(schema: Schema, config?: ClientConfig): Client<T> {
   const transport = config?.transport ?? defaultTransport;
   const errorCallback = config?.onError ?? defaultErrorCallback;
 
@@ -90,4 +90,22 @@ export function initClient<T>(schema: Schema, config?: ClientConfig): Client<T> 
     handler[model] = instance;
   }
   return handler as unknown as Client<T>;
+}
+
+export function dynamicClient<T>(): T {
+
+  const node = {
+    apply: function (target, thisArg, args) {
+      console.log('apply', target, thisArg, args)
+      // return target(args);
+    },
+    get: function (target, prop, receiver) {
+      const path = (target?.path ?? []).concat(prop)
+      console.log('get', target, prop, receiver)
+      return new Proxy({path}, node)
+      // return (...params: unknown[]) => buildRequest({ method, params });
+    }
+  }
+  const rpc = new Proxy({}, node)
+  return rpc as T
 }
