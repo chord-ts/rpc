@@ -9,7 +9,8 @@ import type {
   MethodMetadata,
   PropKey,
   Middleware,
-  MethodConfig
+  MethodConfig,
+  Composed,
 } from './types';
 
 import {
@@ -43,6 +44,10 @@ export class Composer<T extends { [s: string]: unknown }> {
   // We need to use name of class as key to optimize dependency search in case of large amount of DI
   static props = new Map<string, PropertyDescription[]>();
 
+  static init<T extends { [s: string]: unknown }>(models: T, config?: ComposerConfig): Composed<T> {
+    return new Composer(models, config) as unknown as Composed<T>
+  }
+
   static addMethod({ key, descriptor, metadata, target, use }: MethodDescription) {
     key = `${target.constructor.name}.${String(key)}`;
     Composer.methods.set(key, { key, descriptor, metadata, target, use });
@@ -62,6 +67,10 @@ export class Composer<T extends { [s: string]: unknown }> {
 
     const fields = Object.getOwnPropertyNames(event);
     if (fields.includes('request')) return (event as { request: Request })['request'];
+  }
+
+  public get clientType(): T {
+    return {}
   }
 
   public use(middleware: Middleware) {

@@ -54,19 +54,10 @@ class TestRPC2 implements ITestRPC2 {
   }
 }
 
-const wrap = { TestRPC: new TestRPC(), TestRPC2: new TestRPC2() }
-export type Wrap = typeof wrap
-
-const composer = new Composer(
-  wrap,
-  // {
-    // route: '/test',
-    // onError: async (e, body) => console.log('hello error', body)
-  // }
-) as unknown as Composed<Wrap>;
-
+const composer = Composer.init({ TestRPC: new TestRPC(), TestRPC2: new TestRPC2() })
 composer.use(sveltekit());
 
+export type Wrap = typeof composer.clientType;
 
 export async function POST(event) {
   return json(await composer.exec(event));

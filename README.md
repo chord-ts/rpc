@@ -86,13 +86,12 @@ export class HelloRPC {
   }
 }
 
-// 2. Make a type that will be used on frontend
+// 2. Init Composer instance that will handle requests
+export const composer = Composer.init({ HelloRPC: new HelloRPC() });
 
-const wrapped = { HelloRPC: new HelloRPC() };
-export type Wrapped = typeof wrapped;
+// 3. Create a type that will be used on frontend
+export type Wrapped = typeof composer.clientType;
 
-// 3. Init Composer instance that will handle requests
-export const composer = new Composer(wrapped) as unknown as Composed<Wrapped>;
 composer.use(sveltekit()); // Use middleware to process SvelteKit RequestEvent
 
 // 4. SvelteKit syntax to define POST endpoint
