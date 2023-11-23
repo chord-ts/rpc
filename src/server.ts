@@ -32,7 +32,7 @@ export class Composer<T extends { [s: string]: unknown }> {
     this.models = models;
     for (const [name, Model] of Object.entries(models)) {
       // @ts-expect-error: we inject Models manually to Composer
-      this[name] = new Model();
+      this[name] = Model;
     }
     this.middlewares = [];
   }

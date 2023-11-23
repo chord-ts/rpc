@@ -67,21 +67,6 @@ export default defineConfig({
 
 The example below uses [SvelteKit](https://kit.svelte.dev/) framework, but you can try your own on any other preferred framework like [Next](https://nextjs.org/) or [Nuxt](https://nuxt.com/).
 
-### 🧾 Make the Contract
-
-Firstly, create a contract using TypeScript Interfaces. Also add a type _"Wrapped"_ it will be used later.
-
-**`./src/routes/types.ts`**
-
-```typescript
-export interface IHelloRPC {
-  hello(name: string): string;
-}
-
-// ⚠️ Note, the key should be the same as Implemented Class name
-export type Wrapped = { HelloRPC: IHelloRPC };
-```
-
 ### 📝 Implement the Class
 
 Then implement defined interface inside your controller. In [SvelteKit](https://kit.svelte.dev/) it's [+server.ts](https://kit.svelte.dev/docs/routing#server) file.
@@ -92,47 +77,34 @@ Then implement defined interface inside your controller. In [SvelteKit](https://
 import { json } from '@sveltejs/kit';
 import { Composer, rpc, type Composed } from 'chord-rpc'; // Main components of Chord we will use
 import sveltekit from 'chord-rpc/middlewares/sveltekit'; // Middleware to process RequestEvent object
-import type { IHelloRPC, Wrapped } from './types'; // Your defined types
 
 // 1. Implement the interface we created before
-export class HelloRPC implements IHelloRPC {
+export class HelloRPC {
   @rpc() // Use decorator to register callable method
   hello(name: string): string {
     return `Hello, ${name}!`;
   }
 }
 
-// 2. Init Composer instance that will handle requests
-export const composer = new Composer(
-  { TestRPC, TestRPC2 },
-  { route: '/test' }
-) as unknown as Composed<Wrapped>;
+// 2. Make a type that will be used on frontend
+
+const wrapped = { HelloRPC: new HelloRPC() };
+export type Wrapped = typeof wrapped;
+
+// 3. Init Composer instance that will handle requests
+export const composer = new Composer(wrapped) as unknown as Composed<Wrapped>;
 composer.use(sveltekit()); // Use middleware to process SvelteKit RequestEvent
 
-// 3. SvelteKit syntax to define POST endpoint
+// 4. SvelteKit syntax to define POST endpoint
 export async function POST(event) {
   // Execute request in place and return result of execution
   return json(await composer.exec(event));
 }
 ```
 
-What we did in this listing is defined everything we need to handle requests. The first and second steps are the same for each framework you will use, while the third is depended of it.
+What we did in this listing is defined everything we need to handle requests. The first three steps are the same for any framework you will use, while the fourth is depended of it. 
 
-### 📒 Generate and send Schema
-
-To connect backend with frontend we need to create a _Schema_ of our **rpc** methods. This is possible, using _composer.getSchema()_
-
-In [SvelteKit](https://kit.svelte.dev/) we can define [load](https://kit.svelte.dev/docs/load) function that sends _data_ to the frontend during **SSR**. It is the most convenient way to send _Schema_
-
-**`./src/routes/+server.ts`**
-
-```typescript
-import { composer } from './+server';
-
-export async function load() {
-  return { schema: composer.getSchema() };
-}
-```
+You can implement a middleware for your backend framework which must extract body of request.
 
 ### 🖼️ Use RPC on frontend
 
@@ -142,18 +114,17 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 
 ```html
 <script lang="ts">
-  import { initClient } from 'chord-rpc';
+  import { dynamicClient } from 'chord-rpc';
   import { onMount } from 'svelte';
 
   // Import our Contract
-  import type { Wrapped } from './types';
+  import type { Wrapped } from './+server';
 
-  export let data; // Get schema from load function during SSR
-  const { schema } = data;
-
-  // Init client based on Schema.
+  // Init dynamic client with type checking
   // Use Contract as Generic to get type safety and hints from IDE
-  const rpc = initClient<Wrapped>(schema);
+  // dynamicClient means that RPC will be created during code execution 
+  // and executed when the function call statement is found
+  const rpc = dynamicClient<Wrapped>();
 
   let res;
   // Called after Page mount. The same as useEffect(..., [])

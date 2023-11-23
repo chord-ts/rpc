@@ -2,6 +2,7 @@
   import { dynamicClient, schemaClient,  } from '../../../../../src/client';
   import { onMount } from 'svelte';
   import type { Wrapped, Unwrapped } from './types';
+  import type { Wrap } from './+server';
   import { writable } from 'svelte/store';
 
   export let data;
@@ -14,8 +15,7 @@
 
   onMount(async () => {
     // const rpc = schemaClient<Wrapped>(schema, );
-    const rpc = dynamicClient<Wrapped>()
-
+    const rpc = dynamicClient<Wrap>()
     // console.log(rpc.TestRPC.dbReq.batch(123))
     // console.log('TestRPC2', await rpc.TestRPC2.dbReq(123));
     console.log('TestRPC', await rpc.TestRPC.dbReq(123));
