@@ -10,7 +10,7 @@ import type {
   PropKey,
   Middleware,
   MethodConfig,
-  Composed,
+  Composed
 } from './types';
 
 import {
@@ -45,7 +45,7 @@ export class Composer<T extends { [s: string]: unknown }> {
   static props = new Map<string, PropertyDescription[]>();
 
   static init<T extends { [s: string]: unknown }>(models: T, config?: ComposerConfig): Composed<T> {
-    return new Composer(models, config) as unknown as Composed<T>
+    return new Composer(models, config) as unknown as Composed<T>;
   }
 
   static addMethod({ key, descriptor, metadata, target, use }: MethodDescription) {
@@ -70,7 +70,8 @@ export class Composer<T extends { [s: string]: unknown }> {
   }
 
   public get clientType(): T {
-    return {}
+    // We don't need value, just a type
+    return {} as unknown as T;
   }
 
   public use(middleware: Middleware) {
@@ -93,11 +94,11 @@ export class Composer<T extends { [s: string]: unknown }> {
     return { methods, route, models };
   }
 
-  public async exec(event: unknown): Promise<SomeResponse | BatchResponse> {
+  public async exec(event: Record<string, unknown>): Promise<SomeResponse | BatchResponse> {
     const { ctx, res } = await this.runMiddlewares(this.middlewares, event);
     if (res) return res as SomeResponse;
 
-    let body = (ctx as { body: unknown })?.body;
+    let body = (ctx as Record<string, unknown>)?.body;
 
     if (!body) {
       console.warn('No middleware specified "body" field in context. Trying to find it');
@@ -114,23 +115,22 @@ export class Composer<T extends { [s: string]: unknown }> {
       body = await request.json();
     }
     if (!Array.isArray(body)) {
-      return this.execProcedure(body as Request, ctx);
+      return this.execProcedure(body as Request, ctx as Record<string, unknown>);
     }
 
     const batch: BatchResponse = [];
     for (const proc of body) {
       // We don't want to use Promise All to save the order of execution, isn't it?
-      batch.push(await this.execProcedure(proc, ctx));
+      batch.push(await this.execProcedure(proc, ctx as Record<string, unknown>));
     }
     return batch;
   }
 
   private async runMiddlewares(
     middlewares: Middleware[],
-    event: unknown
-  ): Promise<{ ctx: unknown; res: unknown }> {
-    // @ts-expect-error: Context can be defined before
-    const ctx = event?.ctx ?? {};
+    event: Record<string, unknown>
+  ): Promise<{ ctx: Record<string, unknown>; res: unknown }> {
+    const ctx = (event?.ctx ?? {}) as Record<string, unknown>;
 
     let lastMiddlewareResult;
     let middlewareIndex = -1;
@@ -172,13 +172,16 @@ export class Composer<T extends { [s: string]: unknown }> {
     }
 
     // TODO handle Invalid Params error
-
-    console.log(proc)
     const { target, descriptor, use } = methodDesc as MethodDescription;
 
     try {
       let res;
-      ({ ctx, res } = await this.runMiddlewares(use, { ctx, raw: proc, methodDesc, call: { method, params } }));
+      ({ ctx, res } = await this.runMiddlewares(use, {
+        ctx,
+        raw: proc,
+        methodDesc,
+        call: { method, params }
+      }));
       if (res) return res as SomeResponse;
 
       // Inject ctx dependency
@@ -198,7 +201,6 @@ export class Composer<T extends { [s: string]: unknown }> {
         request: proc,
         result
       });
-
     } catch (e) {
       await (this.config?.onError ?? console.error)(e, proc);
       return buildError({

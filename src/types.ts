@@ -74,8 +74,7 @@ export type Middleware = (
   next: CallableFunction
 ) => Promise<unknown>;
 
-
 export interface Call {
-  method: string,
-  params: unknown[]
+  method: string;
+  params: unknown[];
 }

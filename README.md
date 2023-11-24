@@ -26,16 +26,16 @@ pnpm install chord-rpc
 
 So you need to configure your _tsconfig.json_ first.
 
-**`./tsconfig.ts`**
+**`./tsconfig.json`**
 
 ```json5
 {
-  compilerOptions: {
+  "compilerOptions": {
     // Other stuff...
 
-    target: 'ESNext',
-    experimentalDecorators: true,
-    emitDecoratorMetadata: true
+    "target": "ESNext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   }
 }
 ```
@@ -123,7 +123,7 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
   // Use Contract as Generic to get type safety and hints from IDE
   // dynamicClient means that RPC will be created during code execution 
   // and executed when the function call statement is found
-  const rpc = dynamicClient<Wrapped>();
+  const rpc = dynamicClient<Wrapped>({endpoint: '/'});
 
   let res;
   // Called after Page mount. The same as useEffect(..., [])

@@ -1,4 +1,4 @@
-import type { Middleware } from "../types";
+import type { Middleware } from '../types';
 
 const expressMiddleware: Middleware = async (
   event: Record<string, unknown> | { body: unknown },
@@ -7,6 +7,6 @@ const expressMiddleware: Middleware = async (
 ) => {
   ctx.body = event.body;
   next();
-}
+};
 
 export default () => expressMiddleware;

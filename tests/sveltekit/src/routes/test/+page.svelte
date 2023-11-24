@@ -1,11 +1,9 @@
 <script lang="ts">
-  import { dynamicClient, schemaClient,  } from '../../../../../src/client';
+  // import { dynamicClient, schemaClient,  } from '../../../../../src/client';
+  import { dynamicClient } from 'chord-rpc';
   import { onMount } from 'svelte';
-  import type { Wrapped, Unwrapped } from './types';
   import type { Wrap } from './+server';
   import { writable } from 'svelte/store';
-
-  export let data;
 
   const error = writable();
 

@@ -1,8 +1,7 @@
 import { json } from '@sveltejs/kit';
-import { Composer, rpc, depends, type Composed, buildResponse } from '../../../../../src/index';
-import cache  from '../../../../../src/middlewares/cache';
+import { Composer, rpc, depends } from 'chord-rpc';
+import cache from 'chord-rpc/middlewares/cache';
 import sveltekit from 'chord-rpc/middlewares/sveltekit';
-import type { ITestRPC, ITestRPC2, Wrapped } from './types';
 
 // THIS IS CONTROLLER
 
@@ -10,7 +9,7 @@ interface Context {
   sb: unknown;
 }
 
-class TestRPC implements ITestRPC {
+class TestRPC {
   @depends()
   private readonly ctx!: Context;
 
@@ -41,7 +40,7 @@ const testCache = {
 }
 
 
-class TestRPC2 implements ITestRPC2 {
+class TestRPC2 {
 
   @rpc({ use: [cache(testCache)]})
   dbReq(param: number): string {
