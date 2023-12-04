@@ -16,14 +16,14 @@
     const rpc = dynamicClient<Wrap>()
     // console.log(rpc.TestRPC.dbReq.batch(123))
     // console.log('TestRPC2', await rpc.TestRPC2.dbReq(123));
-    console.log('TestRPC', await rpc.TestRPC.dbReq(123));
+    // console.log('TestRPC', await rpc.TestRPC.dbReq(123));
     
-    // const batchRes = await rpc.batch(
-    //   rpc.TestRPC.dbReq.batch(123),
-    //   rpc.TestRPC2.dbReq.batch(123), 
-    //   rpc.TestRPC.dbReq2.batch('123')
-    // ); // Batch запрос
-    // console.log(batchRes)
+    const batchRes = await rpc.batch(
+      rpc.TestRPC.dbReq.batch(123),
+      rpc.TestRPC2.dbReq.batch(123), 
+      rpc.TestRPC.dbReq2.batch('123')
+    ); // Batch запрос
+    console.log(batchRes)
     // console.log('onmount rpc=', await rpc.TestRPC.dbReq(123))
     
   });

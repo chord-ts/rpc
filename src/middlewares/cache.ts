@@ -54,4 +54,3 @@ export function cacheMiddleware(cache: ICache, ttl?: number | string): Middlewar
   };
 }
 
-export default cacheMiddleware;

@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { Composer, rpc, depends } from 'chord-rpc';
-import cache from 'chord-rpc/middlewares/cache';
-import sveltekit from 'chord-rpc/middlewares/sveltekit';
+// import cache from 'chord-rpc/middlewares/cache';
+import {sveltekitMiddleware} from 'chord-rpc/middlewares/sveltekit';
+// import {sveltekitMiddleware} from '../../../../../src/middlewares';
 
 // THIS IS CONTROLLER
 
@@ -42,7 +43,7 @@ const testCache = {
 
 class TestRPC2 {
 
-  @rpc({ use: [cache(testCache)]})
+  @rpc()
   dbReq(param: number): string {
     return `Hello from TestRPC2, ${param}!`;
   }
@@ -54,7 +55,8 @@ class TestRPC2 {
 }
 
 const composer = Composer.init({ TestRPC: new TestRPC(), TestRPC2: new TestRPC2() })
-composer.use(sveltekit());
+
+composer.use(sveltekitMiddleware());
 
 export type Wrap = typeof composer.clientType;
 
