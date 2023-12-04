@@ -2,8 +2,8 @@
 	"extends": "./.svelte-kit/tsconfig.json",
 	"compilerOptions": {
 		"target": "es2022",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
 
 		"allowJs": true,
 		"checkJs": true,

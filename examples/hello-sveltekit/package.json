@@ -1,6 +1,6 @@
 {
 	"name": "hello-sveltekit",
-	"version": "0.0.1",
+	"version": "0.2.0",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
@@ -16,7 +16,7 @@
 		"@sveltejs/kit": "^1.27.4",
 		"@typescript-eslint/eslint-plugin": "^6.0.0",
 		"@typescript-eslint/parser": "^6.0.0",
-		"chord-rpc": "^0.1.13",
+		"chord-rpc": "^0.2.1",
 		"eslint": "^8.28.0",
 		"eslint-config-prettier": "^9.0.0",
 		"eslint-plugin-svelte": "^2.30.0",

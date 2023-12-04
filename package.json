@@ -1,6 +1,6 @@
 {
   "name": "chord-rpc",
-  "version": "0.1.29",
+  "version": "0.2.1",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {
@@ -19,11 +19,15 @@
   "exports": {
     ".": "./dist/index.js",
     "./middlewares/*": "./dist/middlewares/*.js",
+    "./middlewares": "./dist/middlewares/index.js",
     "./specs/": "./dist/specs/index.js"
   },
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
+      "middlewares": [
+        "./dist/middlewares/index.d.ts"
+      ],
       "middlewares/*": [
         "./dist/middlewares/*.d.ts"
       ],

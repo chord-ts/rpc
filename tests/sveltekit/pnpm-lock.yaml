@@ -21,8 +21,8 @@ devDependencies:
     specifier: ^6.0.0
     version: 6.0.0(eslint@8.28.0)(typescript@5.0.2)
   chord-rpc:
-    specifier: ^0.1.29
-    version: 0.1.29
+    specifier: ^0.2.1
+    version: 0.2.1
   eslint:
     specifier: ^8.28.0
     version: 8.28.0
@@ -964,8 +964,8 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /chord-rpc@0.1.29:
-    resolution: {integrity: sha512-sLvMgwnRljCg6OTIs120PwIPyC5oXS/pJv+TgMDay8zZp60QqIZGO4vpfwDM5G9UDGjh/LE73c/qCEPcoardFQ==}
+  /chord-rpc@0.2.1:
+    resolution: {integrity: sha512-4FnphcuI4DCdOs0pnRY/POmfECNp2u08u2/9q8JK+KigXI2UqLAH7/oEnSjl6wzqZ1mBodqte3L0syq3F7BWag==}
     dependencies:
       reflect-metadata: 0.1.13
     dev: true

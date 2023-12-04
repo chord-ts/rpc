@@ -76,7 +76,7 @@ Then implement defined interface inside your controller. In [SvelteKit](https://
 ```typescript
 import { json } from '@sveltejs/kit';
 import { Composer, rpc, type Composed } from 'chord-rpc'; // Main components of Chord we will use
-import sveltekit from 'chord-rpc/middlewares/sveltekit'; // Middleware to process RequestEvent object
+import { sveltekitMiddleware } from 'chord-rpc/middlewares'; // Middleware to process RequestEvent object
 
 // 1. Implement the interface we created before
 export class HelloRPC {
@@ -92,7 +92,7 @@ export const composer = Composer.init({ HelloRPC: new HelloRPC() });
 // 3. Create a type that will be used on frontend
 export type Wrapped = typeof composer.clientType;
 
-composer.use(sveltekit()); // Use middleware to process SvelteKit RequestEvent
+composer.use(sveltekitMiddleware()); // Use middleware to process SvelteKit RequestEvent
 
 // 4. SvelteKit syntax to define POST endpoint
 export async function POST(event) {
