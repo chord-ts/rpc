@@ -12,9 +12,24 @@ The revolution in the world of client-server communication. Type-safe RPC on top
 
 </div>
 
+## 🥏 Why?
+
+Because client-server communication becomes complex with the growth of project. Hundreds of __REST API__ endpoints destroy [Developer Experience](https://github.blog/2023-06-08-developer-experience-what-is-it-and-why-should-you-care/). On the other hand [GraphQL](https://graphql.org/) seems like a cumbersome and suboptimal solution, and [gRPC](https://grpc.io/) works only for server-to-server
+
+That's where __Chord__ comes to solve accumulated problems of modern software development
+
+## ✨ Features
+
+* Protocol agnostic
+* Framework agnostic
+* Type safe exchange
+* Accelerated development
+* IDE hinting out-of-box
+* Client size ~1.5kb
+
 ## ⚙️ Installation
 
-**Chord** is framework agnostic and can be used with any backend library. Install it freely from [npm](https://www.npmjs.com/package/chord-rpc) via your favorite package manager.
+**Chord** can be used with any backend library. Install it freely from [npm](https://www.npmjs.com/package/chord-rpc) via your favorite package manager
 
 ```bash
 npm install chord-rpc
@@ -22,29 +37,29 @@ npm install chord-rpc
 pnpm install chord-rpc
 ```
 
-**Chord** uses [decorators](https://www.typescriptlang.org/docs/handbook/decorators.html) and [reflection](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect) under the hood, to construct server and client.
+**Chord** uses [decorators](https://www.typescriptlang.org/docs/handbook/decorators.html) and [reflection](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect) under the hood, to construct server and client
 
-So you need to configure your _tsconfig.json_ first.
+So you need to configure your _tsconfig.json_ first
 
 **`./tsconfig.json`**
 
 ```json5
 {
-  "compilerOptions": {
+  compilerOptions: {
     // Other stuff...
 
-    "target": "ESNext",
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    target: 'ESNext',
+    experimentalDecorators: true,
+    emitDecoratorMetadata: true
   }
 }
 ```
 
 ### ⚠️ Caveats
 
-If you are using [Vite](https://vitejs.dev/) as bundler of your project, you have to note, that [ESbuild](https://esbuild.github.io/) that is used under the hood, [does not support](https://github.com/evanw/esbuild/issues/257) _emitDecoratorMetadata_ flag at the moment.
+If you are using [Vite](https://vitejs.dev/) as bundler of your project, you have to note, that [ESbuild](https://esbuild.github.io/) that is used under the hood, [does not support](https://github.com/evanw/esbuild/issues/257) _emitDecoratorMetadata_ flag at the moment
 
-Thus, you have to use additional plugins for [Vite](https://vitejs.dev/). I personally recommend to try out [SWC](https://www.npmjs.com/package/unplugin-swc). It fixes this issue and doesn't impact on rebuilding performance.
+Thus, you have to use additional plugins for [Vite](https://vitejs.dev/). I personally recommend to try out [SWC](https://www.npmjs.com/package/unplugin-swc). It fixes this issue and doesn't impact on rebuilding performance
 
 Then add [SWC](https://www.npmjs.com/package/unplugin-swc) plugin to [Vite](https://vitejs.dev/):
 
@@ -65,11 +80,11 @@ export default defineConfig({
 
 ## 🛠️ Usage
 
-The example below uses [SvelteKit](https://kit.svelte.dev/) framework, but you can try your own on any other preferred framework like [Next](https://nextjs.org/) or [Nuxt](https://nuxt.com/).
+The example below uses [SvelteKit](https://kit.svelte.dev/) framework, but you can try your own on any other preferred framework like [Next](https://nextjs.org/) or [Nuxt](https://nuxt.com/)
 
 ### 📝 Implement the Class
 
-Then implement defined interface inside your controller. In [SvelteKit](https://kit.svelte.dev/) it's [+server.ts](https://kit.svelte.dev/docs/routing#server) file.
+Then implement defined interface inside your controller. In [SvelteKit](https://kit.svelte.dev/) it's [+server.ts](https://kit.svelte.dev/docs/routing#server) file
 
 **`./src/routes/+server.ts`**
 
@@ -78,7 +93,7 @@ import { json } from '@sveltejs/kit';
 import { Composer, rpc, type Composed } from 'chord-rpc'; // Main components of Chord we will use
 import { sveltekitMiddleware } from 'chord-rpc/middlewares'; // Middleware to process RequestEvent object
 
-// 1. Implement the interface we created before
+// 1. Implement the class containing RPC methods
 export class HelloRPC {
   @rpc() // Use decorator to register callable method
   hello(name: string): string {
@@ -101,13 +116,13 @@ export async function POST(event) {
 }
 ```
 
-What we did in this listing is defined everything we need to handle requests. The first three steps are the same for any framework you will use, while the fourth is depended of it. 
+What we did in this listing is defined everything we need to handle requests. The first three steps are the same for any framework you will use, while the fourth is depended of it
 
-You can implement a middleware for your backend framework which must extract body of request.
+You can implement a middleware for your backend framework which must extract body of request
 
 ### 🖼️ Use RPC on frontend
 
-Now we are ready to call the method on frontend. As we use [SvelteKit](https://kit.svelte.dev/), we have a full power of [Svelte](https://svelte.dev/) for our UI.
+Now we are ready to call the method on frontend. As we use [SvelteKit](https://kit.svelte.dev/), we have a full power of [Svelte](https://svelte.dev/) for our UI
 
 **`./src/routes/+page.svelte`**
 
@@ -121,9 +136,9 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 
   // Init dynamic client with type checking
   // Use Contract as Generic to get type safety and hints from IDE
-  // dynamicClient means that RPC will be created during code execution 
+  // dynamicClient means that RPC will be created during code execution
   // and executed when the function call statement is found
-  const rpc = dynamicClient<Wrapped>({endpoint: '/'});
+  const rpc = dynamicClient<Wrapped>({ endpoint: '/' });
 
   let res;
   // Called after Page mount. The same as useEffect(..., [])
@@ -140,7 +155,16 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 
 ## 📚 Further reading
 
-We have finished a basic example of using **Chord**. But it's the tip of the iceberg of possibilities that framework unlocks.
+We have finished a basic example of using **Chord**. But it's the tip of the iceberg of possibilities that framework unlocks
 
 ---
-Visit the [Documentation](https://chord.vercel.app)(Coming Soon) to dive deeper.
+
+Visit the [Documentation](https://chord.vercel.app)(Coming Soon) to dive deeper
+
+## ✅ Used inside
+
+<div align="center">
+  <a href="https://sbermarketing.ru">
+  <img src="./docs/public/SberMarketing.png" alt="SberMarketing" width="200"/>
+  </a>
+</div>

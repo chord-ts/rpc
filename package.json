@@ -1,6 +1,6 @@
 {
   "name": "chord-rpc",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {
@@ -20,7 +20,8 @@
     ".": "./dist/index.js",
     "./middlewares/*": "./dist/middlewares/*.js",
     "./middlewares": "./dist/middlewares/index.js",
-    "./specs/": "./dist/specs/index.js"
+    "./specs/": "./dist/specs/index.js",
+    "./client": "./dist/client.js"
   },
   "types": "./dist/index.d.ts",
   "typesVersions": {
@@ -37,12 +38,13 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && pnpm run minify",
+    "minify": "terser --compress --module -o ./dist/client.js --mangle-props builtins -- ./dist/client.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js --mangle-props builtins -- ./dist/specs/JSONRPC_V2/index.js",
     "format": "prettier --write ./src/**/*.{js,json,html,ts}",
     "lint": "eslint --fix ./src",
     "dev": "nodemon --exec npx ts-node src/tests.ts",
-    "patch": "npm run build && npm version patch --no-git-tag-version",
-    "update": "npm publish --no-git-checks"
+    "patch": "pnpm run build && pnpm version patch --no-git-tag-version",
+    "update": "pnpm publish --no-git-checks"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.12.0",
@@ -50,6 +52,7 @@
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.1.0",
+    "terser": "^5.26.0",
     "tslib": "^2.6.2",
     "typescript": "^5.3.2",
     "unplugin-swc": "^1.4.3"

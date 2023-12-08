@@ -29,7 +29,6 @@ function isPromise(p: unknown | Promise<unknown>) {
   ) {
     return true;
   }
-
   return false;
 }
 
@@ -49,11 +48,9 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
   }
 
   async function batch(...calls: BatchRequest) {
-    console.log('batch', calls);
     if (calls.filter((c) => isPromise(c)).length) {
-      throw TypeError(
-        'You have passed a Callable method that is Promise, ' +
-          'but Batched Callable is required for "batch" call. \n' +
+      throw EvalError(
+          'The batched method is required for "batch" call. \n' +
           'Try to use rpc.<Model>.<method>.batch(...) instead.'
       );
     }
@@ -69,41 +66,41 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
   return { call, batch };
 }
 
-export function schemaClient<T>({
-  schema,
-  config
-}: {
-  schema: Schema;
-  config?: ClientConfig;
-}): Client<T> {
-  const { call, batch } = initClient({ schema, config });
+// export function schemaClient<T>({
+//   schema,
+//   config
+// }: {
+//   schema: Schema;
+//   config?: ClientConfig;
+// }): Client<T> {
+//   const { call, batch } = initClient({ schema, config });
 
-  const handler: Record<string, unknown> = {
-    batch
-  };
+//   const handler: Record<string, unknown> = {
+//     batch
+//   };
 
-  for (const model of schema.models) {
-    const modelMethods = Object.entries(schema.methods).filter(([k]) => k.split('.')[0] === model);
+//   for (const model of schema.models) {
+//     const modelMethods = Object.entries(schema.methods).filter(([k]) => k.split('.')[0] === model);
 
-    const instance: Record<string, unknown> = {};
+//     const instance: Record<string, unknown> = {};
 
-    for (const [method] of modelMethods) {
-      const methodName = method.split('.')[1] as string;
-      const callable = new Proxy(call(method), {
-        apply: function (target, thisArg, args) {
-          return target(args);
-        },
-        get: function () {
-          return (...params: unknown[]) => buildRequest({ method, params });
-        }
-      });
-      instance[methodName] = callable; // Isolated by models methods
-      handler[methodName] = callable; // Make available top level methods
-    }
-    handler[model] = instance;
-  }
-  return handler as unknown as Client<T>;
-}
+//     for (const [method] of modelMethods) {
+//       const methodName = method.split('.')[1] as string;
+//       const callable = new Proxy(call(method), {
+//         apply: function (target, thisArg, args) {
+//           return target(args);
+//         },
+//         get: function () {
+//           return (...params: unknown[]) => buildRequest({ method, params });
+//         }
+//       });
+//       instance[methodName] = callable; // Isolated by models methods
+//       handler[methodName] = callable; // Make available top level methods
+//     }
+//     handler[model] = instance;
+//   }
+//   return handler as unknown as Client<T>;
+// }
 
 export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientConfig }): Client<T> {
 
@@ -112,7 +109,7 @@ export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientCo
     endpoint = params?.endpoint ?? window?.location?.href
   } catch {
     endpoint = '/'
-    console.warn(`dynamicClient can't find endpoint and window.location. You have to set endpoint manually: {endpoint: '/my_rpc_endpoint'}. Now it was set '/' as default`, )
+    console.error(`No endpoint provided and window.location is undefined. It set '/' as default`)
   }
   const schema = { route:  endpoint } as Schema;
 

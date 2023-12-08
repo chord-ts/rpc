@@ -163,14 +163,15 @@ export class Composer<T extends { [s: string]: unknown }> {
 
     const { method, params } = proc;
     const methodDesc = Composer.methods.get(method);
-    if (!method) {
+    if (!method || !methodDesc) {
+      const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`
+      console.error('\x1b[31m' + msg)
       return buildError({
         code: ErrorCode.MethodNotFound,
-        message: `Cannot find method: ${method}`,
+        message: msg,
         data: []
       });
     }
-
     // TODO handle Invalid Params error
     const { target, descriptor, use } = methodDesc as MethodDescription;
 

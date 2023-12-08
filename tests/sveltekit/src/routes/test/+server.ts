@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { Composer, rpc, depends } from 'chord-rpc';
+import { Composer, rpc, depends } from '../../../../../src/';
+// import { Composer, rpc, depends } from 'chord-rpc';
 // import cache from 'chord-rpc/middlewares/cache';
 import { sveltekitMiddleware } from 'chord-rpc/middlewares';
 // import {sveltekitMiddleware} from '../../../../../src/middlewares';
@@ -21,7 +22,7 @@ class TestRPC {
 		// throw Error('Произошла ошибка!')
 		return `Hello from TestRPC, ${param}`;
 	}
-	@rpc()
+
 	dbReq2(param: string): string {
 		return `Hello dbReq2, ${param}`;
 	}
