@@ -1,6 +1,6 @@
 <script lang="ts">
   // import { dynamicClient } from '../../../../../src/client';
-  import { dynamicClient } from 'chord-rpc/client';
+  import { dynamicClient } from '@chord-ts/rpc/client';
   import { onMount } from 'svelte';
   import type { Wrap } from './+server';
   import { writable } from 'svelte/store';

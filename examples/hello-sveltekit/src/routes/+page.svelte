@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { dynamicClient } from 'chord-rpc';
+  import { dynamicClient } from '@chord-ts/rpc';
   import { onMount } from 'svelte';
 
   // Import our Contract

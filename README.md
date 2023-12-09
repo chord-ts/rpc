@@ -29,12 +29,12 @@ That's where __Chord__ comes to solve accumulated problems of modern software de
 
 ## ⚙️ Installation
 
-**Chord** can be used with any backend library. Install it freely from [npm](https://www.npmjs.com/package/chord-rpc) via your favorite package manager
+**Chord** can be used with any backend library. Install it freely from [npm](https://www.npmjs.com/package/@chord-ts/rpc) via your favorite package manager
 
 ```bash
-npm install chord-rpc
+npm install @chord-ts/rpc
 # or
-pnpm install chord-rpc
+pnpm install @chord-ts/rpc
 ```
 
 **Chord** uses [decorators](https://www.typescriptlang.org/docs/handbook/decorators.html) and [reflection](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect) under the hood, to construct server and client
@@ -90,8 +90,8 @@ Then implement defined interface inside your controller. In [SvelteKit](https://
 
 ```typescript
 import { json } from '@sveltejs/kit';
-import { Composer, rpc, type Composed } from 'chord-rpc'; // Main components of Chord we will use
-import { sveltekitMiddleware } from 'chord-rpc/middlewares'; // Middleware to process RequestEvent object
+import { Composer, rpc, type Composed } from '@chord-ts/rpc'; // Main components of Chord we will use
+import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares'; // Middleware to process RequestEvent object
 
 // 1. Implement the class containing RPC methods
 export class HelloRPC {
@@ -128,7 +128,7 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 
 ```html
 <script lang="ts">
-  import { dynamicClient } from 'chord-rpc';
+  import { dynamicClient } from '@chord-ts/rpc';
   import { onMount } from 'svelte';
 
   // Import our Contract

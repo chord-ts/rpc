@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { Composer, rpc } from 'chord-rpc'; // Main components of Chord we will use
-import { sveltekitMiddleware } from 'chord-rpc/middlewares'; // Middleware to process RequestEvent object
+import { Composer, rpc } from '@chord-ts/rpc'; // Main components of Chord we will use
+import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares'; // Middleware to process RequestEvent object
 
 // 1. Implement the interface we created before
 export class HelloRPC {

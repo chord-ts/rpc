@@ -1,6 +1,6 @@
 {
-  "name": "chord-rpc",
-  "version": "0.2.4",
+  "name": "@chord-ts/rpc",
+  "version": "0.2.1",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {
@@ -37,6 +37,9 @@
       ]
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc && pnpm run minify",
     "minify": "terser --compress --module -o ./dist/client.js --mangle-props builtins -- ./dist/client.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js --mangle-props builtins -- ./dist/specs/JSONRPC_V2/index.js",
@@ -44,11 +47,11 @@
     "lint": "eslint --fix ./src",
     "dev": "nodemon --exec npx ts-node src/tests.ts",
     "patch": "pnpm run build && pnpm version patch --no-git-tag-version",
-    "update": "pnpm publish --no-git-checks"
+    "upload": "pnpm publish --no-git-checks"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^6.12.0",
-    "chord-rpc": "^0.1.11",
+    "@chord-ts/rpc": "^0.2.1",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.1.0",
