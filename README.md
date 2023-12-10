@@ -9,7 +9,26 @@ The revolution in the world of client-server communication. Type-safe RPC on top
 <a href="https://kit.svelte.dev/"><img src="https://img.shields.io/badge/SvelteKit-191919?style=for-the-badge&logo=svelte&logoColor=FF3E00"></a>
 <a href="https://expressjs.com/"><img src="https://img.shields.io/badge/Express-69b74d?style=for-the-badge&logo=express&logoColor=white"></a>
 <a href="https://www.jsonrpc.org/specification"><img src="https://img.shields.io/badge/JSONRPC-18181a?style=for-the-badge&logo=json&logoColor=white"></a>
+</div>
 
+<div align="center">
+<img alt="download stats" src="https://img.shields.io/npm/dm/@chord-ts/rpc?style=flat&color=218380">  
+<img alt="actual version" src="https://img.shields.io/npm/v/@chord-ts/rpc?
+style=flat&color=3F4CF8&label=latest">
+<img alt="license" src="https://img.shields.io/npm/l/@chord-ts/rpc?color=D81159
+">
+<img alt="maintainability" src="https://img.shields.io/codeclimate/maintainability/chord-ts/rpc?color=04E762
+">
+</div>
+
+<img alt="Repository Stats" src="https://repobeats.axiom.co/api/embed/64b5982f552f7d4a6b4abfc52c3251b8591f2da8.svg">
+
+## ✅ Used inside
+
+<div align="center">
+  <a href="https://sbermarketing.ru">
+  <img alt="SberMarketing" src="./docs/public/SberMarketing.png" alt="SberMarketing" width="200"/>
+  </a>  
 </div>
 
 ## 🥏 Why?
@@ -160,11 +179,3 @@ We have finished a basic example of using **Chord**. But it's the tip of the ice
 ---
 
 Visit the [Documentation](https://chord.vercel.app)(Coming Soon) to dive deeper
-
-## ✅ Used inside
-
-<div align="center">
-  <a href="https://sbermarketing.ru">
-  <img src="./docs/public/SberMarketing.png" alt="SberMarketing" width="200"/>
-  </a>
-</div>
