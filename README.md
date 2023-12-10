@@ -12,13 +12,22 @@ The revolution in the world of client-server communication. Type-safe RPC on top
 </div>
 
 <div align="center">
+<a href="https://img.shields.io/npm/dm/@chord-ts/rpc?style=flat&color=218380">
 <img alt="download stats" src="https://img.shields.io/npm/dm/@chord-ts/rpc?style=flat&color=218380">  
-<img alt="actual version" src="https://img.shields.io/npm/v/@chord-ts/rpc?
+</a>
+<a href="https://img.shields.io/npm/v/@chord-ts/rpc?
 style=flat&color=3F4CF8&label=latest">
+<img alt="version" src="https://img.shields.io/npm/v/@chord-ts/rpc?
+style=flat&color=3F4CF8&label=latest">
+</a>
+<a href="https://img.shields.io/npm/l/@chord-ts/rpc?color=D81159">
 <img alt="license" src="https://img.shields.io/npm/l/@chord-ts/rpc?color=D81159
 ">
+</a>
+<a href="https://img.shields.io/codeclimate/maintainability/chord-ts/rpc?color=04E762">
 <img alt="maintainability" src="https://img.shields.io/codeclimate/maintainability/chord-ts/rpc?color=04E762
 ">
+</a>
 </div>
 
 <img alt="Repository Stats" src="https://repobeats.axiom.co/api/embed/64b5982f552f7d4a6b4abfc52c3251b8591f2da8.svg">
