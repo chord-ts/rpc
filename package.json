@@ -1,11 +1,11 @@
 {
   "name": "@chord-ts/rpc",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dmdin/chord.git"
+    "url": "git+https://github.com/chord-ts/rpc.git"
   },
   "keywords": [
     "JSON-RPC",
@@ -31,6 +31,9 @@
       ],
       "middlewares/*": [
         "./dist/middlewares/*.d.ts"
+      ],
+      "client": [
+        "./dist/client.d.ts"
       ],
       "specs": [
         "./dist/specs/index.d.ts"

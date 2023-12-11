@@ -147,7 +147,7 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 
 ```html
 <script lang="ts">
-  import { dynamicClient } from '@chord-ts/rpc';
+  import { dynamicClient } from '@chord-ts/rpc/client';
   import { onMount } from 'svelte';
 
   // Import our Contract
