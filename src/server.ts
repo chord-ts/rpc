@@ -231,9 +231,9 @@ export function toRPC<T extends object>(instance: T): T {
 
     const descriptor = Reflect.getOwnPropertyDescriptor(proto, key)!;
     if (!(descriptor.value instanceof Function)) continue;
-
+    console.log(descriptor)
     const metadata = getMetadata(proto, key);
-    Composer.addMethod({ key, descriptor, metadata, target: proto, use: [] });
+    Composer.addMethod({ key, descriptor, metadata, target: instance, use: [] });
   }
   return instance;
 }
