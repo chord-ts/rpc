@@ -61,7 +61,7 @@ const composer = Composer.init({ TestRPC: new TestRPC(), TestRPC2: new TestRPC2(
 
 composer.use(sveltekitMiddleware());
 
-export type Wrap = typeof composer.clientType;
+export type Client = typeof composer.clientType;
 
 export async function POST(event) {
 	return json(await composer.exec(event));

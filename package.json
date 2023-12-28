@@ -1,6 +1,6 @@
 {
   "name": "@chord-ts/rpc",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {
@@ -45,7 +45,7 @@
   },
   "scripts": {
     "build": "tsc && pnpm run minify",
-    "minify": "terser --compress --module -o ./dist/client.js --mangle-props builtins -- ./dist/client.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js --mangle-props builtins -- ./dist/specs/JSONRPC_V2/index.js",
+    "minify": "terser --compress --module -o ./dist/client.js -- ./dist/client.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js -- ./dist/specs/JSONRPC_V2/index.js",
     "format": "prettier --write ./src/**/*.{js,json,html,ts}",
     "lint": "eslint --fix ./src",
     "dev": "nodemon --exec npx ts-node src/tests.ts",

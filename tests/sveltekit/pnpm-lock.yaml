@@ -6,8 +6,8 @@ settings:
 
 devDependencies:
   '@chord-ts/rpc':
-    specifier: ^0.2.1
-    version: 0.2.1
+    specifier: ^0.2.3
+    version: 0.2.3
   '@playwright/test':
     specifier: ^1.28.1
     version: 1.28.1
@@ -50,6 +50,9 @@ devDependencies:
   tslib:
     specifier: ^2.4.1
     version: 2.4.1
+  tslog:
+    specifier: ^4.9.2
+    version: 4.9.2
   typescript:
     specifier: ^5.0.0
     version: 5.0.2
@@ -78,8 +81,8 @@ packages:
       '@jridgewell/trace-mapping': 0.3.20
     dev: true
 
-  /@chord-ts/rpc@0.2.1:
-    resolution: {integrity: sha512-c35T4KW2SidqaAWuEDzXc//fla6pPHEnYdtBgddXYIrEpY9IKBGgXZTkSgQVltMp1CRA9v1PXJ4xKSyJOcSl2Q==}
+  /@chord-ts/rpc@0.2.3:
+    resolution: {integrity: sha512-UveyQigEHKaigweVVYCtfRQgdbvw83RwAXIN+kqfpX1csu2AegniCtRy8yUOmbUMqtvo9Nf7DqqYfWCuNnEwiw==}
     dependencies:
       reflect-metadata: 0.1.13
     dev: true
@@ -2413,6 +2416,11 @@ packages:
 
   /tslib@2.4.1:
     resolution: {integrity: sha512-tGyy4dAjRIEwI7BzsB0lynWgOpfqjUdq91XXAlIWD2OwKBH7oCl/GZG/HT4BOHrTlPMOASlMQ7veyTqpmRcrNA==}
+    dev: true
+
+  /tslog@4.9.2:
+    resolution: {integrity: sha512-wBM+LRJoNl34Bdu8mYEFxpvmOUedpNUwMNQB/NcuPIZKwdDde6xLHUev3bBjXQU7gdurX++X/YE7gLH8eXYsiQ==}
+    engines: {node: '>=16'}
     dev: true
 
   /type-check@0.4.0:

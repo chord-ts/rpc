@@ -19,8 +19,8 @@ export interface PropertyDescription {
 }
 
 export interface MethodMetadata {
-  returnType: string;
-  argsType: string[];
+  returnType?: string;
+  argsType?: string[];
 }
 
 export interface Schema {
@@ -50,13 +50,15 @@ export interface Target {
 }
 
 export type InjectedModels<T> = {
-  [Property in keyof T]: BatchedMethods<T[Property]>;
+  [Property in keyof T]: ModifiedMethods<T[Property]>;
 };
 
-export type BatchedMethods<T> = {
+export type ModifiedMethods<T> = {
   [Property in keyof T]: T[Property] & {
     // @ts-expect-error: We want to clone all types from original method to batch method
     batch: (...args: Parameters<T[Property]>) => Request;
+    // @ts-expect-error: We want to clone all types from original method to batch method
+    cache: (...args: Parameters<T[Property]>) => Request;
   };
 };
 

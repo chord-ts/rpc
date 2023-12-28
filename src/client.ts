@@ -4,7 +4,6 @@ import type { FailedResponse, Response, BatchRequest, BatchResponse } from './sp
 import { buildRequest } from './specs';
 
 const defaultTransport: Transport = async ({ route, body }) => {
-  // TODO Catch if request failed
   return await fetch(route, { method: 'POST', body: JSON.stringify(body) })
     .then((r) => r.json())
     .catch(() => {
@@ -18,7 +17,7 @@ const defaultErrorCallback: ErrorCallback = async (e, { method, params }) => {
 };
 
 // https://bobbyhadz.com/blog/javascript-check-if-value-is-promise
-function isPromise(p: unknown | Promise<unknown>) {
+function isPromise(p: unknown) {
   if (
     p !== null &&
     typeof p === 'object' &&
@@ -50,7 +49,7 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
   async function batch(...calls: BatchRequest) {
     if (calls.filter((c) => isPromise(c)).length) {
       throw EvalError(
-          'The batched method is required for "batch" call. \n' +
+        'The batched method is required for "batch" call. \n' +
           'Try to use rpc.<Model>.<method>.batch(...) instead.'
       );
     }
@@ -66,86 +65,58 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
   return { call, batch };
 }
 
-// export function schemaClient<T>({
-//   schema,
-//   config
-// }: {
-//   schema: Schema;
-//   config?: ClientConfig;
-// }): Client<T> {
-//   const { call, batch } = initClient({ schema, config });
-
-//   const handler: Record<string, unknown> = {
-//     batch
-//   };
-
-//   for (const model of schema.models) {
-//     const modelMethods = Object.entries(schema.methods).filter(([k]) => k.split('.')[0] === model);
-
-//     const instance: Record<string, unknown> = {};
-
-//     for (const [method] of modelMethods) {
-//       const methodName = method.split('.')[1] as string;
-//       const callable = new Proxy(call(method), {
-//         apply: function (target, thisArg, args) {
-//           return target(args);
-//         },
-//         get: function () {
-//           return (...params: unknown[]) => buildRequest({ method, params });
-//         }
-//       });
-//       instance[methodName] = callable; // Isolated by models methods
-//       handler[methodName] = callable; // Make available top level methods
-//     }
-//     handler[model] = instance;
-//   }
-//   return handler as unknown as Client<T>;
-// }
-
 export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientConfig }): Client<T> {
-
-  let endpoint
+  let endpoint;
   try {
-    endpoint = params?.endpoint ?? window?.location?.href
+    endpoint = params?.endpoint ?? window?.location?.href;
   } catch {
-    endpoint = '/'
-    console.error(`No endpoint provided and window.location is undefined. It set '/' as default`)
+    endpoint = '/';
+    console.error(`No endpoint provided and window.location is undefined. It set '/' as default`);
   }
-  const schema = { route:  endpoint } as Schema;
+  const schema = { route: endpoint } as Schema;
 
-  type Path = { [key: string]: unknown; path: string[] };
+  type Path = { path: string[], modifiers: string[] } & object;
 
   const { call, batch } = initClient({ schema, config: params?.config });
 
-  const node = {
+  const modifiers = {
     apply: function (target: Path, _: unknown, params: unknown[]) {
-      const [lastMethod] = target.path.slice(-1);
+      const path = target.path.join('.')
+      const [modifier] = target.modifiers;
 
-      // Note: we have to clean target.path after each expression ending
-      if (lastMethod === 'batch') {
-        const method = target.path.slice(0, -1).join('.');
-        target.path = [];
-        return buildRequest({ method, params });
+      if (modifier === 'batch') {
+        return buildRequest({ method: path, params, });
+      } else if (modifier === 'cache') {
+        // TODO fixme
+        return buildRequest({ method: path, params });
+      } else {
+        return call(path)(params);
       }
-
-      const method = target.path.join('.');
-      target.path = [];
-      return call(method)(params);
     },
     get: function (target: Path, prop: string): unknown {
-      target.path = target.path.concat(prop);
-      if (prop === 'batch' && target.path.length === 1) {
-        target.path = [];
-        return batch;
-      }
-      return new Proxy(target, node);
-      // return (...params: unknown[]) => buildRequest({ method, params });
+      target.modifiers = target.modifiers.concat(prop)
+      return new Proxy(
+        Object.assign(function () {}, target),
+        modifiers
+      );
     }
   };
 
-  const entrypoint = Object.assign(function () {}, { path: [], batch });
-
-  // @ts-expect-error We change the logic of object by dynamically creating fields
-  const rpc = new Proxy(entrypoint, node);
-  return rpc as unknown as Client<T>;
+  const method = {
+    get: function (target: Path, prop: string): unknown {
+      target.path = [target.path[0], prop];
+      return new Proxy(
+        Object.assign(function () {}, { path: [...target.path], modifiers: [] }),
+        modifiers
+      );
+    }
+  };
+  const service = {
+    get: function (target: Path, prop: string): unknown {
+      if (prop === 'batch') return batch;
+      return new Proxy({ path: [prop], modifiers: [] }, method);
+    }
+  };
+  return new Proxy({ path: [], modifiers: [] }, service) as unknown as Client<T>;
 }
+export const client = dynamicClient;

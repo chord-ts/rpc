@@ -1,8 +1,8 @@
 <script lang="ts">
-  // import { dynamicClient } from '../../../../../src/client';
-  import { dynamicClient } from '@chord-ts/rpc/client';
+  import { client } from '../../../../../src/client';
+  // import { dynamicClient } from '@chord-ts/rpc/client';
   import { onMount } from 'svelte';
-  import type { Wrap } from './+server';
+  import type { Client } from './+server';
   import { writable } from 'svelte/store';
 
   const error = writable();
@@ -12,19 +12,19 @@
   // }
 
   onMount(async () => {
-    // const rpc = schemaClient<Wrapped>(schema, );
-    const rpc = dynamicClient<Wrap>()
-    // console.log(rpc.TestRPC.dbReq.batch(123))
-    // console.log('TestRPC2', await rpc.TestRPC2.dbReq(123));
-    // console.log('TestRPC', await rpc.TestRPC.dbReq(123));
+    const rpc = client<Client>({endpoint: '/baseTest'} );
+
+    console.log(rpc.TestRPC.dbReq.batch(123))
+    console.log('TestRPC2', await rpc.TestRPC2.dbReq(123));
+    console.log('TestRPC', await rpc.TestRPC.dbReq(123));
     
     const batchRes = await rpc.batch(
       rpc.TestRPC.dbReq.batch(123),
       rpc.TestRPC2.dbReq.batch(123), 
-      rpc.TestRPC.dbReq2.batch('123')
+      // rpc.TestRPC.dbReq2.batch('123')
     ); // Batch запрос
     console.log(batchRes)
-    // console.log('onmount rpc=', await rpc.TestRPC.dbReq(123))
+    console.log('onmount rpc=', await rpc.TestRPC.dbReq(123))
     
   });
 </script>

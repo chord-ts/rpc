@@ -79,7 +79,7 @@ export class Composer<T extends { [s: string]: unknown }> {
   }
 
   public getSchema(route?: string): Schema {
-    route = route || (this.config?.route as string);
+    route = route ?? (this.config?.route as string);
     if (!route) {
       throw new EvalError('No route provided during Composer initialization or Schema generation');
     }
@@ -94,14 +94,17 @@ export class Composer<T extends { [s: string]: unknown }> {
     return { methods, route, models };
   }
 
-  public async exec(event: Record<string, unknown>): Promise<SomeResponse | BatchResponse> {
-    const { ctx, res } = await this.runMiddlewares(this.middlewares, event);
+  public async exec(event: unknown): Promise<SomeResponse | BatchResponse> {
+    const { ctx, res } = await this.runMiddlewares(
+      this.middlewares,
+      event as Record<string, unknown>
+    );
     if (res) return res as SomeResponse;
 
-    let body = (ctx as Record<string, unknown>)?.body;
+    let body = ctx?.body;
 
     if (!body) {
-      console.warn('No middleware specified "body" field in context. Trying to find it');
+      console.warn('\x1b[33mNo middleware specified "body" field in context. Trying to find it');
       const request = Composer.findRequestField(event);
 
       if (!request) {
@@ -115,13 +118,13 @@ export class Composer<T extends { [s: string]: unknown }> {
       body = await request.json();
     }
     if (!Array.isArray(body)) {
-      return this.execProcedure(body as Request, ctx as Record<string, unknown>);
+      return this.execProcedure(body as Request, ctx);
     }
 
     const batch: BatchResponse = [];
     for (const proc of body) {
       // We don't want to use Promise All to save the order of execution, isn't it?
-      batch.push(await this.execProcedure(proc, ctx as Record<string, unknown>));
+      batch.push(await this.execProcedure(proc, ctx));
     }
     return batch;
   }
@@ -145,7 +148,6 @@ export class Composer<T extends { [s: string]: unknown }> {
     await next();
 
     if (middlewareIndex <= middlewares.length - 1) {
-      // console.debug(`"${middlewares[middlewareIndex].name}" stopped execution`);
       return { ctx, res: lastMiddlewareResult };
     }
 
@@ -164,8 +166,8 @@ export class Composer<T extends { [s: string]: unknown }> {
     const { method, params } = proc;
     const methodDesc = Composer.methods.get(method);
     if (!method || !methodDesc) {
-      const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`
-      console.error('\x1b[31m' + msg)
+      const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`;
+      console.error('\x1b[31m' + msg);
       return buildError({
         code: ErrorCode.MethodNotFound,
         message: msg,
@@ -173,7 +175,7 @@ export class Composer<T extends { [s: string]: unknown }> {
       });
     }
     // TODO handle Invalid Params error
-    const { target, descriptor, use } = methodDesc as MethodDescription;
+    const { target, descriptor, use } = methodDesc;
 
     try {
       let res;
@@ -203,14 +205,37 @@ export class Composer<T extends { [s: string]: unknown }> {
         result
       });
     } catch (e) {
-      await (this.config?.onError ?? console.error)(e, proc);
+      (this.config?.onError ?? console.error)(e, proc);
       return buildError({
         code: ErrorCode.InternalError,
-        message: (e as { message?: string })?.message || '',
+        message: (e as { message?: string })?.message ?? '',
         data: [e]
       });
     }
   }
+}
+
+function getMetadata(target: object, key: PropKey): MethodMetadata {
+  return {
+    argsType: Reflect.getMetadata('design:paramtypes', target, key)?.map(
+      (a: { name: string }) => a?.name
+    ),
+    returnType: Reflect.getMetadata('design:returntype', target, key)?.name
+  };
+}
+
+export function toRPC<T extends object>(instance: T): T {
+  const proto = Reflect.getPrototypeOf(instance)!;
+  for (const key of Reflect.ownKeys(proto)) {
+    if (key === 'constructor') continue;
+
+    const descriptor = Reflect.getOwnPropertyDescriptor(proto, key)!;
+    if (!(descriptor.value instanceof Function)) continue;
+
+    const metadata = getMetadata(proto, key);
+    Composer.addMethod({ key, descriptor, metadata, target: proto, use: [] });
+  }
+  return instance;
 }
 
 export function rpc(config?: MethodConfig) {
@@ -223,13 +248,7 @@ export function rpc(config?: MethodConfig) {
     // TODO return type doesn`t work
     // console.log(target.constructor.name)
     // console.log("design:returntype", Reflect.getMetadata('design:returntype', target, key)?.name);
-    const metadata = {
-      key,
-      argsType: Reflect.getMetadata('design:paramtypes', target as object, key)?.map(
-        (a: { name: string }) => a?.name
-      ),
-      returnType: Reflect.getMetadata('design:returntype', target as object, key)?.name
-    };
+    const metadata = getMetadata(target, key);
 
     const use = config?.use ?? [];
     Composer.addMethod({ key, descriptor, metadata, target, use });
