@@ -113,7 +113,7 @@ import { Composer, rpc, type Composed } from '@chord-ts/rpc'; // Main components
 import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares'; // Middleware to process RequestEvent object
 
 // 1. Implement the class containing RPC methods
-export class HelloRPC {
+export class Say {
   @rpc() // Use decorator to register callable method
   hello(name: string): string {
     return `Hello, ${name}!`;
@@ -121,10 +121,10 @@ export class HelloRPC {
 }
 
 // 2. Init Composer instance that will handle requests
-export const composer = Composer.init({ HelloRPC: new HelloRPC() });
+export const composer = Composer.init({ Say: new Say() });
 
 // 3. Create a type that will be used on frontend
-export type Wrapped = typeof composer.clientType;
+export type Client = typeof composer.clientType;
 
 composer.use(sveltekitMiddleware()); // Use middleware to process SvelteKit RequestEvent
 
@@ -147,23 +147,23 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 
 ```html
 <script lang="ts">
-  import { dynamicClient } from '@chord-ts/rpc/client';
+  import { client } from '@chord-ts/rpc/client';
   import { onMount } from 'svelte';
 
   // Import our Contract
-  import type { Wrapped } from './+server';
+  import type { Client } from './+server';
 
   // Init dynamic client with type checking
   // Use Contract as Generic to get type safety and hints from IDE
   // dynamicClient means that RPC will be created during code execution
   // and executed when the function call statement is found
-  const rpc = dynamicClient<Wrapped>({ endpoint: '/' });
+  const rpc = client<Client>({ endpoint: '/' });
 
   let res;
   // Called after Page mount. The same as useEffect(..., [])
   onMount(async () => {
     // Call method defined on backend with type-hinting
-    res = await rpc.HelloRPC.hello('world');
+    res = await rpc.Say.hello('world');
     console.log(res);
   });
 </script>
@@ -171,6 +171,12 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 <h1>Chord call Test</h1>
 <p>Result: {res}</p>
 ```
+
+## 📦 Try it yourself
+
+Ready to run sandbox with prepared for your experiments
+
+<a href="https://www.sveltelab.dev/rkt1wa1z8trbcuc?files=.%2Fsrc%2Froutes%2F%2Bpage.svelte%2C.%2Fsrc%2Froutes%2F%2Bserver.ts"><img src="https://img.shields.io/badge/SvelteLab-191919?style=for-the-badge&logo=svelte&logoColor=FF3E00"></a>
 
 ## 📚 Further reading
 
