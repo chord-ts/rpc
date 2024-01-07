@@ -113,7 +113,7 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
       return async function (...params: unknown[]) {
         const cached = get({ method, params });
 
-        if (!config?.mode === 'update' && cached) return cached;
+        if (!(config?.mode === 'update') && cached) return cached;
 
         const res = call(method)(params).then((res) => {
           set({ method, params }, res);

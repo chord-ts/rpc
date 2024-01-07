@@ -174,7 +174,7 @@ Now we are ready to call the method on frontend. As we use [SvelteKit](https://k
 
 ## 📦 Try it yourself
 
-Ready to run sandbox with prepared for your experiments
+Ready to run sandbox with prepared environment for your experiments
 
 <a href="https://www.sveltelab.dev/rkt1wa1z8trbcuc?files=.%2Fsrc%2Froutes%2F%2Bpage.svelte%2C.%2Fsrc%2Froutes%2F%2Bserver.ts" target="_blank"><img src="https://img.shields.io/badge/SvelteLab-191919?style=for-the-badge&logo=svelte&logoColor=FF3E00"></a>
 
