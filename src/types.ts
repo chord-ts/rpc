@@ -33,11 +33,22 @@ export type Transport = (data: {
   route: string;
   body: unknown;
 }) => Promise<SomeResponse | BatchResponse>;
+
+
+export type CacheConfig = { expiry?: number, update?: boolean }
+export type CacheStorage = (config: CacheConfig) => {
+  get: CacheGetter;
+  set: CacheSetter;
+};
+export type CacheGetter = (call: { method: string; params: unknown }) => unknown;
+export type CacheSetter = (call: { method: string; params: unknown }, result: unknown) => void;
+
 export type ErrorCallback = (e: Error, req: Request) => Promise<unknown> | unknown;
 
 export interface ClientConfig {
   transport?: Transport;
   onError?: ErrorCallback;
+  cache?: CacheStorage;
 }
 
 export interface ComposerConfig {
@@ -58,7 +69,7 @@ export type ModifiedMethods<T> = {
     // @ts-expect-error: We want to clone all types from original method to batch method
     batch: (...args: Parameters<T[Property]>) => Request;
     // @ts-expect-error: We want to clone all types from original method to batch method
-    cache: (...args: Parameters<T[Property]>) => Request;
+    cache: (config?: CacheConfig) => (...args: Parameters<T[Property]>) => Request;
   };
 };
 

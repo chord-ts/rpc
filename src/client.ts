@@ -1,4 +1,14 @@
-import type { Schema, ClientConfig, Transport, ErrorCallback, Client } from './types';
+import type {
+  Schema,
+  ClientConfig,
+  Transport,
+  ErrorCallback,
+  Client,
+  CacheStorage,
+  CacheGetter,
+  CacheSetter,
+  CacheConfig
+} from './types';
 
 import type { FailedResponse, Response, BatchRequest, BatchResponse } from './specs';
 import { buildRequest } from './specs';
@@ -11,8 +21,43 @@ const defaultTransport: Transport = async ({ route, body }) => {
     });
 };
 
+const defaultCache: CacheStorage = (config) => {
+  const storageKey = '__chord_cache__';
+  const expiry = config?.expiry ?? 1000 * 60 * 5 // 5 min by default
+
+  function call2Key(method: string, params: unknown) {
+    return `${method}(${JSON.stringify(params)})`;
+  }
+  const get: CacheGetter = ({ method, params }) => {
+    if (typeof localStorage === 'undefined') return null;
+    const store = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
+    const callKey = call2Key(method, params);
+    const cached = store[callKey];
+
+    if (!cached) return null
+    if (Date.now() - Date.parse(cached?.time) > expiry) {
+      console.log(callKey, 'expired')
+      return null
+    }
+    return cached?.result;
+  };
+
+  const set: CacheSetter = ({ method, params }, result) => {
+    if (typeof localStorage === 'undefined') return null;
+    const store = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
+    const callKey = call2Key(method, params);
+    store[callKey] = {result, time: new Date()};
+
+    localStorage.setItem(storageKey, JSON.stringify(store));
+  };
+
+  return { get, set };
+};
+
 const defaultErrorCallback: ErrorCallback = async (e, { method, params }) => {
-  console.error(`Error occurred during RPC Call: ${method}(${params})`);
+  console.error(
+    `Error occurred during RPC Call: ${method}(${params.map((p) => JSON.stringify(p)).join(',')})`
+  );
   throw new EvalError(e.message);
 };
 
@@ -34,6 +79,7 @@ function isPromise(p: unknown) {
 function initClient({ schema, config }: { schema: Schema; config?: ClientConfig }) {
   const transport = config?.transport ?? defaultTransport;
   const errorCallback = config?.onError ?? defaultErrorCallback;
+  const cache = config?.cache ?? defaultCache;
 
   function call(method: string) {
     return async (params: unknown[]) => {
@@ -62,7 +108,7 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
     });
   }
 
-  return { call, batch };
+  return { call, batch, cache };
 }
 
 export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientConfig }): Client<T> {
@@ -75,26 +121,37 @@ export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientCo
   }
   const schema = { route: endpoint } as Schema;
 
-  type Path = { path: string[], modifiers: string[] } & object;
+  type Path = { path: string[]; modifiers: string[] } & object;
 
-  const { call, batch } = initClient({ schema, config: params?.config });
+  const { call, batch, cache } = initClient({ schema, config: params?.config });
 
   const modifiers = {
     apply: function (target: Path, _: unknown, params: unknown[]) {
-      const path = target.path.join('.')
+      const method = target.path.join('.');
       const [modifier] = target.modifiers;
 
       if (modifier === 'batch') {
-        return buildRequest({ method: path, params, });
+        return buildRequest({ method, params });
       } else if (modifier === 'cache') {
-        // TODO fixme
-        return buildRequest({ method: path, params });
+        const { get, set } = cache(params[0] as CacheConfig);
+        return async function (...params: unknown[]) {
+          const cached = get({ method, params });
+          if (cached) return cached;
+
+          const res = call(method)(params).then((res) => {
+            set({ method, params }, res);
+            return res;
+          });
+          return res;
+        };
+
       } else {
-        return call(path)(params);
+        return call(method)(params);
       }
     },
+
     get: function (target: Path, prop: string): unknown {
-      target.modifiers = target.modifiers.concat(prop)
+      target.modifiers = target.modifiers.concat(prop);
       return new Proxy(
         Object.assign(function () {}, target),
         modifiers
