@@ -21,9 +21,9 @@ const defaultTransport: Transport = async ({ route, body }) => {
     });
 };
 
-const defaultCache: CacheStorage = (config) => {
+const defaultCache: CacheStorage = (config?) => {
   const storageKey = '__chord_cache__';
-  const expiry = config?.expiry ?? 1000 * 60 * 5 // 5 min by default
+  const expiry = config?.expiry ?? 1000 * 60 * 5; // 5 min by default
 
   function call2Key(method: string, params: unknown) {
     return `${method}(${JSON.stringify(params)})`;
@@ -34,10 +34,9 @@ const defaultCache: CacheStorage = (config) => {
     const callKey = call2Key(method, params);
     const cached = store[callKey];
 
-    if (!cached) return null
+    if (!cached) return null;
     if (Date.now() - Date.parse(cached?.time) > expiry) {
-      console.log(callKey, 'expired')
-      return null
+      return null;
     }
     return cached?.result;
   };
@@ -46,7 +45,7 @@ const defaultCache: CacheStorage = (config) => {
     if (typeof localStorage === 'undefined') return null;
     const store = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
     const callKey = call2Key(method, params);
-    store[callKey] = {result, time: new Date()};
+    store[callKey] = { result, time: new Date() };
 
     localStorage.setItem(storageKey, JSON.stringify(store));
   };
@@ -79,7 +78,7 @@ function isPromise(p: unknown) {
 function initClient({ schema, config }: { schema: Schema; config?: ClientConfig }) {
   const transport = config?.transport ?? defaultTransport;
   const errorCallback = config?.onError ?? defaultErrorCallback;
-  const cache = config?.cache ?? defaultCache;
+  const cacheStorage = config?.cache ?? defaultCache;
 
   function call(method: string) {
     return async (params: unknown[]) => {
@@ -108,6 +107,23 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
     });
   }
 
+  function cache(config: CacheConfig) {
+    const { get, set } = cacheStorage(config);
+    return function (method: string) {
+      return async function (...params: unknown[]) {
+        const cached = get({ method, params });
+
+        if (!config?.mode === 'update' && cached) return cached;
+
+        const res = call(method)(params).then((res) => {
+          set({ method, params }, res);
+          return res;
+        });
+        return cached ?? res;
+      };
+    };
+  }
+
   return { call, batch, cache };
 }
 
@@ -133,18 +149,7 @@ export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientCo
       if (modifier === 'batch') {
         return buildRequest({ method, params });
       } else if (modifier === 'cache') {
-        const { get, set } = cache(params[0] as CacheConfig);
-        return async function (...params: unknown[]) {
-          const cached = get({ method, params });
-          if (cached) return cached;
-
-          const res = call(method)(params).then((res) => {
-            set({ method, params }, res);
-            return res;
-          });
-          return res;
-        };
-
+        return cache(params[0] as CacheConfig)(method);
       } else {
         return call(method)(params);
       }

@@ -35,7 +35,7 @@ export type Transport = (data: {
 }) => Promise<SomeResponse | BatchResponse>;
 
 
-export type CacheConfig = { expiry?: number, update?: boolean }
+export type CacheConfig = { expiry?: number, mode?: 'update' }
 export type CacheStorage = (config: CacheConfig) => {
   get: CacheGetter;
   set: CacheSetter;

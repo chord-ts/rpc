@@ -6,7 +6,7 @@ import { sveltekitMiddleware } from '../../../../../src/middlewares';
 class Service {
   async hello(name: string) {
     await new Promise(r => setTimeout(r, 5000));
-    const msg = `Hello ${name}`
+    const msg = `Hello ${name} ${new Date()}`
     return msg
   }
 

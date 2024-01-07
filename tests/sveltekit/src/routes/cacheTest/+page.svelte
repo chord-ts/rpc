@@ -5,7 +5,7 @@
 
 	const rpc = client<Client>({ endpoint: '/cacheTest' });
 
-	let res1 = rpc.Service.hello.cache({expiry: 1000 * 30, update: true})('world');
+	let res1 = rpc.Service.hello.cache({expiry: 1000 * 30, mode: 'update'})('world');
 	let res2 = rpc.Service.noParams.cache()();
 </script>
 
