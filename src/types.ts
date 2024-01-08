@@ -35,20 +35,21 @@ export type Transport = (data: {
 }) => Promise<SomeResponse | BatchResponse>;
 
 
-export type CacheConfig = { expiry?: number, mode?: 'update' }
-export type CacheStorage = (config: CacheConfig) => {
+export type CacheConfig<T> = { expiry?: number, mode?: 'update', onInvalidate?: InvalidateCallback<T> }
+export type CacheStorage<T> = (config: CacheConfig<T>) => {
   get: CacheGetter;
   set: CacheSetter;
 };
 export type CacheGetter = (call: { method: string; params: unknown }) => unknown;
 export type CacheSetter = (call: { method: string; params: unknown }, result: unknown) => void;
+export type InvalidateCallback<T> = (result: T) => void;
 
 export type ErrorCallback = (e: Error, req: Request) => Promise<unknown> | unknown;
 
-export interface ClientConfig {
+export interface ClientConfig<T> {
   transport?: Transport;
   onError?: ErrorCallback;
-  cache?: CacheStorage;
+  cache?: CacheStorage<T>;
 }
 
 export interface ComposerConfig {
@@ -69,7 +70,7 @@ export type ModifiedMethods<T> = {
     // @ts-expect-error: We want to clone all types from original method to batch method
     batch: (...args: Parameters<T[Property]>) => Request;
     // @ts-expect-error: We want to clone all types from original method to batch method
-    cache: (config?: CacheConfig) => (...args: Parameters<T[Property]>) => Request;
+    cache: (config?: CacheConfig<ReturnType<T[Property]>>) => (...args: Parameters<T[Property]>) => ReturnType<T[Property]>;
   };
 };
 

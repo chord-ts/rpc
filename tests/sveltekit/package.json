@@ -34,7 +34,9 @@
 		"typescript": "^5.0.0",
 		"unplugin-swc": "^1.4.3",
 		"vite": "^4.4.2",
-		"vitest": "^0.32.2"
+		"vitest": "^0.32.2",
+		"zod": "^3.22.4",
+		"zod-to-json-schema": "^3.22.3"
 	},
 	"type": "module"
 }

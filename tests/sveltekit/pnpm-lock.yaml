@@ -6,8 +6,8 @@ settings:
 
 devDependencies:
   '@chord-ts/rpc':
-    specifier: ^0.2.3
-    version: 0.2.3
+    specifier: ^0.2.4
+    version: 0.2.5
   '@playwright/test':
     specifier: ^1.28.1
     version: 1.28.1
@@ -65,6 +65,12 @@ devDependencies:
   vitest:
     specifier: ^0.32.2
     version: 0.32.2
+  zod:
+    specifier: ^3.22.4
+    version: 3.22.4
+  zod-to-json-schema:
+    specifier: ^3.22.3
+    version: 3.22.3(zod@3.22.4)
 
 packages:
 
@@ -81,8 +87,8 @@ packages:
       '@jridgewell/trace-mapping': 0.3.20
     dev: true
 
-  /@chord-ts/rpc@0.2.3:
-    resolution: {integrity: sha512-UveyQigEHKaigweVVYCtfRQgdbvw83RwAXIN+kqfpX1csu2AegniCtRy8yUOmbUMqtvo9Nf7DqqYfWCuNnEwiw==}
+  /@chord-ts/rpc@0.2.5:
+    resolution: {integrity: sha512-TwOHdPUqZUNGEgBBAV3wkw9frwG+dDMauSqC/lDl1aNsvNJo/zSeGN0+S5nLtCnTbAPXEsVpxfGzQyU7RLJkTQ==}
     dependencies:
       reflect-metadata: 0.1.13
     dev: true
@@ -2682,4 +2688,16 @@ packages:
   /yocto-queue@1.0.0:
     resolution: {integrity: sha512-9bnSc/HEW2uRy67wc+T8UwauLuPJVn28jb+GtJY16iiKWyvmYJRXVT4UamsAEGQfPohgr2q4Tq0sQbQlxTfi1g==}
     engines: {node: '>=12.20'}
+    dev: true
+
+  /zod-to-json-schema@3.22.3(zod@3.22.4):
+    resolution: {integrity: sha512-9isG8SqRe07p+Aio2ruBZmLm2Q6Sq4EqmXOiNpDxp+7f0LV6Q/LX65fs5Nn+FV/CzfF3NLBoksXbS2jNYIfpKw==}
+    peerDependencies:
+      zod: ^3.22.4
+    dependencies:
+      zod: 3.22.4
+    dev: true
+
+  /zod@3.22.4:
+    resolution: {integrity: sha512-iC+8Io04lddc+mVqQ9AZ7OQ2MrUKGN+oIQyq1vemgt46jwCwLfhq7/pwnBnNXXXZb8VTVLKwp9EDkx+ryxIWmg==}
     dev: true

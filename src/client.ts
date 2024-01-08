@@ -24,6 +24,7 @@ const defaultTransport: Transport = async ({ route, body }) => {
 const defaultCache: CacheStorage = (config?) => {
   const storageKey = '__chord_cache__';
   const expiry = config?.expiry ?? 1000 * 60 * 5; // 5 min by default
+  const onInvalidate = config?.onInvalidate ?? (() => {})
 
   function call2Key(method: string, params: unknown) {
     return `${method}(${JSON.stringify(params)})`;
@@ -46,6 +47,7 @@ const defaultCache: CacheStorage = (config?) => {
     const store = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
     const callKey = call2Key(method, params);
     store[callKey] = { result, time: new Date() };
+    onInvalidate(result)
 
     localStorage.setItem(storageKey, JSON.stringify(store));
   };
@@ -182,3 +184,4 @@ export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientCo
   return new Proxy({ path: [], modifiers: [] }, service) as unknown as Client<T>;
 }
 export const client = dynamicClient;
+export type Returned<T extends CallableFunction> = Awaited<ReturnType<T>>

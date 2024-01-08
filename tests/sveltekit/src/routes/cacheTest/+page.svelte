@@ -1,11 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { client } from '../../../../../src/';
+	import { client, type Returned } from '../../../../../src/';
 	import type { Client } from './+server';
 
 	const rpc = client<Client>({ endpoint: '/cacheTest' });
 
-	let res1 = rpc.Service.hello.cache({expiry: 1000 * 30, mode: 'update'})('world');
+	// onMount()
+	let res1: Promise<Returned<typeof rpc.Service.hello>> = rpc.Service.hello.cache({
+		expiry: 1000 * 30,
+		mode: 'update',
+		onInvalidate: (res) => (res1 = res)
+	})('world');
+
 	let res2 = rpc.Service.noParams.cache()();
 </script>
 
