@@ -48,9 +48,9 @@ export class Composer<T extends { [s: string]: unknown }> {
     return new Composer(models, config) as unknown as Composed<T>;
   }
 
-  static addMethod({ key, descriptor, metadata, target, use }: MethodDescription) {
-    key = `${target.constructor.name}.${String(key)}`;
-    Composer.methods.set(key, { key, descriptor, metadata, target, use });
+  static addMethod(desc: MethodDescription) {
+    const key = `${desc.target.constructor.name}.${desc.key.toString()}`;
+    Composer.methods.set(key, { ...desc, key });
   }
 
   static addProp({ key, target }: { key: PropKey; target: object }) {
@@ -191,11 +191,11 @@ export class Composer<T extends { [s: string]: unknown }> {
       const ctxProp = Composer.props.get(target.constructor.name)?.find((d) => d.key === 'ctx');
       if (ctxProp) {
         Reflect.defineProperty(target, ctxProp.key, {
-          configurable: false,
-          enumerable: false,
-          get() {
-            return ctx;
-          }
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: ctx,
+          
         });
       }
 
@@ -213,6 +213,18 @@ export class Composer<T extends { [s: string]: unknown }> {
       });
     }
   }
+}
+
+// https://stackoverflow.com/questions/1007981/how-to-get-function-parameter-names-values-dynamically
+const STRIP_COMMENTS = /((\/\/.*$)|(\/\*[\s\S]*?\*\/))/gm;
+const ARGUMENT_NAMES = /([^\s,]+)/g;
+function getParamNames(func: CallableFunction): string[] {
+  const fnStr = func.toString().replace(STRIP_COMMENTS, '');
+  let result = fnStr.slice(fnStr.indexOf('(') + 1, fnStr.indexOf(')')).match(ARGUMENT_NAMES) as
+    | string[]
+    | null;
+  if (result === null) result = [];
+  return result;
 }
 
 function getMetadata(target: object, key: PropKey): MethodMetadata {
@@ -233,7 +245,15 @@ export function toRPC<T extends object>(instance: T): T {
     if (!(descriptor.value instanceof Function)) continue;
 
     const metadata = getMetadata(proto, key);
-    Composer.addMethod({ key, descriptor, metadata, target: instance, use: [] });
+    Composer.addMethod({
+      key,
+      descriptor,
+      metadata,
+      target: instance,
+      use: [],
+      validators: {},
+      argNames: []
+    });
   }
   return instance;
 }
@@ -248,10 +268,17 @@ export function rpc(config?: MethodConfig) {
     // TODO return type doesn`t work
     // console.log(target.constructor.name)
     // console.log("design:returntype", Reflect.getMetadata('design:returntype', target, key)?.name);
-    const metadata = getMetadata(target, key);
 
+    const metadata = getMetadata(target, key);
     const use = config?.use ?? [];
-    Composer.addMethod({ key, descriptor, metadata, target, use });
+    const argNames = getParamNames(descriptor.value);
+
+    if (config?.in && !Array.isArray(config?.in)) {
+      config.in = [config.in]
+    }
+    
+    const validators = { in: config?.in, out: config?.out };
+    Composer.addMethod({ key, descriptor, metadata, target, use, validators, argNames });
   };
 }
 

@@ -184,4 +184,4 @@ export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientCo
   return new Proxy({ path: [], modifiers: [] }, service) as unknown as Client<T>;
 }
 export const client = dynamicClient;
-export type Returned<T extends CallableFunction> = Awaited<ReturnType<T>>
+export type Returned<T extends ((...args: unknown[]) => unknown) > = Awaited<ReturnType<T>>

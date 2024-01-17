@@ -5,11 +5,18 @@ export interface MethodDescription {
   key: PropKey;
   descriptor: PropertyDescriptor;
   target: Target;
+  validators: Validators;
+  argNames: string[];
   metadata: MethodMetadata;
   use: Middleware[];
 }
 
-export interface MethodConfig {
+export interface Validators {
+  in?: unknown[];
+  out?: unknown;
+}
+
+export interface MethodConfig extends Validators {
   use?: Middleware[];
 }
 
@@ -35,21 +42,21 @@ export type Transport = (data: {
 }) => Promise<SomeResponse | BatchResponse>;
 
 
-export type CacheConfig<T> = { expiry?: number, mode?: 'update', onInvalidate?: InvalidateCallback<T> }
-export type CacheStorage<T> = (config: CacheConfig<T>) => {
+export type CacheConfig = { expiry?: number, mode?: 'update', onInvalidate?: InvalidateCallback }
+export type CacheStorage = (config: CacheConfig) => {
   get: CacheGetter;
   set: CacheSetter;
 };
 export type CacheGetter = (call: { method: string; params: unknown }) => unknown;
 export type CacheSetter = (call: { method: string; params: unknown }, result: unknown) => void;
-export type InvalidateCallback<T> = (result: T) => void;
+export type InvalidateCallback = (args: unknown) => void;
 
 export type ErrorCallback = (e: Error, req: Request) => Promise<unknown> | unknown;
 
-export interface ClientConfig<T> {
+export interface ClientConfig {
   transport?: Transport;
   onError?: ErrorCallback;
-  cache?: CacheStorage<T>;
+  cache?: CacheStorage;
 }
 
 export interface ComposerConfig {
