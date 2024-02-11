@@ -7,24 +7,30 @@ title: "ClientConfig"
 
 ## Properties
 
-### onError
+### cache?
 
-> **onError**?: [`ErrorCallback`](/api/type-aliases/errorcallback/)
-
-#### Source
-
-[types.ts:40](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L40)
-
-***
-
-### transport
-
-> **transport**?: [`Transport`](/api/type-aliases/transport/)
+> **`optional`** **cache**: [`CacheStorage`](../type-aliases/CacheStorage.md)
 
 #### Source
 
-[types.ts:39](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L39)
+[types.ts:59](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L59)
 
 ***
 
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+### onError?
+
+> **`optional`** **onError**: [`ErrorCallback`](../type-aliases/ErrorCallback.md)
+
+#### Source
+
+[types.ts:58](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L58)
+
+***
+
+### transport?
+
+> **`optional`** **transport**: [`Transport`](../type-aliases/Transport.md)
+
+#### Source
+
+[types.ts:57](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L57)

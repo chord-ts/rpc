@@ -5,12 +5,8 @@ prev: false
 title: "BatchRequest"
 ---
 
-> **BatchRequest**: [`Request`](/api/interfaces/request/)[]
+> **BatchRequest**: [`Request`](../interfaces/Request.md)[]
 
 ## Source
 
-[specs/JSONRPC\_V2/types.ts:37](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L37)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[specs/JSONRPC\_V2/types.ts:37](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L37)

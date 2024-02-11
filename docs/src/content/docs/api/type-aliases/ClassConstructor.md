@@ -9,11 +9,11 @@ title: "ClassConstructor"
 
 ## Type parameters
 
-▪ **T** extends `object`
+• **T** extends `object`
 
 ## Parameters
 
-▪ ...**params**: `unknown`[]
+• ...**params**: `unknown`[]
 
 ## Returns
 
@@ -21,8 +21,4 @@ title: "ClassConstructor"
 
 ## Source
 
-[types.ts:70](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L70)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:91](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L91)

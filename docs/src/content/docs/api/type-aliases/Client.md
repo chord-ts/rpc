@@ -5,7 +5,7 @@ prev: false
 title: "Client"
 ---
 
-> **Client**\<`T`\>: [`InjectedModels`](/api/type-aliases/injectedmodels/)\<`T`\> & `object`
+> **Client**\<`T`\>: [`InjectedModels`](InjectedModels.md)\<`T`\> & `Object`
 
 ## Type declaration
 
@@ -15,7 +15,7 @@ title: "Client"
 
 #### Parameters
 
-▪ ...**calls**: [`BatchRequest`](/api/type-aliases/batchrequest/)
+• ...**calls**: [`BatchRequest`](BatchRequest.md)
 
 #### Returns
 
@@ -23,12 +23,8 @@ title: "Client"
 
 ## Type parameters
 
-▪ **T**
+• **T**
 
 ## Source
 
-[types.ts:63](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L63)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:84](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L84)

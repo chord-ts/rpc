@@ -13,7 +13,7 @@ title: "ErrorCode"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:6](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L6)
+[specs/JSONRPC\_V2/types.ts:6](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L6)
 
 ***
 
@@ -23,7 +23,7 @@ title: "ErrorCode"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:5](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L5)
+[specs/JSONRPC\_V2/types.ts:5](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L5)
 
 ***
 
@@ -33,7 +33,7 @@ title: "ErrorCode"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:3](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L3)
+[specs/JSONRPC\_V2/types.ts:3](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L3)
 
 ***
 
@@ -43,7 +43,7 @@ title: "ErrorCode"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:4](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L4)
+[specs/JSONRPC\_V2/types.ts:4](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L4)
 
 ***
 
@@ -53,7 +53,7 @@ title: "ErrorCode"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:2](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L2)
+[specs/JSONRPC\_V2/types.ts:2](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L2)
 
 ***
 
@@ -63,8 +63,4 @@ title: "ErrorCode"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:7](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/types.ts#L7)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[specs/JSONRPC\_V2/types.ts:7](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L7)

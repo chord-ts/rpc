@@ -5,24 +5,20 @@ prev: false
 title: "buildResponse"
 ---
 
-> **buildResponse**(`__namedParameters`): [`Response`](/api/interfaces/response/)
+> **buildResponse**(`__namedParameters`): [`Response`](../interfaces/Response.md)
 
 ## Parameters
 
-▪ **\_\_namedParameters**: `object`
+• **\_\_namedParameters**
 
-▪ **\_\_namedParameters.request**: [`Request`](/api/interfaces/request/)
+• **\_\_namedParameters\.request**: [`Request`](../interfaces/Request.md)
 
-▪ **\_\_namedParameters.result**: `unknown`
+• **\_\_namedParameters\.result**: `unknown`
 
 ## Returns
 
-[`Response`](/api/interfaces/response/)
+[`Response`](../interfaces/Response.md)
 
 ## Source
 
-[specs/JSONRPC\_V2/index.ts:17](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/index.ts#L17)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[specs/JSONRPC\_V2/index.ts:17](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/index.ts#L17)

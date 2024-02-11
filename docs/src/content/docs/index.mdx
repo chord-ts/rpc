@@ -3,34 +3,46 @@ title: Welcome to Starlight
 description: Get started building your docs site with Starlight.
 template: splash
 hero:
-  tagline: Congrats on setting up a new Starlight project!
+  title: |
+    Welcome to docs
+    <br> for
+    <span
+      class="font-black text-transparent
+        bg-clip-text bg-gradient-to-b
+        from-accent-700 to-accent-400
+        dark:from-accent-500 dark:to-accent-100"
+    >
+      Chord
+    </span>
+  tagline: The revolution in the world of client-server communication. Type-safe RPC on top of JSON-RPC v2 protocol.
   image:
     file: ../../assets/houston.webp
   actions:
-    - text: Example Guide
+    - text: Level-Up your app
       link: /guides/example/
       icon: right-arrow
       variant: primary
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
+    
+    - text: Visit the repo
+      link: https://github.com/chord-ts/rpc
       icon: external
 ---
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Next steps
+### Production tested features you'll truly feel
 
-<CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
+<CardGrid>
+	<Card title="Instant Typesafety" icon="approve-check-circle">
+    Ensure fully __typesafe procedure calls__ on both ends with _TypeScript_ and build time checks
 	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
+	<Card title="Swift DX" icon="rocket" class="text-accent">
+		Enhance your __productivity__ and streamline feature releases with rich __autocompletions__ for __any IDE__
 	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
+	<Card title="Vanishingly Tiny" icon="add-document">
+		Enable __seamless__ server function access for the client with __minimal overhead__, less than `2kb` gzipped
 	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
+	<Card title="Seamless Integration" icon="forward-slash">
+		__Integrating__ into an __existing production__ project is as easy as starting from scratch, __without conflicts__
 	</Card>
 </CardGrid>

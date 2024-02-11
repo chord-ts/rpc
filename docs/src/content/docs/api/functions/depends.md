@@ -7,31 +7,26 @@ title: "depends"
 
 > **depends**(): (`target`, `key`) => `void`
 
+The `depends` function is used for dependency injection in TypeScript, specifically for injecting
+the `ctx` property.
+
 ## Returns
 
-`function`
+`Function`
 
-> > (`target`, `key`): `void`
->
+The function `depends()` returns another function.
+
 > ### Parameters
 >
-> ▪ **target**: `object`
+> • **target**: `object`
 >
-> ▪ **key**: [`PropKey`](/api/type-aliases/propkey/)
+> • **key**: [`PropKey`](../type-aliases/PropKey.md)
 >
 > ### Returns
 >
 > `void`
 >
-> ### Source
->
-> [server.ts:225](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L225)
->
 
 ## Source
 
-[server.ts:224](https://github.com/dmdin/chord/blob/5f43e0e/src/server.ts#L224)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[server.ts:414](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L414)

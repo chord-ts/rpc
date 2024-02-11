@@ -9,18 +9,12 @@ title: "Target"
 
 ### constructor
 
-> **constructor**: `object`
+> **constructor**: `Object`
 
-#### Type declaration
-
-##### name
+#### constructor.name
 
 > **name**: `string`
 
 #### Source
 
-[types.ts:49](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L49)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:68](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L68)

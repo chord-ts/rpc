@@ -9,11 +9,11 @@ title: "Schema"
 
 ### methods
 
-> **methods**: `Record`\<`string`, [`MethodMetadata`](/api/interfaces/methodmetadata/)\>
+> **methods**: `Record`\<`string`, [`MethodMetadata`](MethodMetadata.md)\>
 
 #### Source
 
-[types.ts:28](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L28)
+[types.ts:35](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L35)
 
 ***
 
@@ -23,7 +23,7 @@ title: "Schema"
 
 #### Source
 
-[types.ts:29](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L29)
+[types.ts:36](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L36)
 
 ***
 
@@ -33,8 +33,4 @@ title: "Schema"
 
 #### Source
 
-[types.ts:27](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L27)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:34](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L34)

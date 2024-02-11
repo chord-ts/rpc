@@ -9,9 +9,9 @@ title: "ErrorCallback"
 
 ## Parameters
 
-▪ **e**: [`Error`](/api/interfaces/error/)
+• **e**: [`Error`](../interfaces/Error.md)
 
-▪ **req**: [`Request`](/api/interfaces/request/)
+• **req**: [`Request`](../interfaces/Request.md)
 
 ## Returns
 
@@ -19,8 +19,4 @@ title: "ErrorCallback"
 
 ## Source
 
-[types.ts:36](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L36)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:54](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L54)

@@ -7,24 +7,20 @@ title: "MethodMetadata"
 
 ## Properties
 
-### argsType
+### argsType?
 
-> **argsType**: `string`[]
-
-#### Source
-
-[types.ts:23](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L23)
-
-***
-
-### returnType
-
-> **returnType**: `string`
+> **`optional`** **argsType**: `string`[]
 
 #### Source
 
-[types.ts:22](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L22)
+[types.ts:30](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L30)
 
 ***
 
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+### returnType?
+
+> **`optional`** **returnType**: `string`
+
+#### Source
+
+[types.ts:29](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L29)

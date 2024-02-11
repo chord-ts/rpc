@@ -9,11 +9,11 @@ title: "Middleware"
 
 ## Parameters
 
-▪ **event**: `unknown`
+• **event**: `Record`\<`string`, `unknown`\>
 
-▪ **ctx**: `Record`\<`string`, `unknown`\>
+• **ctx**: `Record`\<`string`, `unknown`\>
 
-▪ **next**: `CallableFunction`
+• **next**: `CallableFunction`
 
 ## Returns
 
@@ -21,8 +21,4 @@ title: "Middleware"
 
 ## Source
 
-[types.ts:71](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L71)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:92](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L92)

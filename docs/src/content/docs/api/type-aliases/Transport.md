@@ -5,24 +5,20 @@ prev: false
 title: "Transport"
 ---
 
-> **Transport**: (`data`) => `Promise`\<[`SomeResponse`](/api/type-aliases/someresponse/) \| [`BatchResponse`](/api/type-aliases/batchresponse/)\>
+> **Transport**: (`data`) => `Promise`\<[`SomeResponse`](SomeResponse.md) \| [`BatchResponse`](BatchResponse.md)\>
 
 ## Parameters
 
-▪ **data**: `object`
+• **data**
 
-▪ **data.body**: `unknown`
+• **data\.body**: `unknown`
 
-▪ **data.route**: `string`
+• **data\.route**: `string`
 
 ## Returns
 
-`Promise`\<[`SomeResponse`](/api/type-aliases/someresponse/) \| [`BatchResponse`](/api/type-aliases/batchresponse/)\>
+`Promise`\<[`SomeResponse`](SomeResponse.md) \| [`BatchResponse`](BatchResponse.md)\>
 
 ## Source
 
-[types.ts:32](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L32)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:39](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L39)

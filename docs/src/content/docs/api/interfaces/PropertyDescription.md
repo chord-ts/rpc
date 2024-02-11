@@ -9,22 +9,18 @@ title: "PropertyDescription"
 
 ### key
 
-> **key**: [`PropKey`](/api/type-aliases/propkey/)
+> **key**: [`PropKey`](../type-aliases/PropKey.md)
 
 #### Source
 
-[types.ts:17](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L17)
+[types.ts:24](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L24)
 
 ***
 
 ### target
 
-> **target**: [`Target`](/api/interfaces/target/)
+> **target**: [`Target`](Target.md)
 
 #### Source
 
-[types.ts:18](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L18)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[types.ts:25](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L25)

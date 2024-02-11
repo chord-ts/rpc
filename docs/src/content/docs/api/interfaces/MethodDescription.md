@@ -7,54 +7,70 @@ title: "MethodDescription"
 
 ## Properties
 
+### argNames
+
+> **argNames**: `string`[]
+
+#### Source
+
+[types.ts:9](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L9)
+
+***
+
 ### descriptor
 
 > **descriptor**: `PropertyDescriptor`
 
 #### Source
 
-[types.ts:6](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L6)
+[types.ts:6](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L6)
 
 ***
 
 ### key
 
-> **key**: [`PropKey`](/api/type-aliases/propkey/)
+> **key**: [`PropKey`](../type-aliases/PropKey.md)
 
 #### Source
 
-[types.ts:5](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L5)
+[types.ts:5](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L5)
 
 ***
 
 ### metadata
 
-> **metadata**: [`MethodMetadata`](/api/interfaces/methodmetadata/)
+> **metadata**: [`MethodMetadata`](MethodMetadata.md)
 
 #### Source
 
-[types.ts:8](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L8)
+[types.ts:10](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L10)
 
 ***
 
 ### target
 
-> **target**: [`Target`](/api/interfaces/target/)
+> **target**: [`Target`](Target.md)
 
 #### Source
 
-[types.ts:7](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L7)
+[types.ts:7](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L7)
 
 ***
 
 ### use
 
-> **use**: [`Middleware`](/api/type-aliases/middleware/)[]
+> **use**: [`Middleware`](../type-aliases/Middleware.md)[]
 
 #### Source
 
-[types.ts:9](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L9)
+[types.ts:11](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L11)
 
 ***
 
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+### validators
+
+> **validators**: [`Validators`](Validators.md)
+
+#### Source
+
+[types.ts:8](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L8)

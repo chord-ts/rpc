@@ -7,24 +7,20 @@ title: "ComposerConfig"
 
 ## Properties
 
-### onError
+### onError?
 
-> **onError**?: [`ErrorCallback`](/api/type-aliases/errorcallback/)
-
-#### Source
-
-[types.ts:45](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L45)
-
-***
-
-### route
-
-> **route**?: `string`
+> **`optional`** **onError**: [`ErrorCallback`](../type-aliases/ErrorCallback.md)
 
 #### Source
 
-[types.ts:44](https://github.com/dmdin/chord/blob/5f43e0e/src/types.ts#L44)
+[types.ts:64](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L64)
 
 ***
 
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+### route?
+
+> **`optional`** **route**: `string`
+
+#### Source
+
+[types.ts:63](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L63)

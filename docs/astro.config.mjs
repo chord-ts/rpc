@@ -1,45 +1,39 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
-import { generateTypeDoc } from 'starlight-typedoc';
-import sitemap from '@astrojs/sitemap';
-import vercel from '@astrojs/vercel/serverless';
-
-// const typeDocSidebarGroup = await generateTypeDoc({
-//   entryPoints: ['../src/index.ts'],
-//   tsconfig: '../tsconfig.json'
-// });
+import tailwind from '@astrojs/tailwind';
+import starlightTypeDoc, { typeDocSidebarGroup } from 'starlight-typedoc';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://chord.vercel.app',
   integrations: [
-    sitemap(),
     starlight({
       title: 'Chord Docs',
       social: {
-        github: 'https://github.com/dmdin/chord'
+        github: 'https://github.com/chord-ts/rpc'
       },
       sidebar: [
         {
           label: 'Guides',
           items: [
             // Each item here is one entry in the navigation menu.
-            {
-              label: 'Example Guide',
-              link: '/guides/example/'
-            }
+            { label: 'Example Guide', link: '/guides/example/' }
           ]
         },
         {
           label: 'Reference',
-          autogenerate: {
-            directory: 'reference'
-          }
+          autogenerate: { directory: 'reference' }
         },
-        // typeDocSidebarGroup
+				typeDocSidebarGroup
+      ],
+      customCss: ['./src/tailwind.css'],
+      plugins: [
+        // Generate the documentation.
+        starlightTypeDoc({
+          entryPoints: ['../src/index.ts'],
+          tsconfig: '../tsconfig.json'
+        })
       ]
-    })
-  ],
-  // output: 'server',
-  // adapter: vercel()
+    }),
+    tailwind({ applyBaseStyles: false })
+  ]
 });

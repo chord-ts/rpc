@@ -5,26 +5,22 @@ prev: false
 title: "buildRequest"
 ---
 
-> **buildRequest**(`__namedParameters`): [`Request`](/api/interfaces/request/)
+> **buildRequest**(`__namedParameters`): [`Request`](../interfaces/Request.md)
 
 ## Parameters
 
-▪ **\_\_namedParameters**: `object`
+• **\_\_namedParameters**
 
-▪ **\_\_namedParameters.id?**: `number`
+• **\_\_namedParameters\.id?**: `number`
 
-▪ **\_\_namedParameters.method**: `string`
+• **\_\_namedParameters\.method**: `string`
 
-▪ **\_\_namedParameters.params**: `unknown`[]
+• **\_\_namedParameters\.params**: `unknown`[]
 
 ## Returns
 
-[`Request`](/api/interfaces/request/)
+[`Request`](../interfaces/Request.md)
 
 ## Source
 
-[specs/JSONRPC\_V2/index.ts:4](https://github.com/dmdin/chord/blob/5f43e0e/src/specs/JSONRPC_V2/index.ts#L4)
-
-***
-
-Generated using [typedoc-plugin-markdown](https://www.npmjs.com/package/typedoc-plugin-markdown) and [TypeDoc](https://typedoc.org/)
+[specs/JSONRPC\_V2/index.ts:4](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/index.ts#L4)
