@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "Schema"
 ---
 
@@ -13,7 +13,7 @@ title: "Schema"
 
 #### Source
 
-[types.ts:35](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L35)
+[types.ts:35](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L35)
 
 ***
 
@@ -23,7 +23,7 @@ title: "Schema"
 
 #### Source
 
-[types.ts:36](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L36)
+[types.ts:36](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L36)
 
 ***
 
@@ -33,4 +33,4 @@ title: "Schema"
 
 #### Source
 
-[types.ts:34](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L34)
+[types.ts:34](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L34)

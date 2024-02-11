@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "@chord-ts/rpc"
 ---
 

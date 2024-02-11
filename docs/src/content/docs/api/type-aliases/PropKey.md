@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "PropKey"
 ---
 
@@ -9,4 +9,4 @@ title: "PropKey"
 
 ## Source
 
-[types.ts:90](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L90)
+[types.ts:90](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L90)

@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "MethodConfig"
 ---
 
@@ -21,7 +21,7 @@ title: "MethodConfig"
 
 #### Source
 
-[types.ts:15](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L15)
+[types.ts:15](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L15)
 
 ***
 
@@ -35,7 +35,7 @@ title: "MethodConfig"
 
 #### Source
 
-[types.ts:16](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L16)
+[types.ts:16](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L16)
 
 ***
 
@@ -45,4 +45,4 @@ title: "MethodConfig"
 
 #### Source
 
-[types.ts:20](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L20)
+[types.ts:20](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L20)

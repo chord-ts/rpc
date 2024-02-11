@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "ErrorCallback"
 ---
 
@@ -19,4 +19,4 @@ title: "ErrorCallback"
 
 ## Source
 
-[types.ts:54](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L54)
+[types.ts:54](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L54)

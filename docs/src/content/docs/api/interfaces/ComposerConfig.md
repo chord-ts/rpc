@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "ComposerConfig"
 ---
 
@@ -13,7 +13,7 @@ title: "ComposerConfig"
 
 #### Source
 
-[types.ts:64](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L64)
+[types.ts:64](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L64)
 
 ***
 
@@ -23,4 +23,4 @@ title: "ComposerConfig"
 
 #### Source
 
-[types.ts:63](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L63)
+[types.ts:63](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L63)

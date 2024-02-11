@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "rpc"
 ---
 
@@ -9,7 +9,9 @@ title: "rpc"
 
 The `rpc` function is a TypeScript decorator that adds metadata and configuration options to Composer singleton.
 
-⚠️ Decorator registers method using the class name of parent. That's why you have to specify the same name as key during Composer initialization
+:::caution
+Decorator registers method using the class name of parent. That's why you have to specify the same name as key during Composer initialization
+:::
 
 ## Parameters
 
@@ -51,4 +53,4 @@ export class Say {
 
 ## Source
 
-[server.ts:385](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L385)
+[server.ts:410](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L410)

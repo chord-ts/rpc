@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "depends"
 ---
 
@@ -29,4 +29,4 @@ The function `depends()` returns another function.
 
 ## Source
 
-[server.ts:414](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L414)
+[server.ts:439](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L439)

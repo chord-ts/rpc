@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "FailedResponse"
 ---
 
@@ -13,7 +13,7 @@ title: "FailedResponse"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:31](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L31)
+[specs/JSONRPC\_V2/types.ts:31](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/types.ts#L31)
 
 ***
 
@@ -23,4 +23,4 @@ title: "FailedResponse"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:30](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L30)
+[specs/JSONRPC\_V2/types.ts:30](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/types.ts#L30)

@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "Target"
 ---
 
@@ -17,4 +17,4 @@ title: "Target"
 
 #### Source
 
-[types.ts:68](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L68)
+[types.ts:68](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L68)

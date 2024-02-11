@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "Composer"
 ---
 
@@ -38,7 +38,7 @@ The `config` parameter is an optional argument of type
 
 #### Source
 
-[server.ts:42](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L42)
+[server.ts:42](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L42)
 
 ## Properties
 
@@ -48,7 +48,7 @@ The `config` parameter is an optional argument of type
 
 #### Source
 
-[server.ts:54](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L54)
+[server.ts:54](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L54)
 
 ***
 
@@ -58,7 +58,7 @@ The `config` parameter is an optional argument of type
 
 #### Source
 
-[server.ts:57](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L57)
+[server.ts:57](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L57)
 
 ## Accessors
 
@@ -77,7 +77,7 @@ to `T`.
 
 #### Source
 
-[server.ts:132](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L132)
+[server.ts:132](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L132)
 
 ## Methods
 
@@ -103,9 +103,27 @@ string keys and unknown values.
 The function `exec` returns a `Promise` that resolves to either a `SomeResponse` object
 or a `BatchResponse` array.
 
+#### Example
+
+__SvelteKit example__
+```typescript
+export async function POST(event) {
+ return json(await composer.exec(event));
+}
+```
+ __Express example__
+```typescript
+const app = express()
+app.use(express.json());
+
+app.post('/', async (req, res) => {
+ res.send(await composer.exec(req));
+})
+```
+
 #### Source
 
-[server.ts:180](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L180)
+[server.ts:204](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L204)
 
 ***
 
@@ -132,7 +150,7 @@ a Schema object.
 
 #### Source
 
-[server.ts:155](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L155)
+[server.ts:163](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L163)
 
 ***
 
@@ -148,15 +166,24 @@ The "use" function adds a middleware function to the list of middlewares.
 
 The `middleware` parameter is a function that acts as a middleware.
 It is a function that takes three arguments: `req`, `res`, and `next`. The `req` argument represents
-the request object, the `res` argument represents the response object, and the `next` argument is
+the request object, the `res` argument represents the response object, and the `next` argument is a 
+callback that should be called to continue the execution of middlewares and procedures.
 
 #### Returns
 
 `void`
 
+#### Example
+
+```typescript
+import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares';
+// ...
+composer.use(sveltekitMiddleware())
+```
+
 #### Source
 
-[server.ts:143](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L143)
+[server.ts:151](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L151)
 
 ***
 
@@ -178,7 +205,7 @@ The parameter `desc` is of type `MethodDescription`.
 
 #### Source
 
-[server.ts:91](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L91)
+[server.ts:91](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L91)
 
 ***
 
@@ -202,7 +229,7 @@ The function `addProp` adds a property to a target object and stores it in a map
 
 #### Source
 
-[server.ts:100](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L100)
+[server.ts:100](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L100)
 
 ***
 
@@ -231,7 +258,7 @@ object.
 
 #### Source
 
-[server.ts:117](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L117)
+[server.ts:117](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L117)
 
 ***
 
@@ -280,4 +307,4 @@ export const composer = Composer.init({ Say: new Say() });
 
 #### Source
 
-[server.ts:83](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L83)
+[server.ts:83](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L83)

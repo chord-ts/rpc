@@ -138,7 +138,15 @@ export class Composer<T extends { [s: string]: unknown }> {
  * The "use" function adds a middleware function to the list of middlewares.
  * @param {Middleware} middleware - The `middleware` parameter is a function that acts as a middleware.
  * It is a function that takes three arguments: `req`, `res`, and `next`. The `req` argument represents
- * the request object, the `res` argument represents the response object, and the `next` argument is
+ * the request object, the `res` argument represents the response object, and the `next` argument is a 
+ * callback that should be called to continue the execution of middlewares and procedures.
+ * @example
+ * ```typescript
+ * import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares';
+ * // ...
+ * composer.use(sveltekitMiddleware())
+ * ```
+ * 
  */
   public use(middleware: Middleware) {
     this.middlewares.push(middleware);
@@ -176,6 +184,22 @@ export class Composer<T extends { [s: string]: unknown }> {
    * string keys and unknown values.
    * @returns The function `exec` returns a `Promise` that resolves to either a `SomeResponse` object
    * or a `BatchResponse` array.
+   * @example
+   * __SvelteKit example__
+   * ```typescript
+   * export async function POST(event) {
+   *  return json(await composer.exec(event));
+   * }
+   * ```
+   *  __Express example__
+   *```typescript
+   * const app = express()
+   * app.use(express.json());
+   * 
+   * app.post('/', async (req, res) => {
+   *  res.send(await composer.exec(req));
+   * })
+   * ```
    */
   public async exec(event: unknown): Promise<SomeResponse | BatchResponse> {
     const { ctx, res } = await this.runMiddlewares(
@@ -365,13 +389,14 @@ export function toRPC<T extends object>(instance: T): T {
 /**
  * The `rpc` function is a TypeScript decorator that adds metadata and configuration options to Composer singleton.
  * 
- * ⚠️ Decorator registers method using the class name of parent. That's why you have to specify the same name as key during Composer initialization
+ * :::caution
+ * Decorator registers method using the class name of parent. That's why you have to specify the same name as key during Composer initialization
+ * :::
  * @category General Use
  * @param {MethodConfig} [config] - The `config` parameter is an optional object that contains
  * configuration options for the `rpc` function. It has the following properties:
  * @returns The `rpc` function returns a new function that takes three arguments: `target`, `key`, and
  * `descriptor`.
- * 
  * @example
  * ```ts
  * export class Say {

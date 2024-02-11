@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "InvalidateCallback"
 ---
 
@@ -17,4 +17,4 @@ title: "InvalidateCallback"
 
 ## Source
 
-[types.ts:52](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L52)
+[types.ts:52](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L52)

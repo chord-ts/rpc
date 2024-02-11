@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "CacheSetter"
 ---
 
@@ -23,4 +23,4 @@ title: "CacheSetter"
 
 ## Source
 
-[types.ts:51](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L51)
+[types.ts:51](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L51)

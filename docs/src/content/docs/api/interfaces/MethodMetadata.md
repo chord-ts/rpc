@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "MethodMetadata"
 ---
 
@@ -13,7 +13,7 @@ title: "MethodMetadata"
 
 #### Source
 
-[types.ts:30](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L30)
+[types.ts:30](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L30)
 
 ***
 
@@ -23,4 +23,4 @@ title: "MethodMetadata"
 
 #### Source
 
-[types.ts:29](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L29)
+[types.ts:29](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L29)

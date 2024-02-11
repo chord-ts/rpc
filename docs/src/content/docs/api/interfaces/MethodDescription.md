@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "MethodDescription"
 ---
 
@@ -13,7 +13,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:9](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L9)
+[types.ts:9](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L9)
 
 ***
 
@@ -23,7 +23,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:6](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L6)
+[types.ts:6](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L6)
 
 ***
 
@@ -33,7 +33,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:5](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L5)
+[types.ts:5](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L5)
 
 ***
 
@@ -43,7 +43,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:10](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L10)
+[types.ts:10](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L10)
 
 ***
 
@@ -53,7 +53,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:7](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L7)
+[types.ts:7](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L7)
 
 ***
 
@@ -63,7 +63,7 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:11](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L11)
+[types.ts:11](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L11)
 
 ***
 
@@ -73,4 +73,4 @@ title: "MethodDescription"
 
 #### Source
 
-[types.ts:8](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L8)
+[types.ts:8](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L8)

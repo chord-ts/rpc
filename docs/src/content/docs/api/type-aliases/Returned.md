@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "Returned"
 ---
 
@@ -13,4 +13,4 @@ title: "Returned"
 
 ## Source
 
-[client.ts:187](https://github.com/chord-ts/rpc/blob/d3d88c3/src/client.ts#L187)
+[client.ts:194](https://github.com/chord-ts/rpc/blob/0637e5c/src/client.ts#L194)

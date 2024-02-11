@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "Composed"
 ---
 
@@ -13,4 +13,4 @@ title: "Composed"
 
 ## Source
 
-[types.ts:88](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L88)
+[types.ts:88](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L88)

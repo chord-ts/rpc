@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "CacheStorage"
 ---
 
@@ -25,4 +25,4 @@ title: "CacheStorage"
 
 ## Source
 
-[types.ts:46](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L46)
+[types.ts:46](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L46)

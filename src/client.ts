@@ -129,6 +129,12 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
   return { call, batch, cache };
 }
 
+/**
+ * The `dynamicClient` function is a TypeScript function that creates a dynamic client for making API
+ * calls based on a provided endpoint and configuration.
+ * @param [params] - The `params` parameter is an optional object that can contain two properties:
+ * @returns The function `dynamicClient` returns an instance of `Client<T>`.
+ */
 export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientConfig }): Client<T> {
   let endpoint;
   try {
@@ -183,5 +189,6 @@ export function dynamicClient<T>(params?: { endpoint?: string; config?: ClientCo
   };
   return new Proxy({ path: [], modifiers: [] }, service) as unknown as Client<T>;
 }
+
 export const client = dynamicClient;
 export type Returned<T extends ((...args: unknown[]) => unknown) > = Awaited<ReturnType<T>>

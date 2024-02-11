@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "buildResponse"
 ---
 
@@ -21,4 +21,4 @@ title: "buildResponse"
 
 ## Source
 
-[specs/JSONRPC\_V2/index.ts:17](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/index.ts#L17)
+[specs/JSONRPC\_V2/index.ts:17](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/index.ts#L17)

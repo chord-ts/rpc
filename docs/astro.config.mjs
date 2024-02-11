@@ -5,6 +5,11 @@ import starlightTypeDoc, { typeDocSidebarGroup } from 'starlight-typedoc';
 
 // https://astro.build/config
 export default defineConfig({
+  // vite: {
+    // server: {
+      // watch: 
+    // }
+  // },
   integrations: [
     starlight({
       title: 'Chord Docs',
@@ -13,15 +18,13 @@ export default defineConfig({
       },
       sidebar: [
         {
-          label: 'Guides',
-          items: [
-            // Each item here is one entry in the navigation menu.
-            { label: 'Example Guide', link: '/guides/example/' }
-          ]
-        },
-        {
           label: 'Reference',
           autogenerate: { directory: 'reference' }
+        },
+        {
+          label: 'Guides',
+          autogenerate: { directory: 'guides' }
+
         },
 				typeDocSidebarGroup
       ],
@@ -30,7 +33,9 @@ export default defineConfig({
         // Generate the documentation.
         starlightTypeDoc({
           entryPoints: ['../src/index.ts'],
-          tsconfig: '../tsconfig.json'
+          tsconfig: '../tsconfig.json',
+          pagination: true,
+          // watch: true,
         })
       ]
     }),

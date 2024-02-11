@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "Response"
 ---
 
@@ -13,7 +13,7 @@ title: "Response"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:26](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L26)
+[specs/JSONRPC\_V2/types.ts:26](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/types.ts#L26)
 
 ***
 
@@ -23,7 +23,7 @@ title: "Response"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:24](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L24)
+[specs/JSONRPC\_V2/types.ts:24](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/types.ts#L24)
 
 ***
 
@@ -33,4 +33,4 @@ title: "Response"
 
 #### Source
 
-[specs/JSONRPC\_V2/types.ts:25](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L25)
+[specs/JSONRPC\_V2/types.ts:25](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/types.ts#L25)

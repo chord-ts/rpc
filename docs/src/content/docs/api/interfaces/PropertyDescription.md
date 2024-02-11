@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "PropertyDescription"
 ---
 
@@ -13,7 +13,7 @@ title: "PropertyDescription"
 
 #### Source
 
-[types.ts:24](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L24)
+[types.ts:24](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L24)
 
 ***
 
@@ -23,4 +23,4 @@ title: "PropertyDescription"
 
 #### Source
 
-[types.ts:25](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L25)
+[types.ts:25](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L25)

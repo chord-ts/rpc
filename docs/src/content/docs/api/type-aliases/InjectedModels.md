@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "InjectedModels"
 ---
 
@@ -13,4 +13,4 @@ title: "InjectedModels"
 
 ## Source
 
-[types.ts:71](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L71)
+[types.ts:71](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L71)

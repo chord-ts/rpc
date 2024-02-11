@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "Call"
 ---
 
@@ -13,7 +13,7 @@ title: "Call"
 
 #### Source
 
-[types.ts:99](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L99)
+[types.ts:99](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L99)
 
 ***
 
@@ -23,4 +23,4 @@ title: "Call"
 
 #### Source
 
-[types.ts:100](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L100)
+[types.ts:100](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L100)

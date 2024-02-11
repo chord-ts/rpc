@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "buildError"
 ---
 
@@ -17,4 +17,4 @@ title: "buildError"
 
 ## Source
 
-[specs/JSONRPC\_V2/index.ts:31](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/index.ts#L31)
+[specs/JSONRPC\_V2/index.ts:31](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/index.ts#L31)

@@ -1,11 +1,14 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "client"
 ---
 
 > **client**\<`T`\>(`params`?): [`Client`](../type-aliases/Client.md)\<`T`\>
+
+The `dynamicClient` function is a TypeScript function that creates a dynamic client for making API
+calls based on a provided endpoint and configuration.
 
 ## Type parameters
 
@@ -15,6 +18,8 @@ title: "client"
 
 • **params?**
 
+The `params` parameter is an optional object that can contain two properties:
+
 • **params\.config?**: [`ClientConfig`](../interfaces/ClientConfig.md)
 
 • **params\.endpoint?**: `string`
@@ -23,6 +28,8 @@ title: "client"
 
 [`Client`](../type-aliases/Client.md)\<`T`\>
 
+The function `dynamicClient` returns an instance of `Client<T>`.
+
 ## Source
 
-[client.ts:186](https://github.com/chord-ts/rpc/blob/d3d88c3/src/client.ts#L186)
+[client.ts:193](https://github.com/chord-ts/rpc/blob/0637e5c/src/client.ts#L193)

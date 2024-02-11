@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "ClientConfig"
 ---
 
@@ -13,7 +13,7 @@ title: "ClientConfig"
 
 #### Source
 
-[types.ts:59](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L59)
+[types.ts:59](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L59)
 
 ***
 
@@ -23,7 +23,7 @@ title: "ClientConfig"
 
 #### Source
 
-[types.ts:58](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L58)
+[types.ts:58](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L58)
 
 ***
 
@@ -33,4 +33,4 @@ title: "ClientConfig"
 
 #### Source
 
-[types.ts:57](https://github.com/chord-ts/rpc/blob/d3d88c3/src/types.ts#L57)
+[types.ts:57](https://github.com/chord-ts/rpc/blob/0637e5c/src/types.ts#L57)

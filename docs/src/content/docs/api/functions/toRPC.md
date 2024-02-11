@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "toRPC"
 ---
 
@@ -45,4 +45,4 @@ const composer = Composer.init({
 
 ## Source
 
-[server.ts:343](https://github.com/chord-ts/rpc/blob/d3d88c3/src/server.ts#L343)
+[server.ts:367](https://github.com/chord-ts/rpc/blob/0637e5c/src/server.ts#L367)

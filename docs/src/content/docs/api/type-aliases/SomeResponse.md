@@ -1,7 +1,7 @@
 ---
 editUrl: false
-next: false
-prev: false
+next: true
+prev: true
 title: "SomeResponse"
 ---
 
@@ -9,4 +9,4 @@ title: "SomeResponse"
 
 ## Source
 
-[specs/JSONRPC\_V2/types.ts:36](https://github.com/chord-ts/rpc/blob/d3d88c3/src/specs/JSONRPC_V2/types.ts#L36)
+[specs/JSONRPC\_V2/types.ts:36](https://github.com/chord-ts/rpc/blob/0637e5c/src/specs/JSONRPC_V2/types.ts#L36)
