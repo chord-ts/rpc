@@ -75,7 +75,6 @@ export class Composer<T extends { [s: string]: unknown }> {
  *    return `Hello, ${name}!`;
  *  }
  * }
- * 
  * export const composer = Composer.init({ Say: new Say() });
  * ```
  */
@@ -108,7 +107,8 @@ export class Composer<T extends { [s: string]: unknown }> {
  * not, it checks if it has a `request` property and returns it.
  * @param {unknown} event - The `event` parameter is of type `unknown`, which means it can be any type
  * of value. It is used to represent an event object that is passed to the `findRequestField` function.
- * The function checks if the `event` object has a `body` property and a `method
+ * The function checks if the `event` object has a `body` property and a `method`
+ * 
  * @returns The function `findRequestField` returns the `event` object if it has a `body` property and
  * a `method` property. If the `event` object does not have these properties, it checks if the `event`
  * object has a property named `request`. If it does, it returns the `request` property of the `event`

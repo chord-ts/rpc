@@ -32,9 +32,18 @@ export default defineConfig({
       plugins: [
         // Generate the documentation.
         starlightTypeDoc({
-          entryPoints: ['../src/index.ts'],
+          entryPoints: ['../src/middlewares/index.ts', '../src/client.ts', '../src/server.ts',],
           tsconfig: '../tsconfig.json',
           pagination: true,
+          typeDoc: {
+            entryPointStrategy: 'resolve',
+            excludeInternal: true,
+            excludePrivate: true,
+            excludeProtected: true,
+            githubPages: false,
+            readme: 'none',
+            theme: 'starlight-typedoc',
+          }
           // watch: true,
         })
       ]

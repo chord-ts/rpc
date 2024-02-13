@@ -15,9 +15,17 @@ import { MethodDescription } from './types';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { generateMock } from '@anatine/zod-mock';
 
+/* The `SchemaGenerator` class generates an OpenRPC schema based on a configuration and a set of method
+descriptions. */
 export class SchemaGenerator {
   private schema: OpenrpcDocument;
 
+  /**
+  * The constructor function initializes the schema object with default values or values provided in
+  * the config parameter.
+  * @param [config] - The `config` parameter is an optional object that can contain the following
+  * properties:
+  */
   constructor(config?: { openrpc?: Openrpc; info?: InfoObject; servers?: Servers }) {
     const openrpc = config?.openrpc ?? '1.2.6';
     const info = config?.info ?? {
@@ -95,6 +103,11 @@ export class SchemaGenerator {
     };
   }
 
+  /**
+   * The render function returns a formatted JSON string representation of the schema.
+   * @returns The return value is a stringified version of the "schema" object, with indentation of 2
+   * spaces.
+   */
   render() {
     return JSON.stringify(this.schema, null, 2);
   }
