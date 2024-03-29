@@ -1,6 +1,6 @@
 {
   "name": "@chord-ts/rpc",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {

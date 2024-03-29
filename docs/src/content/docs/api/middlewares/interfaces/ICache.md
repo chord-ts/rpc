@@ -21,7 +21,7 @@ title: "ICache"
 
 #### Source
 
-[middlewares/cache.ts:7](https://github.com/dmdin/chord/blob/8cccc00/src/middlewares/cache.ts#L7)
+[middlewares/cache.ts:7](https://github.com/chord-ts/rpc/blob/1be4c49/src/middlewares/cache.ts#L7)
 
 ***
 
@@ -43,4 +43,4 @@ title: "ICache"
 
 #### Source
 
-[middlewares/cache.ts:8](https://github.com/dmdin/chord/blob/8cccc00/src/middlewares/cache.ts#L8)
+[middlewares/cache.ts:8](https://github.com/chord-ts/rpc/blob/1be4c49/src/middlewares/cache.ts#L8)

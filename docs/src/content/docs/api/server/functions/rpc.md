@@ -53,4 +53,4 @@ export class Say {
 
 ## Source
 
-[server.ts:410](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L410)
+[server.ts:410](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L410)

@@ -26,4 +26,4 @@ type Sum = Returned<typeof fn>; // string
 
 ## Source
 
-[client.ts:237](https://github.com/dmdin/chord/blob/8cccc00/src/client.ts#L237)
+[client.ts:263](https://github.com/chord-ts/rpc/blob/1be4c49/src/client.ts#L263)

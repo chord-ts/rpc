@@ -38,7 +38,7 @@ The `config` parameter is an optional argument of type
 
 #### Source
 
-[server.ts:42](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L42)
+[server.ts:42](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L42)
 
 ## Properties
 
@@ -48,7 +48,7 @@ The `config` parameter is an optional argument of type
 
 #### Source
 
-[server.ts:54](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L54)
+[server.ts:54](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L54)
 
 ***
 
@@ -58,7 +58,7 @@ The `config` parameter is an optional argument of type
 
 #### Source
 
-[server.ts:57](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L57)
+[server.ts:57](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L57)
 
 ## Accessors
 
@@ -77,7 +77,7 @@ to `T`.
 
 #### Source
 
-[server.ts:132](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L132)
+[server.ts:132](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L132)
 
 ## Methods
 
@@ -123,7 +123,7 @@ app.post('/', async (req, res) => {
 
 #### Source
 
-[server.ts:204](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L204)
+[server.ts:204](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L204)
 
 ***
 
@@ -150,7 +150,7 @@ a Schema object.
 
 #### Source
 
-[server.ts:163](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L163)
+[server.ts:163](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L163)
 
 ***
 
@@ -183,7 +183,7 @@ composer.use(sveltekitMiddleware())
 
 #### Source
 
-[server.ts:151](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L151)
+[server.ts:151](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L151)
 
 ***
 
@@ -205,7 +205,7 @@ The parameter `desc` is of type `MethodDescription`.
 
 #### Source
 
-[server.ts:90](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L90)
+[server.ts:90](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L90)
 
 ***
 
@@ -229,7 +229,7 @@ The function `addProp` adds a property to a target object and stores it in a map
 
 #### Source
 
-[server.ts:99](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L99)
+[server.ts:99](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L99)
 
 ***
 
@@ -259,7 +259,7 @@ object.
 
 #### Source
 
-[server.ts:117](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L117)
+[server.ts:117](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L117)
 
 ***
 
@@ -307,4 +307,4 @@ export const composer = Composer.init({ Say: new Say() });
 
 #### Source
 
-[server.ts:82](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L82)
+[server.ts:82](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L82)

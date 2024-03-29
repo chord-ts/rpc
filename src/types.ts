@@ -36,13 +36,15 @@ export interface Schema {
   models: string[];
 }
 
-export type Transport = (data: {
-  route: string;
-  body: unknown;
-}) => Promise<SomeResponse | BatchResponse>;
+export type Transport = (
+  data: {
+    route: string;
+    body: unknown;
+  },
+  opt?: unknown
+) => Promise<SomeResponse | BatchResponse>;
 
-
-export type CacheConfig = { expiry?: number, mode?: 'update', onInvalidate?: InvalidateCallback }
+export type CacheConfig = { expiry?: number; mode?: 'update'; onInvalidate?: InvalidateCallback };
 export type CacheStorage = (config: CacheConfig) => {
   get: CacheGetter;
   set: CacheSetter;
@@ -78,6 +80,8 @@ export type ModifiedMethods<T> = {
     batch: (...args: Parameters<T[Property]>) => Request;
     // @ts-expect-error: We want to clone all types from original method to batch method
     cache: (config?: CacheConfig<ReturnType<T[Property]>>) => (...args: Parameters<T[Property]>) => ReturnType<T[Property]>;
+    // @ts-expect-error: We want to clone all types from original method to batch method
+    opt: (options: object) => (...args: Parameters<T[Property]>) => ReturnType<T[Property]>;
   };
 };
 

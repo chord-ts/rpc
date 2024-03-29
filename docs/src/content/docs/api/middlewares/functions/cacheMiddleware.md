@@ -31,4 +31,4 @@ The function `cacheMiddleware` returns a middleware function.
 
 ## Source
 
-[middlewares/cache.ts:25](https://github.com/dmdin/chord/blob/8cccc00/src/middlewares/cache.ts#L25)
+[middlewares/cache.ts:25](https://github.com/chord-ts/rpc/blob/1be4c49/src/middlewares/cache.ts#L25)

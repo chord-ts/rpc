@@ -29,4 +29,4 @@ The function `depends()` returns another function.
 
 ## Source
 
-[server.ts:439](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L439)
+[server.ts:439](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L439)

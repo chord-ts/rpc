@@ -6,8 +6,8 @@ settings:
 
 devDependencies:
   '@chord-ts/rpc':
-    specifier: ^0.2.4
-    version: 0.2.5
+    specifier: ^0.2.7
+    version: 0.2.7(zod@3.22.4)
   '@playwright/test':
     specifier: ^1.28.1
     version: 1.28.1
@@ -87,10 +87,13 @@ packages:
       '@jridgewell/trace-mapping': 0.3.20
     dev: true
 
-  /@chord-ts/rpc@0.2.5:
-    resolution: {integrity: sha512-TwOHdPUqZUNGEgBBAV3wkw9frwG+dDMauSqC/lDl1aNsvNJo/zSeGN0+S5nLtCnTbAPXEsVpxfGzQyU7RLJkTQ==}
+  /@chord-ts/rpc@0.2.7(zod@3.22.4):
+    resolution: {integrity: sha512-7z0tRmUqdeLCHxDMwgrQAxTdMIfUg9iTnlTOYhkhbJKNGWpPe7QILnFBUNWZap0CQHcOo36YNxwTrl+TjRe4Aw==}
     dependencies:
       reflect-metadata: 0.1.13
+      zod-to-json-schema: 3.22.3(zod@3.22.4)
+    transitivePeerDependencies:
+      - zod
     dev: true
 
   /@esbuild/android-arm64@0.18.20:

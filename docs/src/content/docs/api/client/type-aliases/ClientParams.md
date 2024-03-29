@@ -19,4 +19,4 @@ title: "ClientParams"
 
 ## Source
 
-[client.ts:157](https://github.com/dmdin/chord/blob/8cccc00/src/client.ts#L157)
+[client.ts:157](https://github.com/chord-ts/rpc/blob/1be4c49/src/client.ts#L157)

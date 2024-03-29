@@ -1,7 +1,7 @@
 import express from 'express'
 
 import { Composer, rpc, depends, type Composed, buildResponse } from '@chord-ts/rpc';
-import expressMiddleware from '@chord-ts/rpc/middlewares/sveltekit';
+import {expressMiddleware} from '@chord-ts/rpc/middlewares';
 
 import type { ITestRPC, ITestRPC2, Wrapped} from './types'
 

@@ -45,4 +45,4 @@ const composer = Composer.init({
 
 ## Source
 
-[server.ts:367](https://github.com/dmdin/chord/blob/8cccc00/src/server.ts#L367)
+[server.ts:367](https://github.com/chord-ts/rpc/blob/1be4c49/src/server.ts#L367)

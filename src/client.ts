@@ -13,8 +13,8 @@ import type {
 import type { FailedResponse, Response, BatchRequest, BatchResponse } from './specs';
 import { buildRequest } from './specs';
 
-const defaultTransport: Transport = async ({ route, body }) => {
-  return await fetch(route, { method: 'POST', body: JSON.stringify(body) })
+const defaultTransport: Transport = async ({ route, body }, opt) => {
+  return await fetch(route, { method: 'POST', body: JSON.stringify(body), ...opt as object })
     .then((r) => r.json())
     .catch(() => {
       return { error: { message: 'Failed durning fetch request' } } as FailedResponse;
@@ -90,10 +90,10 @@ function initClient({ schema, config }: { schema: Schema; config?: ClientConfig 
    * to be called.
    * @returns an asynchronous function that takes an array of unknown parameters and returns a Promise.
    */
-  function call(method: string) {
+  function call(method: string, opt?: unknown[]) {
     return async (params: unknown[]) => {
       const body = buildRequest({ method, params });
-      const res = await transport({ route: schema.route, body });
+      const res = await transport({ route: schema.route, body }, ...(opt ?? []));
       if ((res as FailedResponse).error) {
         return await errorCallback((res as FailedResponse).error, body);
       }
@@ -159,10 +159,24 @@ export type ClientParams = { endpoint?: string; config?: ClientConfig }
  * The `dynamicClient` function is a _TypeScript_ function that creates a dynamic client for making API
  * calls based on a provided endpoint and configuration.
  * 
+ * @typeParam T - The type describes `Services`. We have to import it from the server-side code. It's valid import, because it's not a value
  * @param {ClientParams}[params] - The `params` parameter is an optional object that can contain two properties. 
- * `endpoint` - is a path for endpoint that res
+ * `endpoint` - is a path for endpoint that handles JSON-RPC calls with POST method
+ * @example
+ * ```typescript
+ * // +server.ts
+ * export type Client = typeof composer.clientType
  * 
+ * // +page.svelte
+ * // client and dynamicClient are the same
+ * import { dynamicClient } from '@chord-ts/rpc/client';
+ * import type { Client } from './+server';
+ * 
+ * const rpc = client<Client>({ endpoint: '/<path to endpoint>' });
+ * ```
  * @returns The function `dynamicClient` returns an instance of `Client<T>`.
+ * @deprecated
+ * It's better to use `client`, because `dynamicClient` will be removed in future
  */
 export function dynamicClient<T>(params?: ClientParams): Client<T> {
   let endpoint;
@@ -187,7 +201,11 @@ export function dynamicClient<T>(params?: ClientParams): Client<T> {
         return buildRequest({ method, params });
       } else if (modifier === 'cache') {
         return cache(params[0] as CacheConfig)(method);
+      } else if (modifier === 'opt') {
+        const options = params
+        return (...params: unknown[]) => call(method, options)(params);
       } else {
+        console.log('exec', params)
         return call(method)(params);
       }
     },
@@ -220,9 +238,19 @@ export function dynamicClient<T>(params?: ClientParams): Client<T> {
 }
 
 /**
- * {@inheritDoc dynamicClient}
- * @remarks
- * This is alias for `dynamicClient`
+ * @remarks This is alias for `dynamicClient`
+ * @example
+ * ```typescript
+ * // +server.ts
+ * export type Client = typeof composer.clientType
+ * 
+ * // +page.svelte
+ * // client and dynamicClient are the same
+ * import { client } from '@chord-ts/rpc/client';
+ * import type { Client } from './+server';
+ * 
+ * const rpc = client<Client>({ endpoint: '/<path to endpoint>' });
+ * ```
  */
 export const client = dynamicClient;
 
