@@ -1,6 +1,6 @@
 {
   "name": "@chord-ts/rpc",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {
@@ -44,11 +44,12 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc && pnpm run minify",
-    "minify": "terser --compress --module -o ./dist/client.js -- ./dist/client.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js -- ./dist/specs/JSONRPC_V2/index.js",
+    "dev": "nodemon --exec npx ts-node src/tests.ts",
     "format": "prettier --write ./src/**/*.{js,json,html,ts}",
     "lint": "eslint --fix ./src",
-    "dev": "nodemon --exec npx ts-node src/tests.ts",
+    "test": "vitest",
+    "build": "tsc && pnpm run minify",
+    "minify": "terser --compress --module -o ./dist/client.js -- ./dist/client.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js -- ./dist/specs/JSONRPC_V2/index.js",
     "patch": "pnpm run build && pnpm version patch --no-git-tag-version",
     "upload": "pnpm publish --no-git-checks"
   },
@@ -61,7 +62,9 @@
     "prettier": "^3.1.0",
     "terser": "^5.26.0",
     "tslib": "^2.6.2",
-    "typescript": "^5.3.2"
+    "typescript": "^5.3.2",
+    "unplugin-swc": "^1.4.5",
+    "vitest": "^1.6.0"
   },
   "dependencies": {
     "reflect-metadata": "^0.1.13",

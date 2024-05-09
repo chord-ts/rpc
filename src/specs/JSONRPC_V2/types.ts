@@ -12,10 +12,10 @@ export enum ErrorCode {
 
 /* The `Request` interface is defining the structure of a JSON-RPC request object in TypeScript. 
  */
-export interface Request {
+export interface Request<T> {
   jsonrpc: '2.0';
   method: string;
-  params: unknown[];
+  params: T[];
   id: number | null;
 }
 
@@ -28,9 +28,9 @@ export interface Error {
 }
 
 /* The `Response` interface is defining the structure of a JSON-RPC response object in TypeScript. */
-export interface Response {
+export interface Response<T> {
   jsonrpc: '2.0';
-  result: unknown;
+  result: T;
   id: number | null;
 }
 
@@ -43,6 +43,6 @@ export interface FailedResponse {
 
 export type Some<T, K> = T | K;
 
-export type SomeResponse = Some<Response, FailedResponse>;
-export type BatchRequest = Request[];
-export type BatchResponse = SomeResponse[];
+export type SomeResponse<T> = Some<Response<T>, FailedResponse>;
+export type BatchRequest<T> = Request<T>[];
+export type BatchResponse<T> = SomeResponse<T>[];

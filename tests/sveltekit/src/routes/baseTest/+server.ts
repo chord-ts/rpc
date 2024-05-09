@@ -22,7 +22,8 @@ class TestRPC {
 		// throw Error('Произошла ошибка!')
 		return `Hello from TestRPC, ${param}`;
 	}
-
+	
+	@rpc()
 	dbReq2(param: string): string {
 		return `Hello dbReq2, ${param}`;
 	}

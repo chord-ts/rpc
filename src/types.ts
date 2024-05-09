@@ -77,16 +77,21 @@ export type InjectedModels<T> = {
 export type ModifiedMethods<T> = {
   [Property in keyof T]: T[Property] & {
     // @ts-expect-error: We want to clone all types from original method to batch method
+    new(...args: Parameters<T[Property]>): Request
+    // @ts-expect-error: We want to clone all types from original method to batch method
     batch: (...args: Parameters<T[Property]>) => Request;
     // @ts-expect-error: We want to clone all types from original method to batch method
     cache: (config?: CacheConfig<ReturnType<T[Property]>>) => (...args: Parameters<T[Property]>) => ReturnType<T[Property]>;
     // @ts-expect-error: We want to clone all types from original method to batch method
     opt: (options: object) => (...args: Parameters<T[Property]>) => ReturnType<T[Property]>;
+    
   };
 };
 
 export type Client<T> = InjectedModels<T> & {
+  // @ts-expect-error: We want to clone all types from original method to batch method
   batch: (...calls: BatchRequest) => Promise<unknown[]>;
+  config: (options: ClientConfig) => Client<T>;
 };
 
 export type Composed<T extends { [s: string]: unknown }> = Composer<T> & InjectedModels<T>;
@@ -102,4 +107,9 @@ export type Middleware = (
 export interface Call {
   method: string;
   params: unknown[];
+}
+
+export interface ClientInit {
+  endpoint: string;
+  config?: ClientConfig;
 }

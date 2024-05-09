@@ -230,10 +230,9 @@ export class Composer<T extends { [s: string]: unknown }> {
 
     const batch: BatchResponse = [];
     for (const proc of body) {
-      // We don't want to use Promise All to save the order of execution, isn't it?
-      batch.push(await this.execProcedure(proc, ctx));
+      batch.push(this.execProcedure(proc, ctx));
     }
-    return batch;
+    return Promise.all(batch);
   }
 
   private async runMiddlewares(
@@ -311,8 +310,9 @@ export class Composer<T extends { [s: string]: unknown }> {
         request: proc,
         result
       });
-    } catch (e) {
+    } catch (e) {      
       (this.config?.onError ?? console.error)(e, proc);
+
       return buildError({
         code: ErrorCode.InternalError,
         message: (e as { message?: string })?.message ?? '',

@@ -6,8 +6,7 @@
 	const rpc = client<Client>({ endpoint: '/abortTest' });
 
 	const c = new AbortController();
-	const res = rpc.Service.hello
-    .opt({signal: c.signal})('name');
+	const res = rpc.Service.hello.opt({signal: c.signal})('name');
 </script>
 
 <div>

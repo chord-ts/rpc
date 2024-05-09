@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { client } from '../../../../../src/client';
+  import { RPC, Builder, client, clientV2 } from '../../../../../src/client';
   // import { dynamicClient } from '@chord-ts/rpc/client';
   import { onMount } from 'svelte';
   import type { Client } from './+server';
@@ -7,26 +7,62 @@
 
   const error = writable();
 
-  // function catchError(e, m) {
-  //   $error = e.message;
-  // }
+  function catchError(e, m) {
+    $error = e.message;
+  }
 
   onMount(async () => {
     const rpc = client<Client>({endpoint: '/baseTest'} );
 
-    console.log(rpc.TestRPC.dbReq.batch(123))
+    console.log(rpc.batch)
     console.log('TestRPC2', await rpc.TestRPC2.dbReq(123));
     console.log('TestRPC', await rpc.TestRPC.dbReq(123));
     
+
+
     const batchRes = await rpc.batch(
       rpc.TestRPC.dbReq.batch(123),
       rpc.TestRPC2.dbReq.batch(123), 
-      // rpc.TestRPC.dbReq2.batch('123')
+      rpc.TestRPC.dbReq2.batch('123')
     ); // Batch запрос
+
+
+
     console.log(batchRes)
     console.log('onmount rpc=', await rpc.TestRPC.dbReq(123))
-    
   });
+
+
+  onMount(async () =>{
+    const rpc = clientV2<Client>({endpoint: '/baseTest'})
+    console.log('call test', await rpc.TestRPC.dbReq(1))
+    console.log('batch test', rpc.batch)
+    // console.log('cache', rpc.cache)
+    console.log('get', rpc.TestRPC)
+    console.log('get', rpc.TestRPC.dbReq)
+
+    console.log('simple', await rpc.TestRPC.dbReq(123))
+    console.log('construct test', new rpc.TestRPC.dbReq(123))
+
+
+
+    const batchRes = await rpc.batch(
+      new rpc.TestRPC.dbReq(123),
+      new rpc.TestRPC2.dbReq(321), 
+      new rpc.TestRPC.dbReq2('123')
+    )
+
+    console.log(batchRes)
+
+
+
+    const r = rpc.TestRPC.dbReq2('123')
+
+    const res = rpc.cache(config).opt(config).Service.hello('name')
+
+    console.log(batchRes)
+
+    })
 </script>
 
 <h1 class="text-sm text-primary">Test Endpoint</h1>
