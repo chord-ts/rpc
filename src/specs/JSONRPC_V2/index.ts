@@ -8,15 +8,15 @@ import type { Request, Response, Error, FailedResponse } from './types';
  * @param  - - `method`: a string representing the name of the method to be called.
  * @returns an object of type `Request`.
  */
-export function buildRequest({
+export function buildRequest<T>({
   method,
   params,
   id
 }: {
   method: string;
-  params: unknown[];
+  params: T[];
   id?: number;
-}): Request {
+}): Request<T> {
   if (!id) id = 1;
   return { jsonrpc: '2.0', method, params, id };
 }
@@ -27,13 +27,13 @@ export function buildRequest({
  * @param  {Request}  `request`: The JSON-RPC request object that was received.
  * @returns a Response object.
  */
-export function buildResponse({
+export function buildResponse<T, K>({
   request,
   result
 }: {
-  request: Request;
-  result: unknown;
-}): Response {
+  request: Request<T>;
+  result: K;
+}): Response<K> {
   return {
     jsonrpc: '2.0',
     id: request.id,

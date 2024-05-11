@@ -1,29 +1,8 @@
 import { expect, test } from 'vitest'
 
 import {rpc} from '../src/'
-import {getTestClient} from '.'
+import {getTestClient, TestService} from '.'
 
-class TestService {
-
-  // @ts-expect-error
-  @rpc()
-  async say(name: string) {
-    return `Hello, ${name}!`
-  }
-
-  // @ts-expect-error
-  @rpc()
-  async sum(a: number, b: number) {
-    return a + b
-  }
-
-  // @ts-expect-error
-  @rpc()
-  async error() {
-    throw new Error("Error!")
-  }
-  
-}
 
 const RPC = getTestClient({
   TestService: new TestService()

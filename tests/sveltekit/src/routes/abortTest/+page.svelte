@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { client, type Returned } from '@chord-ts/rpc/client';
+	import { client, type Returned } from '../../../../../src/client';
 	import type { Client } from './+server';
 
 	const rpc = client<Client>({ endpoint: '/abortTest' });
 
 	const c = new AbortController();
-	const res = rpc.Service.hello.opt({signal: c.signal})('name');
+	const res = rpc.abort(c.signal).Service.hello('name');
 </script>
 
 <div>

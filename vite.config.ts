@@ -4,6 +4,7 @@ import swc from 'unplugin-swc';
 export default defineConfig({
 	plugins: [swc.vite()],
 	test: {
-		include: ['./tests/*.{test,spec}.{js,ts}']
+		include: ['./tests/*.{test,spec}.{js,ts}'],
+		exclude: ['./docs/*', './dist', './coverage']
 	}
 });

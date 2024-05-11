@@ -10,7 +10,7 @@ import type {
   PropKey,
   Middleware,
   MethodConfig,
-  Composed
+  Composed,
 } from './types';
 
 import {
@@ -20,7 +20,7 @@ import {
   type Request,
   type SomeResponse,
   type BatchResponse
-} from './specs';
+} from '../specs';
 
 /* The `Composer` class is a TypeScript class that provides a framework for composing and executing
 methods with middleware support. */
@@ -79,6 +79,7 @@ export class Composer<T extends { [s: string]: unknown }> {
  * ```
  */
 
+  // TODO return extended T
   static init<T extends { [s: string]: unknown }>(models: T, config?: ComposerConfig): Composed<T> {
     return new Composer(models, config) as unknown as Composed<T>;
   }

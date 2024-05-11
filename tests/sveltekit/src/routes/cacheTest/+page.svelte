@@ -6,14 +6,21 @@
 	const rpc = client<Client>({ endpoint: '/cacheTest' });
 
 	// onMount()
-	let res1: Promise<Returned<typeof rpc.Service.hello>> = 
-		rpc.Service.hello.cache({
+	// let res1: Promise<Returned<typeof rpc.Service.hello>> = 
+	// 	rpc.Service.hello.cache({
+	// 	expiry: 1000 * 30,
+	// 	mode: 'update',
+	// 	onInvalidate: (res) => (res1 = res)
+	// })('world');
+	
+
+	let res1: Promise<string> = rpc.cache(
+		{
 		expiry: 1000 * 30,
 		mode: 'update',
 		onInvalidate: (res) => (res1 = res)
-	})('world');
-
-	let res2 = rpc.Service.noParams.cache()();
+	}).Service.hello('name')
+	let res2 = rpc.cache().Service.noParams();
 </script>
 
 <div>
