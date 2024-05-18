@@ -22,7 +22,11 @@ export class TestService {
   async error() {
     throw new Error("Error!")
   }
-  
+
+  @rpc()
+  async notify() {
+    let a = 1
+  }
 }
 
 export function getTestClient<T extends {[k: string]: unknown}>(models: T): [IRPC.Builder<T>, Composed<T> ] {
@@ -30,7 +34,6 @@ export function getTestClient<T extends {[k: string]: unknown}>(models: T): [IRP
 
   const testErrorCallback: ErrorCallback = async (e, { method, params }) => {  };
 
-  // @ts-expect-error
   const composer = Composer.init<T>(models, {
     onError: testErrorCallback
   })

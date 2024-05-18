@@ -263,8 +263,8 @@ export class Composer<T extends { [s: string]: unknown }> {
     return { ctx, res: undefined };
   }
 
-  private async execProcedure(proc: Request, ctx: Record<string, unknown>) {
-    if (!proc?.method || !proc?.params) {
+  private async execProcedure(req: Request, ctx: Record<string, unknown>) {
+    if (!req?.method) {
       return buildError({
         code: ErrorCode.InvalidRequest,
         message: 'Wrong invocation. Method and Args must be defined',
@@ -272,7 +272,7 @@ export class Composer<T extends { [s: string]: unknown }> {
       });
     }
 
-    let { method, params } = proc;
+    let { method, params } = req;
     const methodDesc = Composer.methods.get(method);
     if (!method || !methodDesc) {
       const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`;
@@ -290,7 +290,7 @@ export class Composer<T extends { [s: string]: unknown }> {
       let res;
       ({ ctx, res } = await this.runMiddlewares(use, {
         ctx,
-        raw: proc,
+        raw: req,
         methodDesc,
         call: { method, params }
       }));
@@ -315,11 +315,11 @@ export class Composer<T extends { [s: string]: unknown }> {
 
       const result = await descriptor.value.apply(target, params);
       return buildResponse({
-        request: proc,
+        request: req,
         result
       });
     } catch (e) {      
-      (this.config?.onError ?? console.error)(e, proc);
+      (this.config?.onError ?? console.error)(e, req);
 
       return buildError({
         code: ErrorCode.InternalError,

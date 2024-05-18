@@ -59,3 +59,12 @@ test('Server handles object params', async () => {
       .then((r) => r.result)
   ).toBe(5);
 });
+
+test('Server handles notify request without params', async () => {
+  expect(
+    await composer
+      .exec({
+        method: 'TestService.notify',
+      })
+  ).toStrictEqual({ jsonrpc: '2.0', id: undefined, result: undefined });
+});
