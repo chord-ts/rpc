@@ -1,11 +1,7 @@
 import { expect, test } from 'vitest'
 
-import {rpc} from '../src/'
-import {getTestClient, TestService} from '.'
+import {RPC} from '.'
 
-const RPC = getTestClient({
-  TestService: new TestService()
-})
 
 test('Say "Hello, world!"', async () => {
   expect(await RPC.TestService.say("world")).toBe("Hello, world!")

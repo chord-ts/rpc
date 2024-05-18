@@ -25,10 +25,10 @@ export type { Returned } from './types'
  * ```
  */
 
-export function client<T>(init: IRPC.Init): IRPC.IBuilder<T> {
+export function client<T>(init: IRPC.Init): IRPC.Builder<T> {
   const rpc = new RPC(init);
   const builder = new Builder(rpc);
-  return builder as unknown as  IRPC.IBuilder<T>;
+  return builder as unknown as  IRPC.Builder<T>;
 }
 
 /**
@@ -45,6 +45,7 @@ export class RPC<T> implements IRPC.Client<T> {
   private transport: Transport;
   private errorCallback: ErrorCallback;
   private cacheStorage: CacheStorage;
+
   private endpoint: string;
   private internal: Set<string | symbol>
 
@@ -121,9 +122,7 @@ export class RPC<T> implements IRPC.Client<T> {
     return function (method: string) {
       return async function (...params: unknown[]) {
         const cached = get({ method, params });
-
         if (config?.mode !== 'update' && cached) return cached;
-
         const res = this.call(method)(params).then((res) => {
           set({ method, params }, res);
           return res;
@@ -136,10 +135,18 @@ export class RPC<T> implements IRPC.Client<T> {
   private chainUpdate(override: IRPC.Overridable) {
     const newRPC = new RPC<T>({ 
       endpoint: this.endpoint, 
-      config: {...this.config, ...override.config},
+      config: {...this.currentConfig, ...override.config},
       options: { ...this.options, ...override.options },  
     });
     return new Builder(newRPC);
+  }
+
+  private get currentConfig() {
+    return {
+      transport: this.transport,
+      onError: this.errorCallback,
+      cache: this.cacheStorage,
+    };
   }
 
   public config(config: ClientConfig) {

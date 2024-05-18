@@ -225,6 +225,8 @@ export class Composer<T extends { [s: string]: unknown }> {
       // @ts-expect-error: we found Request object
       body = await request.json();
     }
+
+    // If body is not batch request, exec single procedure
     if (!Array.isArray(body)) {
       return this.execProcedure(body as Request, ctx);
     }
@@ -270,7 +272,7 @@ export class Composer<T extends { [s: string]: unknown }> {
       });
     }
 
-    const { method, params } = proc;
+    let { method, params } = proc;
     const methodDesc = Composer.methods.get(method);
     if (!method || !methodDesc) {
       const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`;
@@ -282,7 +284,7 @@ export class Composer<T extends { [s: string]: unknown }> {
       });
     }
     // TODO handle Invalid Params error
-    const { target, descriptor, use } = methodDesc;
+    const { target, descriptor, use, argNames } = methodDesc;
 
     try {
       let res;
@@ -304,6 +306,11 @@ export class Composer<T extends { [s: string]: unknown }> {
           value: ctx,
           
         });
+      }
+
+      // Handle if params is not array, but object
+      if (!Array.isArray(params)) {
+        params = argNames.map(key => params[key])
       }
 
       const result = await descriptor.value.apply(target, params);

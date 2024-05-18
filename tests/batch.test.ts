@@ -1,12 +1,6 @@
 import { expect, test } from 'vitest'
 
-import {rpc} from '../src/'
-import {getTestClient, TestService} from '.'
-
-
-const RPC = getTestClient({
-  TestService: new TestService()
-})
+import {RPC} from '.'
 
 
 test('Single batch works correctly"', async () => {

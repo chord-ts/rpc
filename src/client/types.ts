@@ -69,22 +69,22 @@ export namespace IRPC {
     [Property in keyof T]: T[Property] & Construct<Parameters<T[Property]>>;
   };
 
-  export type Factory = <T extends Schema>(init: Init) => IBuilder<T>;
+  export type Factory = <T extends Schema>(init: Init) => Builder<T>;
 
   type ArrayType<T> = T extends (infer Item)[] ? Item : T;
 
   export interface Client<T extends Schema> {
     new (init: Init): Client<T>;
     call<P, R>(data: Call<P>): Promise<R | void>;
-    config: (options: Config) => IBuilder<T>;
-    cache: (options?: Cache.Config) => IBuilder<T>;
-    abort: (signal: AbortController['signal']) => IBuilder<T>;
-    opt: (options: Options) => IBuilder<T>;
+    config: (options: Config) => Builder<T>;
+    cache: (options?: Cache.Config) => Builder<T>;
+    abort: (signal: AbortController['signal']) => Builder<T>;
+    opt: (options: Options) => Builder<T>;
     // TODO infer custom type for each return type
     batch: <T extends ArrayType<T>[]>(...calls: T) => unknown[];
   }
 
-  export type IBuilder<T extends Schema> = Models<T> & Client<T>;
+  export type Builder<T extends Schema> = Models<T> & Client<T>;
 
   export type Returned<T extends (...args: unknown[]) => unknown> = Awaited<ReturnType<T>>;
 }

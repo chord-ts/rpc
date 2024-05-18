@@ -1,5 +1,6 @@
-import type { Transport, FailedResponse, ErrorCallback } from "../src";
-import {client, Composer, rpc} from '../src'
+import type { Transport, ErrorCallback, IRPC } from "../src/client/types";
+import type { Composed } from "../src/server/types";
+import {Builder, client, Composer, rpc} from '../src'
 
 
 export class TestService {
@@ -24,13 +25,13 @@ export class TestService {
   
 }
 
-export function getTestClient<T>(models: T) {
+export function getTestClient<T extends {[k: string]: unknown}>(models: T): [IRPC.Builder<T>, Composed<T> ] {
 
 
   const testErrorCallback: ErrorCallback = async (e, { method, params }) => {  };
 
   // @ts-expect-error
-  const composer = Composer.init(models, {
+  const composer = Composer.init<T>(models, {
     onError: testErrorCallback
   })
 
@@ -44,9 +45,13 @@ export function getTestClient<T>(models: T) {
   };
 
   const testErrorClient = (e) => {throw new Error(e.message)}
-  return client<typeof composer.clientType>({endpoint: '/', config: {
+  return [client<typeof composer.clientType>({endpoint: '/', config: {
     transport: testTransport, 
     onError: testErrorClient
-  }})
+  }}), composer]
 }
 
+
+export const [RPC, composer] = getTestClient({
+  TestService: new TestService()
+})
