@@ -1,6 +1,7 @@
 import {json} from '@sveltejs/kit'
 
-import { Composer, rpc, SchemaGenerator } from '../../../../../src/';
+import { Composer, rpc, } from '../../../../../src/';
+import { SchemaGenerator } from '../../../../../src/schema';
 import { sveltekitMiddleware } from '../../../../../src/middlewares';
 import {z} from 'zod'
 

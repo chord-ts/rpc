@@ -8,7 +8,7 @@
 
 	// onMount()
 	let res1 = rpc.Service.hello('world');
-	let res2 = rpc.Service.noParams.cache()();
+	let res2 = rpc.cache().Service.noParams();
 </script>
 
 <div>

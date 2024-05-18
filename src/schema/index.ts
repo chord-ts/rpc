@@ -1,6 +1,6 @@
 // @ts-nocheck
 
-import { Composer } from './server';
+import { Composer } from '../server';
 import type {
   OpenrpcDocument,
   InfoObject,
@@ -11,7 +11,7 @@ import type {
   MethodObjectParams,
   MethodObjectExamples
 } from '@open-rpc/meta-schema';
-import { MethodDescription } from './types';
+import { MethodDescription } from '../types';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { generateMock } from '@anatine/zod-mock';
 

@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import type { Client } from './+server';
   import { writable } from 'svelte/store';
+  import { updated } from '$app/stores';
 
   const error = writable();
 
@@ -64,3 +65,7 @@
 <h1 class="text-sm text-primary">Test Endpoint</h1>
 <button class="btn btn-primary">Hello</button>
 <span class="bg-error">{$error}</span>
+
+{#if $updated}
+  <p>Update happened</p>
+{/if}
