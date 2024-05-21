@@ -27,7 +27,7 @@ The revolution in the world of client-server communication. Type-safe RPC on top
 
 <div align="center">
   <a href="https://sbermarketing.ru">
-  <img alt="SberMarketing" src="./docs/public/SberMarketing.png" alt="SberMarketing" width="200"/>
+  <img alt="SberMarketing" src="./docs/public/SBER_MARKETING_LOGO.png" alt="SberMarketing" width="200"/>
   </a>  
 </div>
 
