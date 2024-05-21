@@ -11,23 +11,21 @@ import type {
   Middleware,
   MethodConfig,
   Composed,
+  Event,
+  Context,
+  ModifiedContext
 } from './types';
 
-import {
-  ErrorCode,
-  buildResponse,
-  buildError,
-  type Request,
-  type SomeResponse,
-  type BatchResponse
-} from '../specs';
+import { ErrorCode, buildResponse, buildError } from '../specs';
+
+import type * as JSONRPC from '../specs';
 
 /* The `Composer` class is a TypeScript class that provides a framework for composing and executing
 methods with middleware support. */
 export class Composer<T extends { [s: string]: unknown }> {
   private config?: ComposerConfig;
   private models: T;
-  private middlewares: Middleware[];
+  private middlewares: Middleware<Event, Context, Context>[];
 
   /**
    * The constructor initializes a Composer instance with models and an optional configuration.
@@ -51,70 +49,70 @@ export class Composer<T extends { [s: string]: unknown }> {
   }
 
   // We need mapping <ClassName>/<MethodName> to avoid overlapping of methods with the same name
-  static methods = new Map<string, MethodDescription>();
+  static readonly methods = new Map<string, MethodDescription>();
 
   // We need to use name of class as key to optimize dependency search in case of large amount of DI
-  static props = new Map<string, PropertyDescription[]>();
+  static readonly props = new Map<string, PropertyDescription[]>();
 
-
-/**
- * The `init` function initializes a Composer instance with the given models and configuration, and
- * returns a composed object.
- * @param {T} models - The `models` parameter is a generic type `T` that extends an object with string
- * keys and unknown values. It represents a collection of models that will be used by the Composer.
- * @param {ComposerConfig} [config] - The `config` parameter is an optional object that represents the
- * configuration options for the Composer. It can contain various properties that customize the
- * behavior of the Composer.
- * @returns The `init` function returns an instance of the `Composer` class, casted as `Composed<T>`.
- * 
- * @example
- * ```typescript
- * export class Say {
- *  @rpc() // Use decorator to register callable method
- *  hello(name: string): string {
- *    return `Hello, ${name}!`;
- *  }
- * }
- * export const composer = Composer.init({ Say: new Say() });
- * ```
- */
-
-  // TODO return extended T
-  static init<T extends { [s: string]: unknown }>(models: T, config?: ComposerConfig): Composed<T> {
+  /**
+   * The `init` function initializes a Composer instance with the given models and configuration, and
+   * returns a composed object.
+   * @param {T} models - The `models` parameter is a generic type `T` that extends an object with string
+   * keys and unknown values. It represents a collection of models that will be used by the Composer.
+   * @param {ComposerConfig} [config] - The `config` parameter is an optional object that represents the
+   * configuration options for the Composer. It can contain various properties that customize the
+   * behavior of the Composer.
+   * @returns The `init` function returns an instance of the `Composer` class, casted as `Composed<T>`.
+   *
+   * @example
+   * ```typescript
+   * export class Say {
+   *  @rpc() // Use decorator to register callable method
+   *  hello(name: string): string {
+   *    return `Hello, ${name}!`;
+   *  }
+   * }
+   * export const composer = Composer.init({ Say: new Say() });
+   * ```
+   */
+  static init<T extends { [s: string]: unknown }, Ctx extends Context>(
+    models: T,
+    config?: ComposerConfig
+  ): Composed<T> {
     return new Composer(models, config) as unknown as Composed<T>;
   }
 
-/**
- * The function `addMethod` adds a method description to a map called `Composer.methods`.
- * @param {MethodDescription} desc - The parameter `desc` is of type `MethodDescription`.
- */
+  /**
+   * The function `addMethod` adds a method description to a map called `Composer.methods`.
+   * @param {MethodDescription} desc - The parameter `desc` is of type `MethodDescription`.
+   */
   static addMethod(desc: MethodDescription) {
     const key = `${desc.target.constructor.name}.${desc.key.toString()}`;
     Composer.methods.set(key, { ...desc, key });
   }
 
-/**
- * The function `addProp` adds a property to a target object and stores it in a map.
- * @param {key: PropKey, target: object} [property]
- */
+  /**
+   * The function `addProp` adds a property to a target object and stores it in a map.
+   * @param {key: PropKey, target: object} [property]
+   */
   static addProp({ key, target }: { key: PropKey; target: object }) {
     const targetName = `${target.constructor.name}`;
     const oldProps = Composer.props.get(targetName) ?? [];
     Composer.props.set(targetName, oldProps.concat({ key, target }));
   }
 
-/**
- * The function `findRequestField` checks if an event object has a `body` and `method` property, and if
- * not, it checks if it has a `request` property and returns it.
- * @param {unknown} event - The `event` parameter is of type `unknown`, which means it can be any type
- * of value. It is used to represent an event object that is passed to the `findRequestField` function.
- * The function checks if the `event` object has a `body` property and a `method`
- * 
- * @returns The function `findRequestField` returns the `event` object if it has a `body` property and
- * a `method` property. If the `event` object does not have these properties, it checks if the `event`
- * object has a property named `request`. If it does, it returns the `request` property of the `event`
- * object.
- */
+  /**
+   * The function `findRequestField` checks if an event object has a `body` and `method` property, and if
+   * not, it checks if it has a `request` property and returns it.
+   * @param {unknown} event - The `event` parameter is of type `unknown`, which means it can be any type
+   * of value. It is used to represent an event object that is passed to the `findRequestField` function.
+   * The function checks if the `event` object has a `body` property and a `method`
+   *
+   * @returns The function `findRequestField` returns the `event` object if it has a `body` property and
+   * a `method` property. If the `event` object does not have these properties, it checks if the `event`
+   * object has a property named `request`. If it does, it returns the `request` property of the `event`
+   * object.
+   */
   static findRequestField(event: unknown) {
     // @ts-expect-error: we don't know what is event object, it should be parsed by middleware
     if (event?.body && event.method) {
@@ -125,42 +123,58 @@ export class Composer<T extends { [s: string]: unknown }> {
     if (fields.includes('request')) return (event as { request: Request })['request'];
   }
 
-/**
- * The function returns an empty object casted as a specific type. Use it only for generating a client type
- * @returns The code is returning an empty object (`{}`) that has been typecasted to `unknown` and then
- * to `T`. 
- */
+  /**
+   * The function returns an empty object casted as a specific type. Use it only for generating a client type
+   * @returns The code is returning an empty object (`{}`) that has been typecasted to `unknown` and then
+   * to `T`.
+   */
   public get clientType(): T {
     // We don't need value, just a type
     return {} as unknown as T;
   }
 
-/**
- * The "use" function adds a middleware function to the list of middlewares.
- * @param {Middleware} middleware - The `middleware` parameter is a function that acts as a middleware.
- * It is a function that takes three arguments: `req`, `res`, and `next`. The `req` argument represents
- * the request object, the `res` argument represents the response object, and the `next` argument is a 
- * callback that should be called to continue the execution of middlewares and procedures.
- * @example
- * ```typescript
- * import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares';
- * // ...
- * composer.use(sveltekitMiddleware())
- * ```
- * 
- */
-  public use(middleware: Middleware) {
+  /**
+   * The "use" function adds a middleware function to the list of middlewares.
+   * @param {Middleware} middleware - The `middleware` parameter is a function that acts as a middleware.
+   * It is a function that takes three arguments: `event`, `ctx`, and `next`. The `event` argument represents
+   * the raw Event object of server, the `ctx` argument represents computed context of parsed Event and results of middlewares, and the `next` argument is a
+   * callback that should be called to continue the execution of middlewares and procedures.
+   * 
+   * @example
+   * ```typescript
+   * import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares';
+   * // ...
+   * composer.use(sveltekitMiddleware())
+   * composer.use((event, ctx, next) => {
+   *   console.log(event, ctx)
+   *   ctx.computed = 'Your computed state'
+   *   next()
+   * })
+   * ```
+   *
+   * You can intercept the execution of middlewares queue, just retuning Response or Error object
+   * @example
+   * ```ts
+   * import {buildRequest} from '@chord-ts/rpc'
+   * composer.use((event, ctx, next) => {
+   *   console.log(event, ctx)
+   *   ctx.computed = 'Your computed state'
+   *   return buildRequest()
+   * })
+   * ```
+   */
+  public use<Ev, Ctx, Ext>(middleware: Middleware<Ev, Ctx, Ext>) {
     this.middlewares.push(middleware);
   }
 
-/**
- * The function `getSchema` returns a schema object containing information about methods, route, and
- * models.
- * @param {string} [route] - The `route` parameter is a string that represents the route for which the
- * schema is being generated. It is an optional parameter, meaning it can be omitted. If it is not
- * provided, the code checks if the `config` property exists and if it has a `route` property. If both
- * @returns a Schema object.
- */
+  /**
+   * The function `getSchema` returns a schema object containing information about methods, route, and
+   * models.
+   * @param {string} [route] - The `route` parameter is a string that represents the route for which the
+   * schema is being generated. It is an optional parameter, meaning it can be omitted. If it is not
+   * provided, the code checks if the `config` property exists and if it has a `route` property. If both
+   * @returns a Schema object.
+   */
   public getSchema(route?: string): Schema {
     route = route ?? (this.config?.route as string);
     if (!route) {
@@ -196,18 +210,15 @@ export class Composer<T extends { [s: string]: unknown }> {
    *```typescript
    * const app = express()
    * app.use(express.json());
-   * 
+   *
    * app.post('/', async (req, res) => {
    *  res.send(await composer.exec(req));
    * })
    * ```
    */
-  public async exec(event: unknown): Promise<SomeResponse | BatchResponse> {
-    const { ctx, res } = await this.runMiddlewares(
-      this.middlewares,
-      event as Record<string, unknown>
-    );
-    if (res) return res as SomeResponse;
+  public async exec<T extends Event | Request>(event: T): Promise<JSONRPC.SomeResponse | JSONRPC.BatchResponse> {
+    const { ctx, res } = await this.runMiddlewares(this.middlewares, event);
+    if (res) return res as JSONRPC.SomeResponse;
 
     let body = ctx?.body;
 
@@ -228,21 +239,22 @@ export class Composer<T extends { [s: string]: unknown }> {
 
     // If body is not batch request, exec single procedure
     if (!Array.isArray(body)) {
-      return this.execProcedure(body as Request, ctx);
+      return this.execProcedure(event, ctx, body as JSONRPC.Request<unknown[]>);
     }
 
-    const batch: BatchResponse = [];
-    for (const proc of body) {
-      batch.push(this.execProcedure(proc, ctx));
+    const batch: JSONRPC.BatchResponse = [];
+    for (const req of body) {
+      batch.push(this.execProcedure(event, ctx, req));
     }
     return Promise.all(batch);
   }
 
   private async runMiddlewares(
-    middlewares: Middleware[],
-    event: Record<string, unknown>
-  ): Promise<{ ctx: Record<string, unknown>; res: unknown }> {
-    const ctx = (event?.ctx ?? {}) as Record<string, unknown>;
+    middlewares: Middleware<Event, Context, {}>[],
+    event: Event,
+    ctx: ModifiedContext<typeof this.middlewares>
+  ): Promise<{ ctx: Context; res: unknown }> {
+    ctx ??= {};
 
     let lastMiddlewareResult;
     let middlewareIndex = -1;
@@ -252,8 +264,9 @@ export class Composer<T extends { [s: string]: unknown }> {
       if (middlewareIndex >= middlewares.length) return;
 
       const middleware = middlewares[middlewareIndex];
-      lastMiddlewareResult = await middleware(event, ctx, next);
+      lastMiddlewareResult = await middleware(event, ctx!, next);
     }
+
     await next();
 
     if (middlewareIndex <= middlewares.length - 1) {
@@ -263,7 +276,11 @@ export class Composer<T extends { [s: string]: unknown }> {
     return { ctx, res: undefined };
   }
 
-  private async execProcedure(req: Request, ctx: Record<string, unknown>) {
+  private async execProcedure(
+    event: Event,
+    ctx: Record<string, unknown>,
+    req: JSONRPC.Request<JSONRPC.Parameters>
+  ) {
     if (!req?.method) {
       return buildError({
         code: ErrorCode.InvalidRequest,
@@ -288,13 +305,12 @@ export class Composer<T extends { [s: string]: unknown }> {
 
     try {
       let res;
-      ({ ctx, res } = await this.runMiddlewares(use, {
-        ctx,
-        raw: req,
+      ({ ctx, res } = await this.runMiddlewares(use, event, {
+        ...ctx,
         methodDesc,
-        call: { method, params }
       }));
-      if (res) return res as SomeResponse;
+
+      if (res) return res as JSONRPC.SomeResponse<JSONRPC.Parameters>;
 
       // Inject ctx dependency
       const ctxProp = Composer.props.get(target.constructor.name)?.find((d) => d.key === 'ctx');
@@ -303,22 +319,21 @@ export class Composer<T extends { [s: string]: unknown }> {
           configurable: true,
           enumerable: true,
           writable: true,
-          value: ctx,
-          
+          value: ctx
         });
       }
 
       // Handle if params is not array, but object
       if (!Array.isArray(params)) {
-        params = argNames.map(key => params[key])
+        params = argNames.map((key) => (params as JSONRPC.Obj)[key]);
       }
 
-      const result = await descriptor.value.apply(target, params);
+      const result = await descriptor.value.apply(target, params as JSONRPC.Arr);
       return buildResponse({
         request: req,
         result
       });
-    } catch (e) {      
+    } catch (e) {
       (this.config?.onError ?? console.error)(e, req);
 
       return buildError({
@@ -356,7 +371,7 @@ function getMetadata(target: object, key: PropKey): MethodMetadata {
  * @param {T} instance - The `instance` parameter is the object that you want to convert to an RPC
  * (Remote Procedure Call) object. It should be an instance of a class or an object that has methods
  * that you want to expose as RPC methods.
- * @returns The `toRPC` function returns the `instance` object that was passed as an argument. 
+ * @returns The `toRPC` function returns the `instance` object that was passed as an argument.
  * It should be used during Composer initialization
  * @example
  * ```ts
@@ -365,7 +380,7 @@ function getMetadata(target: object, key: PropKey): MethodMetadata {
  *     return 'Hello World';
  *   }
  * }
- * 
+ *
  * const service = new MyService();
  * const composer = Composer.init({
  *  MyService: toRPC(service)
@@ -396,7 +411,7 @@ export function toRPC<T extends object>(instance: T): T {
 
 /**
  * The `rpc` function is a TypeScript decorator that adds metadata and configuration options to Composer singleton.
- * 
+ *
  * :::caution
  * Decorator registers method using the class name of parent. That's why you have to specify the same name as key during Composer initialization
  * :::
@@ -431,9 +446,9 @@ export function rpc(config?: MethodConfig) {
     const argNames = getParamNames(descriptor.value);
 
     if (config?.in && !Array.isArray(config?.in)) {
-      config.in = [config.in]
+      config.in = [config.in];
     }
-    
+
     const validators = { in: config?.in, out: config?.out };
     Composer.addMethod({ key, descriptor, metadata, target, use, validators, argNames });
   };
@@ -459,12 +474,5 @@ export function depends() {
       "Dependency injection is supported only for 'ctx' property right now.\n" +
         `Remove ${String(key)} property inside ${target.constructor.name}`
     );
-    // Reflect.defineProperty(target, key, {
-    //   configurable: false,
-    //   enumerable: false,
-    //   get() {
-    //     return 'hello world';
-    //   }
-    // });
   };
 }
