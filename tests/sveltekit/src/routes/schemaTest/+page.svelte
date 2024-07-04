@@ -5,27 +5,30 @@
   import {jsonSchema} from './schema'
 
 	const rpc = client<Client>({ endpoint: '/schemaTest' });
-
-	// onMount()
-	let res1 = rpc.Service.hello('world');
-	let res2 = rpc.cache().Service.noParams();
+	let res1 = null
+	onMount(async () => {
+		res1 = await rpc.Serv.hello('world');
+	})
+	
+	// let res2 = rpc.Service.hello
+	
 </script>
 
 <div>
 	<p>
-		{#await res1}
+		{#if !res1}
 			Loading...
-		{:then r}
-			Hello: {r}
-		{/await}
+		{:else }
+			Hello: {res1}
+		{/if}
 	</p>
-	<p>
+	<!-- <p>
 		{#await res2}
 			Loading...
 		{:then r}
 			noParams: {r}
 		{/await}
-	</p>
+	</p> -->
   <p>
     {JSON.stringify(jsonSchema, null, 2)}
   </p>

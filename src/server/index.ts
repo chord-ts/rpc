@@ -13,7 +13,7 @@ import type {
   Composed,
   Event,
   Context,
-  ModifiedContext
+  ModifiedContext,
 } from './types';
 
 import { ErrorCode, buildResponse, buildError } from '../specs';
@@ -22,7 +22,7 @@ import type * as JSONRPC from '../specs';
 
 /* The `Composer` class is a TypeScript class that provides a framework for composing and executing
 methods with middleware support. */
-export class Composer<T extends { [s: string]: unknown }> {
+export class Composer<T extends {[k: string]: object}> {
   private config?: ComposerConfig;
   private models: T;
   private middlewares: Middleware<Event, Context, Context>[];
@@ -39,12 +39,14 @@ export class Composer<T extends { [s: string]: unknown }> {
    */
   constructor(models: T, config?: ComposerConfig) {
     this.config = config;
+    
     // List is unwrapped client and Records<string, Target> are wrapped
     this.models = models;
-    for (const [name, Model] of Object.entries(models)) {
+    for (const [key, Model] of Object.entries(models)) {
       // @ts-expect-error: we inject Models manually to Composer
-      this[name] = Model;
+      this[key] = Model;
     }
+
     this.middlewares = [];
   }
 
@@ -75,7 +77,7 @@ export class Composer<T extends { [s: string]: unknown }> {
    * export const composer = Composer.init({ Say: new Say() });
    * ```
    */
-  static init<T extends { [s: string]: unknown }, Ctx extends Context>(
+  static init<T extends {[k: string]: object}, Ctx extends Context>(
     models: T,
     config?: ComposerConfig
   ): Composed<T> {
@@ -89,6 +91,10 @@ export class Composer<T extends { [s: string]: unknown }> {
   static addMethod(desc: MethodDescription) {
     const key = `${desc.target.constructor.name}.${desc.key.toString()}`;
     Composer.methods.set(key, { ...desc, key });
+  }
+
+  static updateMethod(method,) {
+
   }
 
   /**
@@ -290,10 +296,15 @@ export class Composer<T extends { [s: string]: unknown }> {
     }
 
     let { method, params } = req;
+
+    // Convert methodname from Key name to Class name
+    const [cls, func] = method.split('.')
+    method = `${this.models[cls].constructor.name}.${func}`
+    
     const methodDesc = Composer.methods.get(method);
     if (!method || !methodDesc) {
       const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`;
-      console.error('\x1b[31m' + msg);
+      console.error('\x1b[31m' + msg + `\nRegistered methods: ${JSON.stringify(Composer.methods.entries())}`);
       return buildError({
         code: ErrorCode.MethodNotFound,
         message: msg,
@@ -476,3 +487,16 @@ export function depends() {
     );
   };
 }
+
+
+export function val(validator: unknown) {
+  return (target: Object, key: string | symbol, parameterIndex: number) => {
+    console.log(validator, target, key, parameterIndex)
+    // Composer.methods.
+    // let existingRequiredParameters: number[] = Reflect.getOwnMetadata(requiredMetadataKey, target, propertyKey) || [];
+      // existingRequiredParameters.push(parameterIndex);
+      // Reflect.defineMetadata( requiredMetadataKey, existingRequiredParameters, target, propertyKey);
+  }
+  
+}
+
