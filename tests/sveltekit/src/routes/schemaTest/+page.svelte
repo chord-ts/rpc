@@ -6,8 +6,10 @@
 
 	const rpc = client<Client>({ endpoint: '/schemaTest' });
 	let res1 = null
+	let res2 = null
 	onMount(async () => {
-		res1 = await rpc.Serv.hello('world');
+		res1 = await rpc.Serv.hello('world', 5);
+		res2 = await rpc.Serv.multipleArgs({name: "Dima", secondName: "Din"})
 	})
 	
 	// let res2 = rpc.Service.hello

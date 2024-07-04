@@ -36,8 +36,8 @@ export class SchemaGenerator {
         name: 'Apache 2.0'
       }
     };
-    const servers = config?.servers ?? [{ url: 'http://localhost:5173' }];
 
+    const servers = config?.servers ?? [{ url: 'http://localhost:5173' }];
     const methods: MethodObject[] = [];
     for (const [, v] of Composer.methods.entries()) {
       methods.push(this.describeMethod(v));
@@ -52,6 +52,8 @@ export class SchemaGenerator {
   }
 
   describeMethod(method: MethodDescription): MethodObject {
+    if (!method.validators?.in) return
+
     const name = method.key.toString();
     const [serviceName, methodName] = name.split('.');
 
@@ -59,7 +61,7 @@ export class SchemaGenerator {
     let params: MethodObjectParams = [];
     let result: MethodObjectResult | undefined;
 
-    if (method.validators.in) {
+    if (method.validators?.in) {
       if (method.validators.in.length !== method.argNames.length) {
         throw TypeError(
           `Decorated method: ${name}\n`+
@@ -73,7 +75,7 @@ export class SchemaGenerator {
       });
 
     }
-    if (method.validators.out) {
+    if (method.validators?.out) {
       result = { name: `${name} result`, schema: zodToJsonSchema(method.validators.out) };
     }
 

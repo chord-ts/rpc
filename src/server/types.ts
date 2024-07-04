@@ -1,5 +1,7 @@
 import type { Error, BatchRequest, SomeResponse, BatchResponse } from '../specs';
 import type { Composer } from '.';
+import type { ValidateAdapter } from 'src/validators/type';
+
 
 export interface MethodDescription {
   key: PropKey;
@@ -11,8 +13,18 @@ export interface MethodDescription {
   use: Middleware<Event, Context, {}>[];
 }
 
+export interface PartialMethodDescription {
+  key: PropKey;
+  descriptor?: PropertyDescriptor;
+  target: Target;
+  validators?: Validators;
+  argNames?: string[];
+  metadata?: MethodMetadata;
+  use?: Middleware<Event, Context, {}>[];
+}
+
 export interface Validators {
-  in?: unknown[];
+  in?: {[k: number]: unknown};
   out?: unknown;
 }
 
@@ -39,6 +51,7 @@ export interface Schema {
 export interface ComposerConfig {
   route?: string;
   onError?: ErrorCallback;
+  validator?: ValidateAdapter
 }
 
 export interface Target {

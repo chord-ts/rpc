@@ -1,26 +1,36 @@
 import {json} from '@sveltejs/kit'
 
 import { Composer, rpc, val} from '../../../../../src/';
+import { ZodAdapter } from '../../../../../src/validators';
 import { SchemaGenerator } from '../../../../../src/schema';
 import { sveltekitMiddleware } from '../../../../../src/middlewares';
 import {z} from 'zod'
 
 
+const string = z.string()
+const number = z.number()
+
+const fio = z.object({
+  name: z.string(),
+  secondName: z.string()
+})
+
+type FIO = z.infer<typeof fio>
 class Service {
   
-  static string = z.string()
+
 
   // @rpc({in: [Service.string], out: Service.string})
   @rpc()
-  async hello(@val(Service.string) name: string) {
-    const msg = `Hello ${name} ${new Date()}`
+  async hello(@val(string) name: string, @val(number) n: number) {
+    const msg = `Hello ${name} ${new Date()} ${n}`
     return msg
   }
 
   // @rpc({in: [Service.string, Service.string], out: Service.string})
   @rpc()
-  async multipleArgs(name: z.infer<typeof Service.string>, secondName: z.infer<typeof Service.string>) {
-    const msg = `Hello ${name} ${secondName} ${new Date()}`
+  async multipleArgs(@val(fio) fio: FIO) {
+    const msg = `Hello ${fio.name} ${fio.secondName} ${new Date()}`
     return msg
   }
 
@@ -37,9 +47,11 @@ class Service {
 
 const composer = Composer.init({
   Serv: new Service()
+}, {
+  validator: ZodAdapter
 })
 
-const schema = new SchemaGenerator()
+// const schema = new SchemaGenerator()
 // console.log(schema.render())
 
 composer.use(sveltekitMiddleware())
@@ -47,6 +59,5 @@ composer.use(sveltekitMiddleware())
 export type Client = typeof composer.clientType
 
 export async function POST(event) {
-  console.log(composer)
   return json(await composer.exec(event))
 }

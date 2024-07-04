@@ -3,6 +3,7 @@ import 'reflect-metadata';
 import type {
   ComposerConfig,
   MethodDescription,
+  PartialMethodDescription,
   PropertyDescription,
   Target,
   Schema,
@@ -88,13 +89,14 @@ export class Composer<T extends {[k: string]: object}> {
    * The function `addMethod` adds a method description to a map called `Composer.methods`.
    * @param {MethodDescription} desc - The parameter `desc` is of type `MethodDescription`.
    */
-  static addMethod(desc: MethodDescription) {
+  static upsertMethod(desc: PartialMethodDescription) {
     const key = `${desc.target.constructor.name}.${desc.key.toString()}`;
-    Composer.methods.set(key, { ...desc, key });
-  }
+    const old = Composer.methods.get(key) ?? {validators: {in: {}, out: {}}};
 
-  static updateMethod(method,) {
+    const merged = { ...old, ...desc, key }
+    merged.validators.in = {...old.validators.in, ...desc.validators?.in}
 
+    Composer.methods.set(key, merged as MethodDescription);
   }
 
   /**
@@ -312,7 +314,7 @@ export class Composer<T extends {[k: string]: object}> {
       });
     }
     // TODO handle Invalid Params error
-    const { target, descriptor, use, argNames } = methodDesc;
+    const { target, descriptor, use, argNames, validators } = methodDesc;
 
     try {
       let res;
@@ -339,6 +341,16 @@ export class Composer<T extends {[k: string]: object}> {
         params = argNames.map((key) => (params as JSONRPC.Obj)[key]);
       }
 
+
+      // Validate all params
+      if (this.config?.validator) {
+        for (const [i, param] of params.entries()) {
+          if (!validators.in) continue
+          const validator = validators.in[i]
+          this.config.validator.validate(validator, param)
+        }
+      }
+    
       const result = await descriptor.value.apply(target, params as JSONRPC.Arr);
       return buildResponse({
         request: req,
@@ -407,13 +419,12 @@ export function toRPC<T extends object>(instance: T): T {
     if (!(descriptor.value instanceof Function)) continue;
 
     const metadata = getMetadata(proto, key);
-    Composer.addMethod({
+    Composer.upsertMethod({
       key,
       descriptor,
       metadata,
       target: instance,
       use: [],
-      validators: {},
       argNames: []
     });
   }
@@ -451,7 +462,6 @@ export function rpc(config?: MethodConfig) {
     // TODO return type doesn`t work
     // console.log(target.constructor.name)
     // console.log("design:returntype", Reflect.getMetadata('design:returntype', target, key)?.name);
-
     const metadata = getMetadata(target, key);
     const use = config?.use ?? [];
     const argNames = getParamNames(descriptor.value);
@@ -460,8 +470,8 @@ export function rpc(config?: MethodConfig) {
       config.in = [config.in];
     }
 
-    const validators = { in: config?.in, out: config?.out };
-    Composer.addMethod({ key, descriptor, metadata, target, use, validators, argNames });
+    // const validators = { in: config?.in, out: config?.out };
+    Composer.upsertMethod({ key, descriptor, metadata, target, use, argNames });
   };
 }
 
@@ -491,12 +501,7 @@ export function depends() {
 
 export function val(validator: unknown) {
   return (target: Object, key: string | symbol, parameterIndex: number) => {
-    console.log(validator, target, key, parameterIndex)
-    // Composer.methods.
-    // let existingRequiredParameters: number[] = Reflect.getOwnMetadata(requiredMetadataKey, target, propertyKey) || [];
-      // existingRequiredParameters.push(parameterIndex);
-      // Reflect.defineMetadata( requiredMetadataKey, existingRequiredParameters, target, propertyKey);
+    Composer.upsertMethod({target, key, validators: {in: {[parameterIndex]: validator}}})
   }
-  
 }
 
