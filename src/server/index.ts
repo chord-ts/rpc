@@ -343,9 +343,8 @@ export class Composer<T extends {[k: string]: object}> {
 
 
       // Validate all params
-      if (this.config?.validator) {
+      if (this.config?.validator && validators.in) {
         for (const [i, param] of params.entries()) {
-          if (!validators.in) continue
           const validator = validators.in[i]
           this.config.validator.validate(validator, param)
         }
