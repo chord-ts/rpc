@@ -1,6 +1,6 @@
 export * from './types';
 
-import type { Request, Response, Error, FailedResponse } from './types';
+import type { Request, Response, Error, FailedResponse, Arr, Value } from './types';
 
 /**
  * The function `buildRequest` takes in a method, an array of parameters, and an optional id, and
@@ -8,13 +8,13 @@ import type { Request, Response, Error, FailedResponse } from './types';
  * @param  - - `method`: a string representing the name of the method to be called.
  * @returns an object of type `Request`.
  */
-export function buildRequest<T>({
+export function buildRequest<T extends Arr>({
   method,
   params,
   id
 }: {
   method: string;
-  params: T[];
+  params: T;
   id?: number;
 }): Request<T> {
   if (!id) id = 1;
@@ -27,7 +27,7 @@ export function buildRequest<T>({
  * @param  {Request}  `request`: The JSON-RPC request object that was received.
  * @returns a Response object.
  */
-export function buildResponse<T, K>({
+export function buildResponse<T extends Arr, K extends Value>({
   request,
   result
 }: {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import 'reflect-metadata';
 
 import type {
@@ -20,11 +21,12 @@ import type {
 import { ErrorCode, buildResponse, buildError } from '../specs';
 
 import type * as JSONRPC from '../specs';
+import { ZodAdapter } from '../validators';
 
 /* The `Composer` class is a TypeScript class that provides a framework for composing and executing
 methods with middleware support. */
 export class Composer<T extends {[k: string]: object}> {
-  private config?: ComposerConfig;
+  private config: ComposerConfig;
   private models: T;
   private middlewares: Middleware<Event, Context, Context>[];
 
@@ -39,8 +41,8 @@ export class Composer<T extends {[k: string]: object}> {
    * `ComposerConfig`. It is used to provide configuration options for the Composer constructor.
    */
   constructor(models: T, config?: ComposerConfig) {
-    this.config = config;
-    
+    this.config = config ?? {};
+    this.config.validator ??= ZodAdapter
     // List is unwrapped client and Records<string, Target> are wrapped
     this.models = models;
     for (const [key, Model] of Object.entries(models)) {
@@ -462,8 +464,12 @@ export function rpc(config?: MethodConfig) {
     // console.log(target.constructor.name)
     // console.log("design:returntype", Reflect.getMetadata('design:returntype', target, key)?.name);
     const metadata = getMetadata(target, key);
-    const use = config?.use ?? [];
     const argNames = getParamNames(descriptor.value);
+    let use = config?.use ?? [];
+
+    if (!Array.isArray(use)) {
+      use = [use];
+    }
 
     if (config?.in && !Array.isArray(config?.in)) {
       config.in = [config.in];

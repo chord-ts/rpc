@@ -1,5 +1,3 @@
-// @ts-nocheck
-
 import { Composer } from '../server';
 import type {
   OpenrpcDocument,
@@ -12,8 +10,8 @@ import type {
   MethodObjectExamples
 } from '@open-rpc/meta-schema';
 import { MethodDescription } from '../types';
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import { generateMock } from '@anatine/zod-mock';
+// import { zodToJsonSchema } from 'zod-to-json-schema';
+// import { generateMock } from '@anatine/zod-mock';
 
 /* The `SchemaGenerator` class generates an OpenRPC schema based on a configuration and a set of method
 descriptions. */
@@ -40,7 +38,9 @@ export class SchemaGenerator {
     const servers = config?.servers ?? [{ url: 'http://localhost:5173' }];
     const methods: MethodObject[] = [];
     for (const [, v] of Composer.methods.entries()) {
-      methods.push(this.describeMethod(v));
+      const desc = this.describeMethod(v)
+      if (!desc) continue
+      methods.push(desc);
     }
 
     this.schema = {
@@ -51,9 +51,10 @@ export class SchemaGenerator {
     };
   }
 
-  describeMethod(method: MethodDescription): MethodObject {
+  describeMethod(method: MethodDescription): MethodObject | undefined {
     if (!method.validators?.in) return
-
+    return
+    
     const name = method.key.toString();
     const [serviceName, methodName] = name.split('.');
 
@@ -61,48 +62,49 @@ export class SchemaGenerator {
     let params: MethodObjectParams = [];
     let result: MethodObjectResult | undefined;
 
-    if (method.validators?.in) {
-      if (method.validators.in.length !== method.argNames.length) {
-        throw TypeError(
-          `Decorated method: ${name}\n`+
-          'Arguments amount of decorated function must be the same as length of input validators - "in" @rpc({in: [...]}) \n' + 
-          `Got: ${method.argNames.length} arg(s), ${method.validators.in.length} validator(s)`
-        );
-      }
+    // TODO finish schema generator
+    // if (method.validators?.in) {
+    //   if (Omethod.validators.in !== method.argNames.length) {
+    //     throw TypeError(
+    //       `Decorated method: ${name}\n`+
+    //       'Arguments amount of decorated function must be the same as length of input validators - "in" @rpc({in: [...]}) \n' + 
+    //       `Got: ${method.argNames.length} arg(s), ${method.validators.in.length} validator(s)`
+    //     );
+    //   }
 
-      params = method.validators.in.map((v, i) => {
-        return { name: method.argNames[i], schema: zodToJsonSchema(v) };
-      });
+    //   params = method.validators.in.map((v, i) => {
+    //     return { name: method.argNames[i], schema: zodToJsonSchema(v) };
+    //   });
 
-    }
-    if (method.validators?.out) {
-      result = { name: `${name} result`, schema: zodToJsonSchema(method.validators.out) };
-    }
+    // }
+    // if (method.validators?.out) {
+    //   result = { name: `${name} result`, schema: zodToJsonSchema(method.validators.out) };
+    // }
 
 
-    const examples: MethodObjectExamples = [
-      {
-        name: `"${methodName}" call example`,
-        description: 'No description provided',
-        params: method.validators.in?.map((v, i) => {
-          return {
-            name: method.argNames[i],
-            value: generateMock(v)
-          }
-        }) ?? [],
-        result: {
-          name: `"${methodName}" result example`,
-          value: method.validators.out ? generateMock(method.validators.out) : 'Not provided'
-        }
-      }
-    ];
-    return {
-      name,
-      tags,
-      params,
-      result,
-      examples
-    };
+    // const examples: MethodObjectExamples = [
+    //   {
+    //     name: `"${methodName}" call example`,
+    //     description: 'No description provided',
+    //     params: method.validators.in?.map((v, i) => {
+    //       return {
+    //         name: method.argNames[i],
+    //         value: generateMock(v)
+    //       }
+    //     }) ?? [],
+    //     result: {
+    //       name: `"${methodName}" result example`,
+    //       value: method.validators.out ? generateMock(method.validators.out) : 'Not provided'
+    //     }
+    //   }
+    // ];
+    // return {
+    //   name,
+    //   tags,
+    //   params,
+    //   result,
+    //   examples
+    // };
   }
 
   /**

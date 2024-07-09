@@ -1,6 +1,6 @@
-import type { Request, Error, BatchRequest, SomeResponse, BatchResponse } from '../specs';
+import type { Request, Error, SomeResponse, BatchResponse, Parameters, Value } from '../specs';
 
-export type Transport = <T, K>(
+export type Transport = <T, K extends Parameters>(
   data: {
     route: string;
     body: T;
@@ -8,7 +8,7 @@ export type Transport = <T, K>(
   opt?: object
 ) => Promise<SomeResponse<K> | BatchResponse<K>>;
 
-export type ErrorCallback = <T>(e: Error, req: Request<T>) => Promise<unknown> | unknown;
+export type ErrorCallback = <T>(e: Error, req: Request<Parameters>) => Promise<T> | never;
 
 export namespace Cache {
   export interface Config {
@@ -30,18 +30,19 @@ export namespace IRPC {
   }
   export interface Config {
     transport?: Transport;
-    cache?: Cache.Config;
+    cache?: Cache.Storage;
     onError?: ErrorCallback;
   }
 
   export interface Options {
     [k: string]: unknown;
-    signal: AbortController['signal'];
+    signal?: AbortController['signal'];
   }
 
   export interface Init {
     endpoint: string;
     config?: Config;
+    options?: Options;
   }
 
   export interface Overridable {
@@ -50,22 +51,23 @@ export namespace IRPC {
   }
 
 
-  type Schema = { [model: string]: { [method: string]: (...args: any) => any } };
+  export type Schema = { [model: string]: { [method: string]: (...args: unknown[]) => unknown } };
 
   type Models<T extends Schema> = {
     [Property in keyof T]: Methods<T[Property]>;
   };
 
-  interface Construct<T extends unknown[]> {
+  interface Construct<T extends Value[]> {
     new (...args: T): Request<T>;
   }
 
   // Not necessary if methods in class are async
-  type Promised<F extends (...args: any) => any> = (
-    ...args: Parameters<F>
-  ) => Promise<ReturnType<F>>;
+  // type Promised<F extends (...args: any) => any> = (
+  //   ...args: Parameters<F>
+  // ) => Promise<ReturnType<F>>;
 
   type Methods<T extends Schema[keyof Schema]> = {
+    // @ts-ignore
     [Property in keyof T]: T[Property] & Construct<Parameters<T[Property]>>;
   };
 

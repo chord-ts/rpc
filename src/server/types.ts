@@ -1,4 +1,3 @@
-import type { Error, BatchRequest, SomeResponse, BatchResponse } from '../specs';
 import type { Composer } from '.';
 import type { ValidateAdapter } from 'src/validators/type';
 
@@ -51,7 +50,7 @@ export interface Schema {
 export interface ComposerConfig {
   route?: string;
   onError?: ErrorCallback;
-  validator?: ValidateAdapter
+  validator?: ValidateAdapter<unknown, unknown>
 }
 
 export interface Target {
@@ -71,7 +70,7 @@ export type Middleware<Event, Ctx, Extension> = (
 //   [Property in keyof T]: ModifiedMethods<T[Property]>;
 // };
 
-export type Composed<T extends { [s: string]: unknown }> = Composer<T> & T;
+export type Composed<T extends { [s: string]: object }> = Composer<T> & T;
 
 export type Event = {
   request: Request;
@@ -80,6 +79,6 @@ export type Event = {
 
 export type Context = Record<string, unknown>;
 
-export type ModifiedContext<T> = T extends (infer Mw)[]
+export type ModifiedContext<T> = T extends (infer Mw extends (...args: unknown[]) => unknown)[]
   ? Awaited<ReturnType<Mw>>
   : T;

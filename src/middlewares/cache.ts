@@ -1,6 +1,6 @@
-import type { MethodDescription, Call, Middleware } from '../types';
+import type { MethodDescription, Middleware, IRPC } from '../types';
 import { ErrorCode, type Request } from '../specs';
-import { buildResponse, buildError } from '../specs';
+import { buildResponse, buildError, Value } from '../specs';
 
 /* The `ICache` interface defines a contract for a cache object. It specifies two methods: `get` & `set`*/
 export interface ICache {
@@ -8,7 +8,7 @@ export interface ICache {
   set(k: string, v: unknown, ttl?: number | string): Promise<void>;
 }
 
-function callToKey({ method, params }: Call): string {
+function callToKey({ method, params }: IRPC.Call<unknown>): string {
   return `${method}(${JSON.stringify(params)})`;
 }
 
@@ -22,23 +22,25 @@ function callToKey({ method, params }: Call): string {
  * representing the time in milliseconds, or as a string representing a duration (e.g. "1h" for 1 hour,
  * @returns The function `cacheMiddleware` returns a middleware function.
  */
-export function cacheMiddleware(cache: ICache, ttl?: number | string): Middleware {
+export function cacheMiddleware(cache: ICache, ttl?: number | string): Middleware<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> {
+  // TODO
   return async function cacheIntercept(
-    event: Record<string, unknown>,
-    ctx: Record<string, unknown>
+    event,
+    ctx
   ) {
     if (!event?.call || !event?.methodDesc)
       throw TypeError('Cache Middleware can work only with RPC methods, not the Composer!');
 
     const { target, descriptor } = event.methodDesc as MethodDescription;
-    const cacheKey = callToKey(event.call as Call);
+    const cacheKey = callToKey(event.call as IRPC.Call<unknown>);
     const stored = await cache
       .get(cacheKey)
       .catch((e) => console.error(`Failed at read cache "${cacheKey}"\n`, e));
-    const call = event.call as Call;
+    const call = event.call as IRPC.Call<unknown>;
 
     if (stored) {
-      return buildResponse({ request: event.raw as Request, result: stored });
+      // @ts-expect-error stored is Value
+      return buildResponse({ request: event.raw as Request<Value[]>, result: stored });
     }
 
     // Cached method must be Pure and isn't depended from context
@@ -48,7 +50,7 @@ export function cacheMiddleware(cache: ICache, ttl?: number | string): Middlewar
     try {
       result = await descriptor.value.apply(target, call.params.concat(ctx));
       resp = buildResponse({
-        request: event.raw as Request,
+        request: event.raw as Request<Value[]>,
         result
       });
     } catch (e) {

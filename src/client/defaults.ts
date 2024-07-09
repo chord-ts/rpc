@@ -53,6 +53,7 @@ export const defaultCache: Cache.Storage = (config) => {
 };
 
 export const defaultOnError: ErrorCallback = async (e, { method, params }) => {
+  if (!Array.isArray(params)) params = [params]
   console.error(
     `Error occurred during RPC Call: ${method}(${params.map((p) => JSON.stringify(p)).join(',')})`
   );

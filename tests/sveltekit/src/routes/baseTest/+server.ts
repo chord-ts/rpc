@@ -52,10 +52,15 @@ class TestRPC2 {
 		return `Hello from TestRPC2, ${param}!`;
 	}
 
-	@rpc()
+	@rpc({use: middleware})
 	dbReq3(param: string, param2: number): string {
 		return `Hello from TestRPC2 dbReq3, ${param} ${param2}!`;
 	}
+}
+
+async function middleware(event, ctx, next) {
+	// console.log('middleware', event, ctx, next);
+	next();
 }
 
 const composer = Composer.init({ TestRPC: new TestRPC(), TestRPC2: new TestRPC2() });

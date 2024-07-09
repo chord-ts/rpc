@@ -1,8 +1,6 @@
 import {json} from '@sveltejs/kit'
 
 import { Composer, rpc, val} from '../../../../../src/';
-import { ZodAdapter } from '../../../../../src/validators';
-import { SchemaGenerator } from '../../../../../src/schema';
 import { sveltekitMiddleware } from '../../../../../src/middlewares';
 import {z} from 'zod'
 
@@ -47,12 +45,10 @@ class Service {
 
 const composer = Composer.init({
   Serv: new Service()
-}, {
-  validator: ZodAdapter
-})
+}, 
+// {validator: ZodAdapter}
+)
 
-// const schema = new SchemaGenerator()
-// console.log(schema.render())
 
 composer.use(sveltekitMiddleware())
 
