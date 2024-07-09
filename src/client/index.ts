@@ -201,10 +201,10 @@ export class Builder<T> extends Function {
   }
 
   get(target: Builder<T>, prop: string) {
-    if (this.isInternal(prop) /* && !this.path.length */) {
+    if (this.isInternal(prop) && !this.path.length ) {
       // Handle Builder methods
       return this[prop];
-    } else if (this.rpc.isInternal(prop) /* && !this.path.length */) {
+    } else if (this.rpc.isInternal(prop) && !this.path.length ) {
       // Handle RPC methods
       return this.rpc[prop];
     }
