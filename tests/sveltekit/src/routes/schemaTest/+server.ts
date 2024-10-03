@@ -49,7 +49,6 @@ const composer = Composer.init({
 // {validator: ZodAdapter}
 )
 
-
 composer.use(sveltekitMiddleware())
 
 export type Client = typeof composer.clientType
