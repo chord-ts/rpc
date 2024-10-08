@@ -1,78 +1,99 @@
-import {json} from '@sveltejs/kit'
+import { json } from '@sveltejs/kit';
 
-import { Composer, rpc, val} from '../../../../../src';
+import { Composer, Middleware, rpc, val, buildError, ErrorCode, toRPC } from '../../../../../src';
 import { sveltekitMiddleware } from '../../../../../src/middlewares';
 
 class Service {
-  @rpc()
-  async list() {
-    return 'list'
-  }
+	@rpc()
+	async list() {
+		return 'list';
+	}
 
-  @rpc()
-  async read() {
-    return 'read'
-  }
+	@rpc()
+	async read() {
+		return 'read';
+	}
 
-  @rpc()
-  async update() {
-    return 'updated'
-  }
+	@rpc()
+	async update() {
+		return 'updated';
+	}
 
-  @rpc()
-  async delete() {
-    return 'ok delete'
-  }
+	@rpc()
+	async delete() {
+		return 'ok delete';
+	}
 }
 
-export const _composer = Composer.init({
-  Service2: new Service()
-}, 
-// {validator: ZodAdapter}
-)
+export const _composer = Composer.init(
+	{
+		Service2: new Service(),
+		Service1: new Service()
+	}
+	// {validator: ZodAdapter}
+);
 
-_composer.use(sveltekitMiddleware())
+_composer.use(sveltekitMiddleware());
+_composer.use(auth());
 
-export type Client = typeof _composer.clientType
+export type Client = typeof _composer.clientType;
 
 export async function POST(event) {
-  return json(await _composer.exec(event))
+  return json(await _composer.exec(event));
 }
 
-
-const { Service2 } = _composer;
-export const access = {
-	READER: [Service2.read, Service2.list],
-	WRITER: ['READER', Service2.update],
-	ADMIN: ['WRITER', Service2.delete]
-};
-
-const access2 = {
-	READER: {
-		access: [Service2.read, Service2.list],
-		WRITER: {
-			access: [Service2.update],
-			ADMIN: {
-				access: [Service2.delete]
-			}
+function preprocess<T>(access: T) {
+	const flatRoles: Record<string, string[]> = {};
+	function recursive(
+		obj: { allow: string[]; [k: string]: unknown },
+		role?: string,
+		collected: string[] = []
+	) {
+		if (role && obj.allow) {
+			flatRoles[role] = collected.concat(obj.allow);
+			collected = [...flatRoles[role]];
 		}
-	}
-};
-
-function preprocess() {
-	const flatRoles: Record<string, unknown[]> = {};
-	function recursive(obj: typeof access2, role?: string, collected = []) {
-    if (role && obj.access) {
-      flatRoles[role] = collected.concat(obj.access);
-      collected = [...flatRoles[role]]
-    }
 		for (const [field, desc] of Object.entries(obj)) {
-			if (field === 'access') continue
-      recursive(desc, field, collected);
+			if (field === 'allow') continue;
+			recursive(desc as { allow: string[]; [k: string]: unknown }, field, collected);
 		}
 	}
-	recursive(access2);
-  console.log('preprocess', flatRoles)
+	recursive(access as { allow: string[]; [k: string]: unknown });
+
+	const rolesSet: Record<string, Set<string>> = {};
+	for (const [role, access] of Object.entries(flatRoles)) {
+		rolesSet[role] = new Set(access as string[]);
+	}
+	return rolesSet;
 }
 
-preprocess();
+const str = _composer.stringified;
+const { Service2 } = str;
+
+const access = {
+	READER: {
+		allow: [Service2.read, Service2.list],
+		WRITER: {
+			allow: [Service2.update]
+		}
+	},
+	ADMIN: {
+		allow: Service2
+	}
+};
+const roleMap = preprocess(access);
+
+// @ts-ignore
+
+function auth() {
+	return async function (event, ctx, next) {
+		const userRole = 'READER';
+		const { method } = ctx.body;
+
+		if (!roleMap[userRole]?.has(method)) {
+      console.error(`Permission denied for ${userRole} using "${method}"`)
+			throw Error(`Permission denied for ${userRole} using "${method}"`);
+		}
+		next();
+	};
+}

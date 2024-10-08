@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { client, type Returned } from '../../../../../src';
+	import { client } from '../../../../../src';
 	import type { Client } from './+server';
   import {jsonSchema} from './schema'
 
@@ -9,7 +9,10 @@
 	let res2 = null
 	onMount(async () => {
 		res1 = await rpc.Service2.read();
-		res2 = await rpc.Service2.list()
+		res2 = await rpc.Service2.list();
+
+		console.log(res1, res2)
+		console.log(await rpc.Service2.delete().catch(e => console.error(e)));
 	})
 	
 	// let res2 = rpc.Service.hello

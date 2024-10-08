@@ -12,7 +12,7 @@ import type { Middleware } from '../types';
  * ```
  */
 export function expressMiddleware() {
-  const middleware: Middleware<
+  const backendAdapter: Middleware<
     Record<string, unknown> | { body: unknown },
     Record<string, unknown>,
     Record<string, unknown>
@@ -20,5 +20,5 @@ export function expressMiddleware() {
     ctx.body = event.body;
     next();
   };
-  return middleware;
+  return backendAdapter;
 }

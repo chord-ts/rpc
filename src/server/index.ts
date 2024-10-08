@@ -1,4 +1,3 @@
-// @ts-nocheck
 import 'reflect-metadata';
 
 import type {
@@ -15,7 +14,7 @@ import type {
   Composed,
   Event,
   Context,
-  ModifiedContext,
+  ModifiedContext
 } from './types';
 
 import { ErrorCode, buildResponse, buildError } from '../specs';
@@ -25,10 +24,11 @@ import { ZodAdapter } from '../validators';
 
 /* The `Composer` class is a TypeScript class that provides a framework for composing and executing
 methods with middleware support. */
-export class Composer<T extends {[k: string]: object}> {
+export class Composer<T extends { [k: string]: object }> {
   private config: ComposerConfig;
   private models: T;
   private middlewares: Middleware<Event, Context, Context>[];
+  private adapter: Middleware<Event, Context, Context> | null = null;
 
   /**
    * The constructor initializes a Composer instance with models and an optional configuration.
@@ -42,11 +42,10 @@ export class Composer<T extends {[k: string]: object}> {
    */
   constructor(models: T, config?: ComposerConfig) {
     this.config = config ?? {};
-    this.config.validator ??= ZodAdapter
+    this.config.validator ??= ZodAdapter;
     // List is unwrapped client and Records<string, Target> are wrapped
     this.models = models;
     for (const [key, Model] of Object.entries(models)) {
-      // @ts-expect-error: we inject Models manually to Composer
       this[key] = Model;
     }
 
@@ -80,7 +79,7 @@ export class Composer<T extends {[k: string]: object}> {
    * export const composer = Composer.init({ Say: new Say() });
    * ```
    */
-  static init<T extends {[k: string]: object}, Ctx extends Context>(
+  static init<T extends { [k: string]: object }, Ctx extends Context>(
     models: T,
     config?: ComposerConfig
   ): Composed<T> {
@@ -93,10 +92,10 @@ export class Composer<T extends {[k: string]: object}> {
    */
   static upsertMethod(desc: PartialMethodDescription) {
     const key = `${desc.target.constructor.name}.${desc.key.toString()}`;
-    const old = Composer.methods.get(key) ?? {validators: {in: {}, out: {}}};
+    const old = Composer.methods.get(key) ?? { validators: { in: {}, out: {} } };
 
-    const merged = { ...old, ...desc, key }
-    merged.validators.in = {...old.validators.in, ...desc.validators?.in}
+    const merged = { ...old, ...desc, key };
+    merged.validators.in = { ...old.validators.in, ...desc.validators?.in };
 
     Composer.methods.set(key, merged as MethodDescription);
   }
@@ -149,7 +148,7 @@ export class Composer<T extends {[k: string]: object}> {
    * It is a function that takes three arguments: `event`, `ctx`, and `next`. The `event` argument represents
    * the raw Event object of server, the `ctx` argument represents computed context of parsed Event and results of middlewares, and the `next` argument is a
    * callback that should be called to continue the execution of middlewares and procedures.
-   * 
+   *
    * @example
    * ```typescript
    * import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares';
@@ -174,7 +173,48 @@ export class Composer<T extends {[k: string]: object}> {
    * ```
    */
   public use<Ev, Ctx, Ext>(middleware: Middleware<Ev, Ctx, Ext>) {
+    if (middleware.name === 'backendAdapter') {
+      this.adapter = middleware
+      return
+    }
     this.middlewares.push(middleware);
+  }
+
+  public get stringified(): T {
+    const allMethods: string[] = [];
+    for (const [service, instance] of Object.entries(this.models)) {
+      for (const method of Reflect.ownKeys(Reflect.getPrototypeOf(instance))) {
+        if (method === 'constructor') continue;
+        allMethods.push(`${service}.${method}`);
+      }
+    }
+
+    function serviceGet(target, prop, receiver) {
+      function check(target, prop) {
+        if (prop === Symbol.isConcatSpreadable) {
+          return true;
+        }
+        if (Reflect.has(target, prop)) {
+          return Reflect.get(target, prop, receiver);
+        }
+        return null;
+      }
+
+      function methodGet(target, prop, receiver) {
+        const res = check(target, prop);
+        if (res !== null) return res;
+        return target.find((method) => method.endsWith(prop));
+      }
+
+      const res = check(target, prop);
+      if (res !== null) return res;
+      return new Proxy(
+        target.filter((v) => v.startsWith(prop)),
+        { get: methodGet }
+      );
+    }
+
+    return new Proxy(allMethods, { get: serviceGet });
   }
 
   /**
@@ -226,14 +266,13 @@ export class Composer<T extends {[k: string]: object}> {
    * })
    * ```
    */
-  public async exec<T extends Event | Request>(event: T): Promise<JSONRPC.SomeResponse | JSONRPC.BatchResponse> {
-    const { ctx, res } = await this.runMiddlewares(this.middlewares, event);
-    if (res) return res as JSONRPC.SomeResponse;
+  public async exec<T extends Event | Request>(
+    event: T
+  ): Promise<JSONRPC.SomeResponse<any> | JSONRPC.BatchResponse<any>> {
 
-    let body = ctx?.body;
-
-    if (!body) {
-      console.warn('\x1b[33mNo middleware specified "body" field in context. Trying to find it');
+    let ctx: {body: unknown} = {}
+    if (!this.adapter) {
+      console.warn('\x1b[33mNo "adapter" middleware specified. Trying to parse request automatically\n');
       const request = Composer.findRequestField(event);
 
       if (!request) {
@@ -244,9 +283,11 @@ export class Composer<T extends {[k: string]: object}> {
         });
       }
       // @ts-expect-error: we found Request object
-      body = await request.json();
+      ctx.body = await request.json();
+    } else {
+      await this.adapter(event, ctx, () => {});
     }
-
+    let body = ctx?.body;
     // If body is not batch request, exec single procedure
     if (!Array.isArray(body)) {
       return this.execProcedure(event, ctx, body as JSONRPC.Request<unknown[]>);
@@ -262,7 +303,7 @@ export class Composer<T extends {[k: string]: object}> {
   private async runMiddlewares(
     middlewares: Middleware<Event, Context, {}>[],
     event: Event,
-    ctx: ModifiedContext<typeof this.middlewares>
+    ctx?: ModifiedContext<typeof this.middlewares>
   ): Promise<{ ctx: Context; res: unknown }> {
     ctx ??= {};
 
@@ -276,9 +317,7 @@ export class Composer<T extends {[k: string]: object}> {
       const middleware = middlewares[middlewareIndex];
       lastMiddlewareResult = await middleware(event, ctx!, next);
     }
-
     await next();
-
     if (middlewareIndex <= middlewares.length - 1) {
       return { ctx, res: lastMiddlewareResult };
     }
@@ -302,13 +341,15 @@ export class Composer<T extends {[k: string]: object}> {
     let { method, params } = req;
 
     // Convert methodname from Key name to Class name
-    const [cls, func] = method.split('.')
-    method = `${this.models[cls].constructor.name}.${func}`
-    
+    const [cls, func] = method.split('.');
+    method = `${this.models[cls].constructor.name}.${func}`;
+
     const methodDesc = Composer.methods.get(method);
     if (!method || !methodDesc) {
       const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`;
-      console.error('\x1b[31m' + msg + `\nRegistered methods: ${JSON.stringify(Composer.methods.entries())}`);
+      console.error(
+        '\x1b[31m' + msg + `\nRegistered methods: ${JSON.stringify(Composer.methods.entries())}`
+      );
       return buildError({
         code: ErrorCode.MethodNotFound,
         message: msg,
@@ -320,11 +361,10 @@ export class Composer<T extends {[k: string]: object}> {
 
     try {
       let res;
-      ({ ctx, res } = await this.runMiddlewares(use, event, {
+      ({ ctx, res } = await this.runMiddlewares(this.middlewares.concat(use), event, {
         ...ctx,
-        methodDesc,
+        methodDesc
       }));
-
       if (res) return res as JSONRPC.SomeResponse<JSONRPC.Parameters>;
 
       // Inject ctx dependency
@@ -343,15 +383,14 @@ export class Composer<T extends {[k: string]: object}> {
         params = argNames.map((key) => (params as JSONRPC.Obj)[key]);
       }
 
-
       // Validate all params
       if (this.config?.validator && validators.in) {
         for (const [i, param] of params.entries()) {
-          const validator = validators.in[i]
-          this.config.validator.validate(validator, param)
+          const validator = validators.in[i];
+          this.config.validator.validate(validator, param);
         }
       }
-    
+
       const result = await descriptor.value.apply(target, params as JSONRPC.Arr);
       return buildResponse({
         request: req,
@@ -503,10 +542,8 @@ export function depends() {
   };
 }
 
-
 export function val(validator: unknown) {
   return (target: Object, key: string | symbol, parameterIndex: number) => {
-    Composer.upsertMethod({target, key, validators: {in: {[parameterIndex]: validator}}})
-  }
+    Composer.upsertMethod({ target, key, validators: { in: { [parameterIndex]: validator } } });
+  };
 }
-

@@ -17,21 +17,20 @@ import type { Middleware, Event } from '../types';
 type SvelteKitEvent = Event & { request: Request; locals: object }
 type Locals = Record<string, unknown>
 
-export function sveltekitMiddleware () {
-  const middleware: Middleware<SvelteKitEvent, Locals, Locals > = async (
+export function sveltekitMiddleware() {
+  const backendAdapter: Middleware<SvelteKitEvent, Locals, Locals > = async (
     event: SvelteKitEvent,
     ctx: Locals,
     next: CallableFunction
   ) => {
     if (!event?.request || !event?.locals) {
-      throw TypeError('Use this middleware only with SvelteKit. Pass RequestEvent to exec function');
+      throw TypeError('Use this adapter only with SvelteKit. Pass RequestEvent to exec function');
     }
     ctx.body = await event.request.json();
     Object.assign(ctx, event.locals);
     next();
   
   };
-  return middleware
+  return backendAdapter
 }
-
 
