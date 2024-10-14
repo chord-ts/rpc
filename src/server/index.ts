@@ -174,8 +174,8 @@ export class Composer<T extends { [k: string]: object }> {
    */
   public use<Ev, Ctx, Ext>(middleware: Middleware<Ev, Ctx, Ext>) {
     if (middleware.name === 'backendAdapter') {
-      this.adapter = middleware
-      return
+      this.adapter = middleware;
+      return;
     }
     this.middlewares.push(middleware);
   }
@@ -269,10 +269,11 @@ export class Composer<T extends { [k: string]: object }> {
   public async exec<T extends Event | Request>(
     event: T
   ): Promise<JSONRPC.SomeResponse<any> | JSONRPC.BatchResponse<any>> {
-
-    let ctx: {body: unknown} = {}
+    let ctx: { body: unknown } = {};
     if (!this.adapter) {
-      console.warn('\x1b[33mNo "adapter" middleware specified. Trying to parse request automatically\n');
+      console.warn(
+        '\x1b[33mNo "adapter" middleware specified. Trying to parse request automatically\n'
+      );
       const request = Composer.findRequestField(event);
 
       if (!request) {
@@ -384,10 +385,24 @@ export class Composer<T extends { [k: string]: object }> {
       }
 
       // Validate all params
+
       if (this.config?.validator && validators.in) {
+        let errors = [];
         for (const [i, param] of params.entries()) {
           const validator = validators.in[i];
-          this.config.validator.validate(validator, param);
+          // this.config.validator.validate(validator, param);
+
+          const { success, error } = this.config.validator.validate(validator, param);
+          if (!error) continue;
+          errors = errors.concat(error.issues);
+        }
+
+        if (errors.length) {
+          return buildError({
+            code: ErrorCode.InvalidParams,
+            message: 'Validation error',
+            data: errors
+          });
         }
       }
 

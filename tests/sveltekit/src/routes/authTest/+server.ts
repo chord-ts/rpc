@@ -91,7 +91,6 @@ function auth() {
 		const { method } = ctx.body;
 
 		if (!roleMap[userRole]?.has(method)) {
-      console.error(`Permission denied for ${userRole} using "${method}"`)
 			throw Error(`Permission denied for ${userRole} using "${method}"`);
 		}
 		next();

@@ -57,5 +57,6 @@ export const defaultOnError: ErrorCallback = async (e, { method, params }) => {
   console.error(
     `Error occurred during RPC Call: ${method}(${params.map((p) => JSON.stringify(p)).join(',')})`
   );
-  throw new EvalError(e.message);
+
+  throw new Error(e.message, {cause: e});
 };
