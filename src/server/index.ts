@@ -28,7 +28,7 @@ export class Composer<T extends { [k: string]: object }> {
   private config: ComposerConfig;
   private models: T;
   private middlewares: Middleware<Event, Context, Context>[];
-  private adapter: Middleware<Event, Context, Context> | null = null;
+  private adapter: Middleware<Event, {body: unknown}, Context> | null = null;
 
   /**
    * The constructor initializes a Composer instance with models and an optional configuration.
@@ -111,28 +111,6 @@ export class Composer<T extends { [k: string]: object }> {
   }
 
   /**
-   * The function `findRequestField` checks if an event object has a `body` and `method` property, and if
-   * not, it checks if it has a `request` property and returns it.
-   * @param {unknown} event - The `event` parameter is of type `unknown`, which means it can be any type
-   * of value. It is used to represent an event object that is passed to the `findRequestField` function.
-   * The function checks if the `event` object has a `body` property and a `method`
-   *
-   * @returns The function `findRequestField` returns the `event` object if it has a `body` property and
-   * a `method` property. If the `event` object does not have these properties, it checks if the `event`
-   * object has a property named `request`. If it does, it returns the `request` property of the `event`
-   * object.
-   */
-  static findRequestField(event: unknown) {
-    // @ts-expect-error: we don't know what is event object, it should be parsed by middleware
-    if (event?.body && event.method) {
-      return event;
-    }
-
-    const fields = Object.getOwnPropertyNames(event);
-    if (fields.includes('request')) return (event as { request: Request })['request'];
-  }
-
-  /**
    * The function returns an empty object casted as a specific type. Use it only for generating a client type
    * @returns The code is returning an empty object (`{}`) that has been typecasted to `unknown` and then
    * to `T`.
@@ -174,18 +152,20 @@ export class Composer<T extends { [k: string]: object }> {
    */
   public use<Ev, Ctx, Ext>(middleware: Middleware<Ev, Ctx, Ext>) {
     if (middleware.name === 'backendAdapter') {
+      // @ts-ignore
       this.adapter = middleware;
       return;
     }
+    // @ts-ignore
     this.middlewares.push(middleware);
   }
 
   public get stringified(): T {
     const allMethods: string[] = [];
     for (const [service, instance] of Object.entries(this.models)) {
-      for (const method of Reflect.ownKeys(Reflect.getPrototypeOf(instance))) {
+      for (const method of Reflect.ownKeys(Reflect.getPrototypeOf(instance)!)) {
         if (method === 'constructor') continue;
-        allMethods.push(`${service}.${method}`);
+        allMethods.push(`${service}.${method.toString()}`);
       }
     }
 
@@ -241,6 +221,40 @@ export class Composer<T extends { [k: string]: object }> {
     return { methods, route, models };
   }
 
+
+  private async initCtx(event): Promise<Context> {
+    const ctx = {body: null}
+    if (this.adapter) {
+      await this.adapter(event, ctx, () => {});
+      return ctx as unknown as Context
+    }
+
+    console.warn(
+      '\x1b[33mNo "adapter" middleware specified. Trying to parse request automatically\n'
+    );
+
+    if (event.jsonrpc && event.method) {
+      ctx.body = event
+      return ctx as unknown as Context
+    }
+
+    if (event?.body && event.method) {
+      return event;
+    }
+
+    if (typeof event.json === 'function') {
+      ctx.body = await event.json()
+      return ctx as unknown as Context
+    }
+
+    const fields = Object.getOwnPropertyNames(event);
+    if (fields.includes('request')) {
+      ctx.body = await (event as { request: Request })['request'].json();
+    }
+    return ctx as unknown as Context
+  }
+  
+
   /**
    * The function `exec` processes an event by running middlewares, extracting the body from the event,
    * and executing procedures either individually or in batch.
@@ -269,33 +283,16 @@ export class Composer<T extends { [k: string]: object }> {
   public async exec<T extends Event | Request>(
     event: T
   ): Promise<JSONRPC.SomeResponse<any> | JSONRPC.BatchResponse<any>> {
-    let ctx: { body: unknown } = {};
-    if (!this.adapter) {
-      console.warn(
-        '\x1b[33mNo "adapter" middleware specified. Trying to parse request automatically\n'
-      );
-      const request = Composer.findRequestField(event);
-
-      if (!request) {
-        return buildError({
-          code: ErrorCode.ParseError,
-          message: 'Body object was not found in provided event',
-          data: []
-        });
-      }
-      // @ts-expect-error: we found Request object
-      ctx.body = await request.json();
-    } else {
-      await this.adapter(event, ctx, () => {});
-    }
-    let body = ctx?.body;
+    const ctx = await this.initCtx(event);
+    const {body} = ctx
     // If body is not batch request, exec single procedure
     if (!Array.isArray(body)) {
-      return this.execProcedure(event, ctx, body as JSONRPC.Request<unknown[]>);
+      return this.execProcedure(event, ctx, body as JSONRPC.Request<JSONRPC.Parameters>);
     }
 
-    const batch: JSONRPC.BatchResponse = [];
+    const batch: JSONRPC.BatchResponse<JSONRPC.Value> = [];
     for (const req of body) {
+      // @ts-ignore
       batch.push(this.execProcedure(event, ctx, req));
     }
     return Promise.all(batch);
@@ -306,6 +303,7 @@ export class Composer<T extends { [k: string]: object }> {
     event: Event,
     ctx?: ModifiedContext<typeof this.middlewares>
   ): Promise<{ ctx: Context; res: unknown }> {
+    // @ts-ignore
     ctx ??= {};
 
     let lastMiddlewareResult;
@@ -316,13 +314,16 @@ export class Composer<T extends { [k: string]: object }> {
       if (middlewareIndex >= middlewares.length) return;
 
       const middleware = middlewares[middlewareIndex];
+      // @ts-ignore
       lastMiddlewareResult = await middleware(event, ctx!, next);
     }
     await next();
     if (middlewareIndex <= middlewares.length - 1) {
+      // @ts-ignore
       return { ctx, res: lastMiddlewareResult };
     }
 
+    // @ts-ignore
     return { ctx, res: undefined };
   }
 
@@ -362,8 +363,10 @@ export class Composer<T extends { [k: string]: object }> {
 
     try {
       let res;
+      // @ts-ignore
       ({ ctx, res } = await this.runMiddlewares(this.middlewares.concat(use), event, {
         ...ctx,
+        // @ts-ignore
         methodDesc
       }));
       if (res) return res as JSONRPC.SomeResponse<JSONRPC.Parameters>;
@@ -394,6 +397,7 @@ export class Composer<T extends { [k: string]: object }> {
 
           const { success, error } = this.config.validator.validate(validator, param);
           if (!error) continue;
+          // @ts-ignore
           errors = errors.concat(error.issues);
         }
 
@@ -408,6 +412,7 @@ export class Composer<T extends { [k: string]: object }> {
 
       const result = await descriptor.value.apply(target, params as JSONRPC.Arr);
       return buildResponse({
+        // @ts-ignore
         request: req,
         result
       });

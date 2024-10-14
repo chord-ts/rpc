@@ -8,6 +8,7 @@ export class TestService {
   // @ts-expect-error
   @rpc()
   async say(name: string) {
+    console.error('hello name', name)
     return `Hello, ${name}!`
   }
 
@@ -37,6 +38,7 @@ export function getTestClient<T extends {[k: string]: unknown}>(models: T): [IRP
   const composer = Composer.init<T>(models, {
     onError: testErrorCallback
   })
+
 
   composer.use(async (e, ctx, next) => {
     ctx.body = e

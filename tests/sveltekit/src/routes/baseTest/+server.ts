@@ -1,9 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { Composer, rpc, depends } from '../../../../../src/';
-// import { Composer, rpc, depends } from '@chord-ts/rpc';
-// import cache from '@chord-ts/rpc/middlewares/cache';
-import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares';
-// import {sveltekitMiddleware} from '../../../../../src/middlewares';
+import {sveltekitMiddleware} from '../../../../../src/middlewares';
 
 // THIS IS CONTROLLER
 

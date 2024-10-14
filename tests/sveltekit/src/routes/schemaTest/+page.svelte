@@ -8,7 +8,7 @@
 	let res1 = null
 	let res2 = null
 	onMount(async () => {
-		res1 = await rpc.Serv.hello(5, 'world').catch(e => console.log(e.cause.data));
+		res1 = await rpc.Serv.hello(5, 'world').catch(e => console.log(e.data));
 		res2 = await rpc.Serv.multipleArgs({name: "Dima", secondName: "Din"})
 	})
 	

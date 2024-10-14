@@ -1,6 +1,6 @@
 import type { Composer } from '.';
-import type { ValidateAdapter } from 'src/validators/type';
-
+import type { ValidateAdapter } from 'src/validators/types';
+import * as JSONRPC from '../specs/JSONRPC_V2/types'
 
 export interface MethodDescription {
   key: PropKey;
@@ -77,7 +77,7 @@ export type Event = {
   [key: string]: unknown;
 } | Request;
 
-export type Context = Record<string, unknown>;
+export type Context = {body: JSONRPC.Request<JSONRPC.Parameters>} & Record<string, unknown>;
 
 export type ModifiedContext<T> = T extends (infer Mw extends (...args: unknown[]) => unknown)[]
   ? Awaited<ReturnType<Mw>>
