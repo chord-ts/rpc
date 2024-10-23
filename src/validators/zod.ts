@@ -1,9 +1,9 @@
 import { ValidateAdapter } from "./types";
-import type {ZodType} from 'zod'
 
-export const ZodAdapter: ValidateAdapter<ZodType, any> = {
-  validate(validator: ZodType, value: any) {
-    if (!validator) return value
+export const ZodAdapter = {
+  validate(validator: unknown, value: unknown) {
+    if (!validator) return {success: true, error: null}
+    // @ts-ignore
     return validator.safeParse(value)
   },
-}
+} satisfies ValidateAdapter
