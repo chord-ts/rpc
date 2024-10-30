@@ -302,29 +302,31 @@ export class Composer<T extends { [k: string]: object }> {
     middlewares: Middleware<Event, Context, {}>[],
     event: Event,
     ctx?: ModifiedContext<typeof this.middlewares>
-  ): Promise<{ ctx: Context; res: unknown }> {
+  ): Promise<{ ctx: Context, res: unknown, error: unknown }> {
     // @ts-ignore
     ctx ??= {};
 
     let lastMiddlewareResult;
     let middlewareIndex = -1;
+    let error;
 
     async function next() {
       middlewareIndex++;
-      if (middlewareIndex >= middlewares.length) return;
+      if ((middlewareIndex >= middlewares.length) || error) return;
 
       const middleware = middlewares[middlewareIndex];
       // @ts-ignore
-      lastMiddlewareResult = await middleware(event, ctx!, next);
+      lastMiddlewareResult = await middleware(event, ctx!, next).catch(e => error = e)
     }
-    await next();
+    await next()
+
     if (middlewareIndex <= middlewares.length - 1) {
       // @ts-ignore
-      return { ctx, res: lastMiddlewareResult };
+      return { ctx, res: lastMiddlewareResult, error };
     }
 
     // @ts-ignore
-    return { ctx, res: undefined };
+    return { ctx, res: undefined, error };
   }
 
   private async execProcedure(
@@ -362,13 +364,23 @@ export class Composer<T extends { [k: string]: object }> {
     const { target, descriptor, use, argNames, validators } = methodDesc;
 
     try {
-      let res;
+      let res, error;
       // @ts-ignore
-      ({ ctx, res } = await this.runMiddlewares(this.middlewares.concat(use), event, {
+      ({ ctx, res, error } = await this.runMiddlewares(this.middlewares.concat(use), event, {
         ...ctx,
         // @ts-ignore
         methodDesc
       }));
+      
+      if (error) {
+        return buildError({
+          code: ErrorCode.InvalidParams,
+          message: error.message,
+          data: error.data
+        });
+      }
+
+
       if (res) return res as JSONRPC.SomeResponse<JSONRPC.Parameters>;
 
       // Inject ctx dependency

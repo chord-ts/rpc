@@ -7,7 +7,7 @@ import { sveltekitMiddleware } from '../../../../../src/middlewares';
 class Service {
   
 
-  @rpc({use: [methodMw]})
+  @rpc({use: [methodMw, methodMw2]})
   async hello(name: string) {
     const msg = `Hello ${name}`
     return msg
@@ -25,15 +25,23 @@ class Service {
   }
 }
 
-function methodMw(event, ctx, next) {
-  console.log('method mw', event, ctx)
+async function methodMw(event, ctx, next) {
+  console.log('method mw')
+  // throw new Error('mw error')
+  next()
+}
+
+async function methodMw2(event, ctx, next) {
+  console.log('method mw2')
+  // throw new Error('mw2 error')
 
   next()
 }
 
-function composerMw(event, ctx, next) {
-  console.log('composer mw', event, ctx)
 
+
+async function composerMw(event, ctx, next) {
+  // console.log('composer mw', event, ctx)
   next()
 }
 

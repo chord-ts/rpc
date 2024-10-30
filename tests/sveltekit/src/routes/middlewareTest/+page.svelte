@@ -7,7 +7,7 @@
 
 	let res1
 	onMount(async () => {
-		res1 = await rpc.Service.hello('world');
+		res1 = await rpc.Service.hello('world').catch(e => console.log(e.data, e.message));
 	})
 	
 </script>

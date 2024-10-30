@@ -50,7 +50,7 @@ export interface Schema {
 export interface ComposerConfig {
   route?: string;
   onError?: ErrorCallback;
-  validator?: ValidateAdapter<unknown, unknown>
+  validator?: ValidateAdapter
 }
 
 export interface Target {
