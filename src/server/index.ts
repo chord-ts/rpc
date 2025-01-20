@@ -28,7 +28,7 @@ export class Composer<T extends { [k: string]: object }> {
   private config: ComposerConfig;
   private models: T;
   private middlewares: Middleware<Event, Context, Context>[];
-  private adapter: Middleware<Event, {body: unknown}, Context> | null = null;
+  private adapter: Middleware<Event, { body: unknown }, Context> | null = null;
 
   /**
    * The constructor initializes a Composer instance with models and an optional configuration.
@@ -221,12 +221,11 @@ export class Composer<T extends { [k: string]: object }> {
     return { methods, route, models };
   }
 
-
   private async initCtx(event): Promise<Context> {
-    const ctx = {body: null}
+    const ctx = { body: null };
     if (this.adapter) {
       await this.adapter(event, ctx, () => {});
-      return ctx as unknown as Context
+      return ctx as unknown as Context;
     }
 
     console.warn(
@@ -234,8 +233,8 @@ export class Composer<T extends { [k: string]: object }> {
     );
 
     if (event.jsonrpc && event.method) {
-      ctx.body = event
-      return ctx as unknown as Context
+      ctx.body = event;
+      return ctx as unknown as Context;
     }
 
     if (event?.body && event.method) {
@@ -243,17 +242,16 @@ export class Composer<T extends { [k: string]: object }> {
     }
 
     if (typeof event.json === 'function') {
-      ctx.body = await event.json()
-      return ctx as unknown as Context
+      ctx.body = await event.json();
+      return ctx as unknown as Context;
     }
 
     const fields = Object.getOwnPropertyNames(event);
     if (fields.includes('request')) {
       ctx.body = await (event as { request: Request })['request'].json();
     }
-    return ctx as unknown as Context
+    return ctx as unknown as Context;
   }
-  
 
   /**
    * The function `exec` processes an event by running middlewares, extracting the body from the event,
@@ -280,14 +278,14 @@ export class Composer<T extends { [k: string]: object }> {
    * })
    * ```
    */
-  public async exec<T extends Event | Request>(
+  public async exec<T extends object>(
     event: T
   ): Promise<JSONRPC.SomeResponse<any> | JSONRPC.BatchResponse<any>> {
     const ctx = await this.initCtx(event);
-    const {body} = ctx
+    const { body } = ctx;
     // If body is not batch request, exec single procedure
     if (!Array.isArray(body)) {
-      return this.execProcedure(event, ctx, body as JSONRPC.Request<JSONRPC.Parameters>);
+      return this.execProcedure(event as Event, ctx, body as JSONRPC.Request<JSONRPC.Parameters>);
     }
 
     const batch: JSONRPC.BatchResponse<JSONRPC.Value> = [];
@@ -302,7 +300,7 @@ export class Composer<T extends { [k: string]: object }> {
     middlewares: Middleware<Event, Context, {}>[],
     event: Event,
     ctx?: ModifiedContext<typeof this.middlewares>
-  ): Promise<{ ctx: Context, res: unknown, error: unknown }> {
+  ): Promise<{ ctx: Context; res: unknown; error: unknown }> {
     // @ts-ignore
     ctx ??= {};
 
@@ -312,13 +310,13 @@ export class Composer<T extends { [k: string]: object }> {
 
     async function next() {
       middlewareIndex++;
-      if ((middlewareIndex >= middlewares.length) || error) return;
+      if (middlewareIndex >= middlewares.length || error) return;
 
       const middleware = middlewares[middlewareIndex];
       // @ts-ignore
-      lastMiddlewareResult = await middleware(event, ctx!, next).catch(e => error = e)
+      lastMiddlewareResult = await middleware(event, ctx!, next).catch((e) => (error = e));
     }
-    await next()
+    await next();
 
     if (middlewareIndex <= middlewares.length - 1) {
       // @ts-ignore
@@ -371,15 +369,14 @@ export class Composer<T extends { [k: string]: object }> {
         // @ts-ignore
         methodDesc
       }));
-      
+
       if (error) {
         return buildError({
           code: ErrorCode.InvalidParams,
-          message: error.message,
+          message: error.message ?? error.body?.message ?? '',
           data: error.data
         });
       }
-
 
       if (res) return res as JSONRPC.SomeResponse<JSONRPC.Parameters>;
 
@@ -430,10 +427,9 @@ export class Composer<T extends { [k: string]: object }> {
       });
     } catch (e) {
       (this.config?.onError ?? console.error)(e, req);
-
       return buildError({
         code: ErrorCode.InternalError,
-        message: (e as { message?: string })?.message ?? '',
+        message: (e as { message?: string })?.message ?? e?.body?.message ?? '',
         data: [e]
       });
     }

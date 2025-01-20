@@ -8,7 +8,7 @@ export interface ICache {
   set(k: string, v: unknown, ttl?: number | string): Promise<void>;
 }
 
-function callToKey({ method, params }: IRPC.Call<unknown>): string {
+export function callToKey({ method, params }: IRPC.Call<unknown>): string {
   return `${method}(${JSON.stringify(params)})`;
 }
 
@@ -26,21 +26,23 @@ export function cacheMiddleware(cache: ICache, ttl?: number | string): Middlewar
   // TODO
   return async function cacheIntercept(
     event,
-    ctx
+    ctx,
+    next
   ) {
-    if (!event?.call || !event?.methodDesc)
-      throw TypeError('Cache Middleware can work only with RPC methods, not the Composer!');
 
-    const { target, descriptor } = event.methodDesc as MethodDescription;
-    const cacheKey = callToKey(event.call as IRPC.Call<unknown>);
+    // if (!event?.call || !event?.methodDesc)
+    //   throw TypeError('Cache Middleware can work only with RPC methods, not the Composer!');
+    const { target, descriptor } = ctx.methodDesc as MethodDescription;
+
+    const call = ctx.body as Request<Value[]>
+    const cacheKey = callToKey(call as IRPC.Call<unknown>);
     const stored = await cache
       .get(cacheKey)
       .catch((e) => console.error(`Failed at read cache "${cacheKey}"\n`, e));
-    const call = event.call as IRPC.Call<unknown>;
 
     if (stored) {
       // @ts-expect-error stored is Value
-      return buildResponse({ request: event.raw as Request<Value[]>, result: stored });
+      return buildResponse({ request: ctx.body as Request<Value[]>, result: stored });
     }
 
     // Cached method must be Pure and isn't depended from context
@@ -48,9 +50,10 @@ export function cacheMiddleware(cache: ICache, ttl?: number | string): Middlewar
     let resp;
     let result;
     try {
-      result = await descriptor.value.apply(target, call.params.concat(ctx));
+      await next()
+      result = await descriptor.value.apply(target, call.params);
       resp = buildResponse({
-        request: event.raw as Request<Value[]>,
+        request: ctx.body as Request<Value[]>,
         result
       });
     } catch (e) {
