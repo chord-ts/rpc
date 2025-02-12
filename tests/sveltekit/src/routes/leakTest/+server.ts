@@ -13,9 +13,21 @@ class Crud {
   private ctx!: {username: string}
 
 	@rpc()
-	ping(param: string): string {
-    console.log('ping', param)
-		return `Hello, ${this.ctx?.username}`;
+	pong() {
+		return 'pong'
+	}
+
+	@rpc()
+	async ping(param: string): Promise<string> {
+		console.log('enter', this.ctx?.username, param)
+		const longAction = await new Promise((resolve) => {
+			setTimeout(() => {
+				console.log('run in timeout', this.ctx?.username, param)
+				resolve(`Hello, ${this.ctx?.username}`)
+			}, 5000)
+		}) as string
+    console.log('done',  this.ctx?.username, param)
+		return longAction;
 	}
 }
 

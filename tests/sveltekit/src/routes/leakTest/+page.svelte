@@ -28,6 +28,8 @@
   >
 </form>
 
-<button on:click={async () => res = await rpc.Crud.ping(data.username)}>Call RPC</button>
+<button on:click={async () => await rpc.Crud.pong()}>Pong</button>
+
+<button on:click={async () => res = await rpc.Crud.ping(data.username)}>Hello</button>
 
 {res}

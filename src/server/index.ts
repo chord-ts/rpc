@@ -360,6 +360,8 @@ export class Composer<T extends { [k: string]: object }> {
     }
     // TODO handle Invalid Params error
     const { target, descriptor, use, argNames, validators } = methodDesc;
+    // @ts-expect-error Create new instance for each request to prevent memory leak
+    const targetInstance = new target.constructor()
 
     try {
       let res, error;
@@ -382,8 +384,9 @@ export class Composer<T extends { [k: string]: object }> {
 
       // Inject ctx dependency
       const ctxProp = Composer.props.get(target.constructor.name)?.find((d) => d.key === 'ctx');
+
       if (ctxProp) {
-        Reflect.defineProperty(target, ctxProp.key, {
+        Reflect.defineProperty(targetInstance, ctxProp.key, {
           configurable: true,
           enumerable: true,
           writable: true,
@@ -418,8 +421,8 @@ export class Composer<T extends { [k: string]: object }> {
           });
         }
       }
-
-      const result = await descriptor.value.apply(target, params as JSONRPC.Arr);
+            
+      const result = await descriptor.value.apply(targetInstance, params as JSONRPC.Arr);
       return buildResponse({
         // @ts-ignore
         request: req,
@@ -522,14 +525,6 @@ export function toRPC<T extends object>(instance: T): T {
  */
 export function rpc(config?: MethodConfig) {
   return function (target: Target, key: PropKey, descriptor: PropertyDescriptor) {
-    // console.log(key, key, descriptor)
-    // console.log('Metadata', Reflect.getMetadataKeys(target))
-    // console.log("design:paramtypes", Reflect.getMetadata("design:paramtypes", target, key).map(v => v.name));
-    // console.log("design:type", Reflect.getMetadata("design:type", target, key));
-    // console.log('add', )
-    // TODO return type doesn`t work
-    // console.log(target.constructor.name)
-    // console.log("design:returntype", Reflect.getMetadata('design:returntype', target, key)?.name);
     const metadata = getMetadata(target, key);
     const argNames = getParamNames(descriptor.value);
     let use = config?.use ?? [];
