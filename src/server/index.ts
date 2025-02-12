@@ -429,6 +429,12 @@ export class Composer<T extends { [k: string]: object }> {
         result
       });
     } catch (e) {
+
+      if (e?.status?.toString()?.startsWith('3')){
+        console.log('throw')
+        throw e
+      } 
+
       (this.config?.onError ?? console.error)(e, req);
       return buildError({
         code: ErrorCode.InternalError,
