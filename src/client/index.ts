@@ -20,7 +20,7 @@ import { buildRequest } from '../specs';
  * ```
  */
 
-export function client<T extends IRPC.Schema>(init: IRPC.Init): IRPC.Builder<T> {
+export function client<T>(init: IRPC.Init): IRPC.Builder<T> {
   const rpc = new RPC(init);
   const builder = new Builder(rpc);
   return builder as unknown as IRPC.Builder<T>;
