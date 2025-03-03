@@ -12,7 +12,7 @@ export const defaultTransport: Transport = async<T, K>({ route, body }: { route:
   return await fetch(route, { method: 'POST', body: JSON.stringify(body), ...(opt as object) })
     .then((r) => r.json())
     .catch(() => {
-      return { error: { message: 'Failed durning fetch request' } } as spec.FailedResponse;
+      return { error: { message: 'Failed during fetch request' } } as spec.FailedResponse;
     });
 };
 
