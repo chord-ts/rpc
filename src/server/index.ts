@@ -160,6 +160,23 @@ export class Composer<T extends { [k: string]: object }> {
     this.middlewares.push(middleware);
   }
 
+  public createScoped(ctx: unknown): T {
+    return Object.fromEntries(
+      Object.entries(this.models).map(([k, v]) => {
+        return [
+          k,
+          new Proxy(v, {
+            get:
+              (target, prop) =>
+              (...args) => {
+                return target[prop].call({ ...target, ctx }, ...args);
+              }
+          })
+        ];
+      })
+    ) as T;
+  }
+
   public get stringified(): T {
     const allMethods: string[] = [];
     for (const [service, instance] of Object.entries(this.models)) {
@@ -361,7 +378,7 @@ export class Composer<T extends { [k: string]: object }> {
     // TODO handle Invalid Params error
     const { target, descriptor, use, argNames, validators } = methodDesc;
     // @ts-expect-error Create new instance for each request to prevent memory leak
-    const targetInstance = new target.constructor()
+    const targetInstance = new target.constructor();
 
     try {
       let res, error;
@@ -421,7 +438,7 @@ export class Composer<T extends { [k: string]: object }> {
           });
         }
       }
-            
+
       const result = await descriptor.value.apply(targetInstance, params as JSONRPC.Arr);
       return buildResponse({
         // @ts-ignore
@@ -429,11 +446,10 @@ export class Composer<T extends { [k: string]: object }> {
         result
       });
     } catch (e) {
-
-      if (e?.status?.toString()?.startsWith('3')){
-        console.log('throw')
-        throw e
-      } 
+      if (e?.status?.toString()?.startsWith('3')) {
+        console.log('throw');
+        throw e;
+      }
 
       (this.config?.onError ?? console.error)(e, req);
       return buildError({
