@@ -12,16 +12,22 @@
 	const rpc = client<Client>({
 		endpoint: '/devalueTest',
 		config: {
-			parser: (r) =>
-				r.json().then((r) => {
-					console.log(r);
-					return devalue.parse(r);
-				})
+			format: {
+				parse: (r) =>
+					r.json().then((r) => {
+						console.log('custom', r);
+						return devalue.parse(r);
+					}),
+				stringify: (r) => {
+					console.log('custom', JSON.stringify(devalue.stringify(r)))
+					return JSON.stringify(devalue.stringify(r))
+				}
+			}
 		}
 	});
 	let r = null;
 	onMount(async () => {
-		r = await rpc.TestRPC.dbReq();
+		r = await rpc.TestRPC.dbReq(BigInt(123));
 	});
 </script>
 

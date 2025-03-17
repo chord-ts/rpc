@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { defaultCache, defaultOnError, defaultTransport } from './defaults';
 
-import type { IRPC, Transport, ErrorCallback, Cache } from './types';
+import type { IRPC, Transport, ErrorCallback, Cache, Format } from './types';
 
 import type { FailedResponse, Response, BatchRequest, BatchResponse } from '../specs';
 import { buildRequest } from '../specs';
@@ -38,7 +38,7 @@ export function client<T>(init: IRPC.Init): IRPC.Builder<T> {
 
 export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
   #transport: Transport;
-  #parser: (r: Response) => object;
+  #format: Format;
   errorCallback: ErrorCallback;
   cacheStorage: Cache.Storage;
   endpoint: string;
@@ -55,7 +55,10 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
     const proto = Reflect.getPrototypeOf(this)!;
     this.internal = new Set([...Reflect.ownKeys(proto), ...Reflect.ownKeys(this)]);
     this.#transport = config?.transport ?? defaultTransport;
-    this.#parser = config?.parser ?? ((r) => r.json());
+    this.#format = config?.format ?? {
+      parse: (r) => r.json(),
+      stringify: (r) => JSON.stringify(r)
+    }
     this.errorCallback = config?.onError ?? defaultOnError;
     this.cacheStorage = config?.cache ?? defaultCache;
 
@@ -66,8 +69,8 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
   get transport() {
     return this.#transport;
   }
-  get parser() {
-    return this.#parser;
+  get format() {
+    return this.#format;
   }
 
   /**
@@ -91,7 +94,7 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
   async call<P, R>({ method, params }: IRPC.Call<P>): Promise<R | void> {
     const body = buildRequest({ method, params });
     // TODO handle network error
-    const res = await this.transport({ route: this.endpoint, body, parser: this.parser }, this.options ?? {});
+    const res = await this.transport({ route: this.endpoint, body, format: this.format }, this.options ?? {});
     if ((res as FailedResponse).error) {
       await this.errorCallback((res as FailedResponse).error, body);
       return;

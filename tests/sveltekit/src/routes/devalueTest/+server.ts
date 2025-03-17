@@ -12,8 +12,9 @@ class TestRPC {
 	private readonly ctx!: Context;
 
 	@rpc()
-	dbReq() {
+	dbReq(value: BigInt) {
 		return {
+			input: value,
 			date: new Date(),
 			bigint: BigInt(133333333)
 		};
@@ -23,7 +24,13 @@ class TestRPC {
 
 const composer = Composer.init({ TestRPC: new TestRPC() });
 
-composer.use(sveltekitMiddleware());
+async function backendAdapter(event, ctx, next){
+	ctx.body = devalue.parse(await event.request.json());
+	Object.assign(ctx, event.locals);	
+	await next()
+}
+
+composer.use(backendAdapter)
 
 export type Client = typeof composer.clientType;
 
