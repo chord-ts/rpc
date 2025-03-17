@@ -8,9 +8,9 @@ import type {
 
 
 
-export const defaultTransport: Transport = async<T, K>({ route, body }: { route: string, body: T }, opt?: object): Promise<K> => {
+export const defaultTransport: Transport = async<T, K>({ route, body, parser }: { route: string, body: T, parser }, opt?: object): Promise<K> => {
   return await fetch(route, { method: 'POST', body: JSON.stringify(body), ...(opt as object) })
-    .then((r) => r.json())
+    .then(r => parser(r))
     .catch(() => {
       return { error: { message: 'Failed during fetch request' } } as spec.FailedResponse;
     });

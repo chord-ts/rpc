@@ -4,6 +4,7 @@ export type Transport = <T, K extends Parameters>(
   data: {
     route: string;
     body: T;
+    parser: (r: unknown) => object
   },
   opt?: object
 ) => Promise<SomeResponse<K> | BatchResponse<K>>;
@@ -30,6 +31,7 @@ export namespace IRPC {
   }
   export interface Config {
     transport?: Transport;
+    parser?: (r: Response) => object;
     cache?: Cache.Storage;
     onError?: ErrorCallback;
   }
@@ -43,6 +45,7 @@ export namespace IRPC {
     endpoint: string;
     config?: Config;
     options?: Options;
+    
   }
 
   export interface Overridable {

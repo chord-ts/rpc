@@ -37,10 +37,10 @@ export function client<T>(init: IRPC.Init): IRPC.Builder<T> {
  */
 
 export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
-  _transport: Transport;
+  #transport: Transport;
+  #parser: (r: Response) => object;
   errorCallback: ErrorCallback;
   cacheStorage: Cache.Storage;
-
   endpoint: string;
   internal: Set<string | symbol>;
 
@@ -54,7 +54,8 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
 
     const proto = Reflect.getPrototypeOf(this)!;
     this.internal = new Set([...Reflect.ownKeys(proto), ...Reflect.ownKeys(this)]);
-    this._transport = config?.transport ?? defaultTransport;
+    this.#transport = config?.transport ?? defaultTransport;
+    this.#parser = config?.parser ?? ((r) => r.json());
     this.errorCallback = config?.onError ?? defaultOnError;
     this.cacheStorage = config?.cache ?? defaultCache;
 
@@ -63,7 +64,10 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
 
   // FIXME: in prod build fields disappears in internal set
   get transport() {
-    return this._transport;
+    return this.#transport;
+  }
+  get parser() {
+    return this.#parser;
   }
 
   /**
@@ -87,7 +91,7 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
   async call<P, R>({ method, params }: IRPC.Call<P>): Promise<R | void> {
     const body = buildRequest({ method, params });
     // TODO handle network error
-    const res = await this.transport({ route: this.endpoint, body }, this.options ?? {});
+    const res = await this.transport({ route: this.endpoint, body, parser: this.parser }, this.options ?? {});
     if ((res as FailedResponse).error) {
       await this.errorCallback((res as FailedResponse).error, body);
       return;
