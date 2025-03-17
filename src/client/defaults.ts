@@ -14,7 +14,7 @@ export const defaultTransport: Transport = async<T, K>({ route, body, format }: 
     .then(r => format.parse(r))
     .catch(() => {
       return { error: { message: 'Failed during fetch request' } } as spec.FailedResponse;
-    });
+    }) as K;
 };
 
 export const defaultCache: Cache.Storage = (config) => {
@@ -68,5 +68,6 @@ export const defaultOnError: ErrorCallback = async (e, { method, params }) => {
     `Error occurred during RPC Call: ${method}(${params.map((p) => JSON.stringify(p)).join(',')})`
   );
 
+  // @ts-ignore
   throw new RPCError(e)
 };
