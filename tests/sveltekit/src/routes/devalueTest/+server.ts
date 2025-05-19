@@ -12,7 +12,14 @@ class TestRPC {
 	private readonly ctx!: Context;
 
 	@rpc()
-	dbReq(value: BigInt) {
+	async dbReq(value: BigInt) {
+		
+    function timeout(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms))
+    }
+    console.log('start sleep')
+    await timeout(4000)
+
 		return {
 			input: value,
 			date: new Date(),

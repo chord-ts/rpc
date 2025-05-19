@@ -12,8 +12,8 @@ import type {
 export const defaultTransport: Transport = async<T, K>({ route, body, format }: { route: string, body: T, format: Format }, opt?: object): Promise<K> => {
   return await fetch(route, { method: 'POST', body: format.stringify(body), ...(opt as object) })
     .then(r => format.parse(r))
-    .catch(() => {
-      return { error: { message: 'Failed during fetch request' } } as spec.FailedResponse;
+    .catch((e) => {
+      return { error: e } as spec.FailedResponse;
     }) as K;
 };
 
@@ -55,17 +55,28 @@ export const defaultCache: Cache.Storage = (config) => {
 class RPCError extends Error {
   data: unknown
   code: number
-  name = 'RPC Error'
-  constructor({data, code, message}: spec.Error) {
+  name: string
+  reason?: string
+
+  constructor({name, data, code, message, reason}: spec.Error) {
     super(message)
+    this.name = name ?? 'RPC Error'
     this.data = data
     this.code = code
+    this.reason = reason
   }
 }
 export const defaultOnError: ErrorCallback = async (e, { method, params }) => {
   if (!Array.isArray(params)) params = [params]
   console.error(
-    `Error occurred during RPC Call: ${method}(${params.map((p) => JSON.stringify(p)).join(',')})`
+    `Error occurred during RPC Call: ${method}(${params.map((p) => {
+      try {
+        return JSON.stringify(p)
+        // Handle if BigInt or something else
+      } catch(e) {
+        return p
+      }
+    }).join(',')})`
   );
 
   // @ts-ignore

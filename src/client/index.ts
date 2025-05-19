@@ -113,6 +113,7 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
 
   private get currentConfig() {
     return {
+      format: this.format,
       transport: this.transport,
       onError: this.errorCallback,
       cache: this.cacheStorage
@@ -186,8 +187,7 @@ export class Builder<T> extends Function {
   constructor(rpc: RPC<T>, path: string[] = []) {
     super();
 
-    const proto = Reflect.getPrototypeOf(this)!;
-    this.internal = new Set([...Reflect.ownKeys(proto), ...Reflect.ownKeys(this)]);
+    this.internal = new Set([...Reflect.ownKeys(this.prototype), ...Reflect.ownKeys(this)], ...Reflect.ownKeys(RPC.prototype));
 
     this.path = path;
     this.rpc = rpc;

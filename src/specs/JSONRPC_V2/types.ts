@@ -28,8 +28,10 @@ export type Parameters = Obj | Arr
 in a JSON-RPC response. It has three properties: */
 export interface Error {
   code: ErrorCode | number;
+  name: string;
   message: string;
   data?: unknown;
+  reason?: string;
 }
 
 /* The `Response` interface is defining the structure of a JSON-RPC response object in TypeScript. */
