@@ -28,7 +28,7 @@ export type Parameters = Obj | Arr
 in a JSON-RPC response. It has three properties: */
 export interface Error {
   code: ErrorCode | number;
-  name: string;
+  name?: string;
   message: string;
   data?: unknown;
   reason?: string;
