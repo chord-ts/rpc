@@ -1,21 +1,23 @@
 import * as spec from '../specs';
 
-import type { Transport, Cache, ErrorCallback } from './types';
+import type {
+  Transport,
+  Cache,
+  ErrorCallback,
+  Format,
+} from './types'
 
-export const defaultTransport: Transport = async <T, K>(
-  { route, body }: { route: string; body: T },
-  opt?: object
-): Promise<K> => {
-  return await fetch(route, {
+
+
+export const defaultTransport: Transport = async<T, K>({ route, body, format }: { route: string, body: T, format: Format }, opt?: object): Promise<K> => {
+  return await fetch(route, { 
     headers: { 'Content-Type': 'application/json' },
-    method: 'POST',
-    body: JSON.stringify(body),
-    ...(opt as object)
+    method: 'POST', body: format.stringify(body), ...(opt as object) 
   })
-    .then((r) => r.json())
-    .catch(() => {
-      return { error: { message: 'Failed durning fetch request' } } as spec.FailedResponse;
-    });
+    .then(r => format.parse(r))
+    .catch((e) => {
+      return { error: e } as spec.FailedResponse;
+    }) as K;
 };
 
 export const defaultCache: Cache.Storage = (config) => {
@@ -53,20 +55,32 @@ export const defaultCache: Cache.Storage = (config) => {
 };
 
 class RPCError extends Error {
-  data: unknown;
-  code: number;
-  name = 'RPC Error';
-  constructor({ data, code, message }: spec.Error) {
-    super(message);
-    this.data = data;
-    this.code = code;
+  data: unknown
+  code: number
+  name: string
+  reason?: string
+
+  constructor({name, data, code, message, reason}: spec.Error) {
+    super(message)
+    this.name = name ?? 'RPC Error'
+    this.data = data
+    this.code = code
+    this.reason = reason
   }
 }
 export const defaultOnError: ErrorCallback = async (e, { method, params }) => {
   if (!Array.isArray(params)) params = [params];
   console.error(
-    `Error occurred during RPC Call: ${method}(${params.map((p) => JSON.stringify(p)).join(',')})`
+    `Error occurred during RPC Call: ${method}(${params.map((p) => {
+      try {
+        return JSON.stringify(p)
+        // Handle if BigInt or something else
+      } catch(e) {
+        return p
+      }
+    }).join(',')})`
   );
 
-  throw new RPCError(e);
+  // @ts-ignore
+  throw new RPCError(e)
 };

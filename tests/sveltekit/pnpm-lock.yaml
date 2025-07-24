@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      devalue:
+        specifier: ^5.1.1
+        version: 5.1.1
     devDependencies:
       '@chord-ts/rpc':
         specifier: 1.0.0-beta.12
@@ -690,6 +694,9 @@ packages:
 
   devalue@4.3.2:
     resolution: {integrity: sha512-KqFl6pOgOW+Y6wJgu80rHpo2/3H07vr8ntR9rkkFIRETewbf5GaYYcakYfiKz89K+sLsuPkQIZaXDMjUObZwWg==}
+
+  devalue@5.1.1:
+    resolution: {integrity: sha512-maua5KUiapvEwiEAe+XnlZ3Rh0GD+qI1J/nb9vrJc3muPXvcF/8gXYTWF76+5DAqHyDUtOIImEuo0YKE9mshVw==}
 
   diff-sequences@29.6.3:
     resolution: {integrity: sha512-EjePK1srD3P08o2j4f0ExnylqRs5B9tJjcp9t1krH2qRi8CCdsYfwe9JgSLurFBWwq4uOlipzfk5fHNvwFKr8Q==}
@@ -2175,6 +2182,8 @@ snapshots:
   detect-indent@6.1.0: {}
 
   devalue@4.3.2: {}
+
+  devalue@5.1.1: {}
 
   diff-sequences@29.6.3: {}
 

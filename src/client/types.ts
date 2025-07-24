@@ -1,14 +1,20 @@
-import type { Request, Error, SomeResponse, BatchResponse, Parameters, Value } from '../specs';
+import type * as JSONRPC from '../specs';
 
-export type Transport = <T, K extends Parameters>(
+export type Transport = <T, K extends JSONRPC.Parameters>(
   data: {
     route: string;
     body: T;
+    format: Format;
   },
   opt?: object
-) => Promise<SomeResponse<K> | BatchResponse<K>>;
+) => Promise<JSONRPC.SomeResponse<K> | JSONRPC.BatchResponse<K>>;
 
-export type ErrorCallback = <T>(e: Error, req: Request<Parameters>) => Promise<T> | never;
+export type Format = {
+  parse: (r: Response) => object;
+  stringify: <T>(r: T) => string;
+}
+
+export type ErrorCallback = <T>(e: Error, req: JSONRPC.Request<JSONRPC.Parameters>) => Promise<T> | never;
 
 export namespace Cache {
   export interface Config {
@@ -30,6 +36,7 @@ export namespace IRPC {
   }
   export interface Config {
     transport?: Transport;
+    format?: Format;
     cache?: Cache.Storage;
     onError?: ErrorCallback;
   }
@@ -43,6 +50,7 @@ export namespace IRPC {
     endpoint: string;
     config?: Config;
     options?: Options;
+    
   }
 
   export interface Overridable {
@@ -57,18 +65,18 @@ export namespace IRPC {
     [Property in keyof T]: Methods<T[Property]>;
   };
 
-  interface Construct<T extends Value[]> {
-    new (...args: T): Request<T>;
+  interface Construct<T extends JSONRPC.Value[]> {
+    new (...args: T): JSONRPC.Request<T>;
   }
 
   // Not necessary if methods in class are async
   // type Promised<F extends (...args: any) => any> = (
-  //   ...args: Parameters<F>
+  //   ...args: JSONRPC.Parameters<F>
   // ) => Promise<ReturnType<F>>;
 
   type Methods<T extends Schema[keyof Schema]> = {
     // @ts-ignore
-    [Property in keyof T]: T[Property] & Construct<Parameters<T[Property]>>;
+    [Property in keyof T]: T[Property] & Construct<JSONRPC.Parameters<T[Property]>>;
   };
 
   export type Factory = <T extends Schema>(init: Init) => Builder<T>;

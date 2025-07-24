@@ -38,5 +38,8 @@
 		"zod": "^3.22.4",
 		"zod-to-json-schema": "^3.22.3"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"devalue": "^5.1.1"
+	}
 }
