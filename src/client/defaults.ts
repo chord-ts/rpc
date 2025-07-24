@@ -1,15 +1,17 @@
-import * as spec from '../specs'
+import * as spec from '../specs';
 
-import type {
-  Transport,
-  Cache,
-  ErrorCallback,
-} from './types'
+import type { Transport, Cache, ErrorCallback } from './types';
 
-
-
-export const defaultTransport: Transport = async<T, K>({ route, body }: { route: string, body: T }, opt?: object): Promise<K> => {
-  return await fetch(route, { method: 'POST', body: JSON.stringify(body), ...(opt as object) })
+export const defaultTransport: Transport = async <T, K>(
+  { route, body }: { route: string; body: T },
+  opt?: object
+): Promise<K> => {
+  return await fetch(route, {
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    body: JSON.stringify(body),
+    ...(opt as object)
+  })
     .then((r) => r.json())
     .catch(() => {
       return { error: { message: 'Failed durning fetch request' } } as spec.FailedResponse;
@@ -50,22 +52,21 @@ export const defaultCache: Cache.Storage = (config) => {
   return { get, set };
 };
 
-
 class RPCError extends Error {
-  data: unknown
-  code: number
-  name = 'RPC Error'
-  constructor({data, code, message}: spec.Error) {
-    super(message)
-    this.data = data
-    this.code = code
+  data: unknown;
+  code: number;
+  name = 'RPC Error';
+  constructor({ data, code, message }: spec.Error) {
+    super(message);
+    this.data = data;
+    this.code = code;
   }
 }
 export const defaultOnError: ErrorCallback = async (e, { method, params }) => {
-  if (!Array.isArray(params)) params = [params]
+  if (!Array.isArray(params)) params = [params];
   console.error(
     `Error occurred during RPC Call: ${method}(${params.map((p) => JSON.stringify(p)).join(',')})`
   );
 
-  throw new RPCError(e)
+  throw new RPCError(e);
 };
