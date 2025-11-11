@@ -1,4 +1,4 @@
-import * as spec from '../specs'
+import * as spec from '../specs';
 
 import type {
   Transport,
@@ -10,7 +10,10 @@ import type {
 
 
 export const defaultTransport: Transport = async<T, K>({ route, body, format }: { route: string, body: T, format: Format }, opt?: object): Promise<K> => {
-  return await fetch(route, { method: 'POST', body: format.stringify(body), ...(opt as object) })
+  return await fetch(route, { 
+    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', body: format.stringify(body), ...(opt as object) 
+  })
     .then(r => format.parse(r))
     .catch((e) => {
       return { error: e } as spec.FailedResponse;
@@ -51,7 +54,6 @@ export const defaultCache: Cache.Storage = (config) => {
   return { get, set };
 };
 
-
 class RPCError extends Error {
   data: unknown
   code: number
@@ -67,7 +69,7 @@ class RPCError extends Error {
   }
 }
 export const defaultOnError: ErrorCallback = async (e, { method, params }) => {
-  if (!Array.isArray(params)) params = [params]
+  if (!Array.isArray(params)) params = [params];
   console.error(
     `Error occurred during RPC Call: ${method}(${params.map((p) => {
       try {
