@@ -147,7 +147,7 @@ export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
    * result is extracted from the `Response` object and returned in the array.
    */
   public async batch(...calls: BatchRequest) {
-    const res = (await this.transport({ route: this.endpoint, body: calls })) as BatchResponse;
+    const res = (await this.transport({ route: this.endpoint, body: calls, format: this.format })) as BatchResponse;
     return res.map((r, i) => {
       if ((r as FailedResponse)?.error) {
         this.errorCallback((r as FailedResponse).error, calls[i]);
