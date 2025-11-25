@@ -21,6 +21,7 @@
     // console.log('simple', await rpc.TestRPC.dbReq(123))
     // console.log('construct test', new rpc.TestRPC.dbReq(123))
     // console.log('middleware test', rpc.TestRPC2.dbReq3(123))
+    // const r2 = await rpc.TestRPC1.dbReq2('123')
 
 
 

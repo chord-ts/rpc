@@ -361,11 +361,11 @@ export class Composer<T extends { [k: string]: object }> {
 
     // Convert methodname from Key name to Class name
     const [cls, func] = method.split('.');
-    method = `${this.models[cls].constructor.name}.${func}`;
 
+    method = `${this.models[cls]?.constructor?.name}.${func}`;
     const methodDesc = Composer.methods.get(method);
-    if (!method || !methodDesc) {
-      const msg = `Error: Cannot find method: "${method}"\nHave you marked it with @rpc() decorator?`;
+    if (!methodDesc) {
+      const msg = `Error: Cannot find method: "${cls}.${func}"\nHave you marked it with @rpc() decorator?`;
       console.error(
         '\x1b[31m' + msg + `\nRegistered methods: ${JSON.stringify(Composer.methods.entries())}`
       );
