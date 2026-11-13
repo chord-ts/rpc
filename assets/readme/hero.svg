@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="340" viewBox="0 0 1200 340" role="img" aria-labelledby="title desc">
+  <title id="title">Chord — type-safe RPC on JSON-RPC v2</title>
+  <desc id="desc">A dark banner. On the left, the word Chord with the promise "Write a typed method once on the server, call it from the client like a local function." On the right, a chord curve connects a client node to a server node, labelled with JSON-RPC 2.0.</desc>
+
+  <defs>
+    <linearGradient id="wire" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FF4D7E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="340" rx="26" fill="#17142A"/>
+
+  <!-- Title block -->
+  <g id="title-block" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+    <text x="72" y="108" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="20" letter-spacing="3" fill="#FF4D7E">TYPE-SAFE RPC · JSON-RPC V2</text>
+    <text x="70" y="198" font-size="92" font-weight="800" fill="#FFFFFF">Chord</text>
+    <text x="72" y="250" font-size="24" fill="#B9B6CE">Write a typed method once on the server,</text>
+    <text x="72" y="284" font-size="24" fill="#B9B6CE">call it from the client like a local function.</text>
+  </g>
+
+  <!-- Chord motif: client ⇄ server -->
+  <g id="chord-motif" font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">
+    <path d="M744 178 Q 816 96 912 178 T 1088 178" fill="none" stroke="url(#wire)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M1046 171 L1072 178 L1046 185 Z" fill="#FF4D7E"/>
+
+    <circle cx="744" cy="178" r="14" fill="#FFFFFF"/>
+    <circle cx="744" cy="178" r="19" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="2"/>
+    <circle cx="1088" cy="178" r="14" fill="#FF4D7E"/>
+    <circle cx="1088" cy="178" r="19" fill="none" stroke="#FF4D7E" stroke-opacity="0.55" stroke-width="2"/>
+
+    <text x="744" y="228" font-size="20" text-anchor="middle" fill="#9A97B4">client</text>
+    <text x="1088" y="228" font-size="20" text-anchor="middle" fill="#9A97B4">server</text>
+
+    <rect x="824" y="88" width="176" height="36" rx="18" fill="#FF4D7E"/>
+    <text x="912" y="112" font-size="18" font-weight="700" text-anchor="middle" fill="#17142A">JSON-RPC 2.0</text>
+  </g>
+</svg>
