@@ -1,5 +1,5 @@
 {
-  "type": "commonjs",
+  "type": "module",
   "name": "@chord-ts/rpc",
   "version": "1.0.0-beta.32",
   "author": "Din Dmitriy @dmdin",
@@ -14,37 +14,39 @@
     "Transport"
   ],
   "license": "Apache License 2.0",
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "dist"
   ],
   "exports": {
-    ".": "./dist/index.js",
-    "./client": "./dist/client/index.js",
-    "./middlewares/*": "./dist/middlewares/*.js",
-    "./middlewares": "./dist/middlewares/index.js",
-    "./validators": "./dist/validators/index.js",
-    "./specs": "./dist/specs/index.js"
-  },
-  "types": "./dist/index.d.ts",
-  "typesVersions": {
-    "*": {
-      "middlewares": [
-        "./dist/middlewares/index.d.ts"
-      ],
-      "middlewares/*": [
-        "./dist/middlewares/*.d.ts"
-      ],
-      "client": [
-        "./dist/client.d.ts"
-      ],
-      "specs": [
-        "./dist/specs/index.d.ts"
-      ],
-      "validators": [
-        "./dist/validators/index.d.ts"
-      ]
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    },
+    "./middlewares": {
+      "types": "./dist/middlewares/index.d.ts",
+      "import": "./dist/middlewares/index.js"
+    },
+    "./middlewares/*": {
+      "types": "./dist/middlewares/*.d.ts",
+      "import": "./dist/middlewares/*.js"
+    },
+    "./validators": {
+      "types": "./dist/validators/index.d.ts",
+      "import": "./dist/validators/index.js"
+    },
+    "./specs": {
+      "types": "./dist/specs/index.d.ts",
+      "import": "./dist/specs/index.js"
     }
   },
+  "types": "./dist/index.d.ts",
   "publishConfig": {
     "access": "public"
   },
@@ -54,8 +56,9 @@
     "lint": "eslint --fix ./src",
     "test": "vitest",
     "coverage": "vitest run --coverage",
-    "build": "tsc",
-    "minify": "terser --compress --module -o ./dist/client/index.js -- ./dist/client/index.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js -- ./dist/specs/JSONRPC_V2/index.js",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && tsdown",
+    "minify": "terser --compress --module -o ./dist/client/index.js -- ./dist/client/index.js && terser --compress --module -o ./dist/specs/index.js -- ./dist/specs/index.js",
     "patch": "pnpm run build && pnpm version patch --no-git-tag-version"
   },
   "devDependencies": {
@@ -67,12 +70,11 @@
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.1.0",
     "terser": "^5.26.0",
+    "tsdown": "^0.23.7",
     "tslib": "^2.6.2",
     "typescript": "5.5.3",
     "unplugin-swc": "^1.4.5",
     "vitest": "^1.6.0"
-  },
-  "peerDependencies": {
   },
   "dependencies": {
     "reflect-metadata": "^0.1.13",

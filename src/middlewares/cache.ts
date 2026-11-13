@@ -1,6 +1,6 @@
 import type { MethodDescription, Middleware, IRPC } from '../types';
 import { ErrorCode, type Request } from '../specs';
-import { buildResponse, buildError, Value } from '../specs';
+import { buildResponse, buildError, type Value } from '../specs';
 
 /* The `ICache` interface defines a contract for a cache object. It specifies two methods: `get` & `set`*/
 export interface ICache {

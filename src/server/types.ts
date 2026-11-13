@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type { Composer } from '.';
-import type { ValidateAdapter } from 'src/validators/types';
+import type { ValidateAdapter } from '../validators/types';
 import * as JSONRPC from '../specs/JSONRPC_V2/types';
 
 export interface MethodDescription {

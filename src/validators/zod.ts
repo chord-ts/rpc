@@ -1,4 +1,4 @@
-import { ValidateAdapter } from "./types";
+import type { ValidateAdapter } from "./types";
 
 export const ZodAdapter = {
   validate(validator: unknown, value: unknown) {
