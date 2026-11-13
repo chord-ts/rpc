@@ -10,8 +10,8 @@ const logCalls: Middleware = async (_ctx, next) => next();
 
 export class Say {
   constructor(
-    private readonly ctx: Ctx,
-    private readonly logger: Logger,
+    public readonly ctx: Ctx,
+    public readonly logger: Logger,
   ) {}
 
   static $hello = fn({

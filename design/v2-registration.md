@@ -15,7 +15,7 @@ type Ctx = { user: { id: string; name: string } };
 
 export class Say {
   // DI: фреймворк сам делает new Say(ctx), подставляя вычисленный контекст.
-  constructor(private readonly ctx: Ctx) {}
+  constructor(public readonly ctx: Ctx) {}
 
   static $hello = fn({
     in: z.string(),
@@ -152,8 +152,8 @@ Say(...)`. Ключи `inject` совпадают с именами параме
 ```ts
 class Say {
   constructor(
-    private readonly ctx: Ctx,
-    private readonly logger: Logger,
+    public readonly ctx: Ctx,
+    public readonly logger: Logger,
   ) {}
 }
 
@@ -210,7 +210,8 @@ type Proced<C extends Contract> = C & {
 4. Тип метода — **фантомное `typeof Say.$hello.fn`**, методы пишутся как поля-стрелки.
 5. Per-fn middleware — поле `use` (один или массив).
 6. Не-эндпоинт — `#` (канонический) или `private` (только типы).
-7. DI — через конструктор, ключи `inject` по именам параметров.
+7. DI — через конструктор, ключи `inject` по именам параметров; зависимости — публичные
+   parameter-properties (`public readonly`), типы `inject` выводятся из полей инстанса (`Injector<S>`).
 8. Схема-агностичность — ядро на `AnySchema`, zod/valibot/arktype как opt-in адаптеры.
 9. `description`/`deprecated`/`tags`/`meta` — вынесены из v1 `fn`; вернуть их как опциональные поля
    `Contract`, когда дойдём до генерации OpenRPC/OpenAPI/MCP.
@@ -218,8 +219,7 @@ type Proced<C extends Contract> = C & {
 ## Осталось решить
 
 - Разрешать ли `z.tuple([...])` как уступку старым позиционным вызовам, или только объект/скаляр.
-- Точно типизировать `inject` (выводить ключи из `ConstructorParameters<typeof Say>`), чтобы фабрики
-  не могли разъехаться с параметрами конструктора — сейчас `toRPC` типизирован «в ширину».
-- Подтвердить **zod 4** (Standard Schema + встроенный `.toJSONSchema()`) или остаться на zod 3 с шимом.
+- **zod 4** (Standard Schema) как optional/dev dependency; в тестах v2 использовать настоящий zod 4
+  вместо fake-схем — прогнать schema-agnostic ядро на реальном `~standard`-валидаторе.
 - Рантайм-обход методов: поле-стрелка — own-свойство инстанса, поэтому `toRPC` должен ходить и по
   прототипу, и по `Reflect.ownKeys(new Ctor())`.

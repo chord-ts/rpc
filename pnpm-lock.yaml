@@ -54,6 +54,9 @@ importers:
       vitest:
         specifier: ^1.6.0
         version: 1.6.0(supports-color@7.2.0)(terser@5.26.0)
+      zod4:
+        specifier: npm:zod@4
+        version: zod@4.6.7
 
 packages:
 
@@ -1667,6 +1670,9 @@ packages:
   zod@3.23.8:
     resolution: {integrity: sha512-XBx9AXhXktjUqnepgTiE5flcKIYWi/rme0Eaj+5Y0lftuGBq+jyRu/md4WnuxqgP1ubdpNCsYEYPxrzVHD8d6g==}
 
+  zod@4.6.7:
+    resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
 snapshots:
 
   '@aashutoshrathi/word-wrap@1.2.6': {}
@@ -3122,3 +3128,5 @@ snapshots:
       '@yuku-toolchain/win32-x64': 0.28.0
 
   zod@3.23.8: {}
+
+  zod@4.6.7: {}
