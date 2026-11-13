@@ -2,18 +2,18 @@ import { defineConfig } from 'tsdown';
 
 export default defineConfig({
   entry: [
-    'src/index.ts',
-    'src/client/index.ts',
-    'src/middlewares/index.ts',
-    'src/middlewares/cache.ts',
-    'src/middlewares/express.ts',
-    'src/middlewares/sveltekit.ts',
-    'src/validators/index.ts',
-    'src/specs/index.ts'
+    'src/v1/index.ts',
+    'src/v1/client/index.ts',
+    'src/v1/middlewares/index.ts',
+    'src/v1/middlewares/cache.ts',
+    'src/v1/middlewares/express.ts',
+    'src/v1/middlewares/sveltekit.ts',
+    'src/v1/validators/index.ts',
+    'src/v1/specs/index.ts'
   ],
   format: ['esm'],
-  dts: true,
-  outDir: 'dist',
+  dts: false,
+  outDir: 'dist/v1',
   clean: true,
   sourcemap: true,
   target: 'es2022',

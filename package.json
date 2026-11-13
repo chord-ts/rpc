@@ -22,31 +22,31 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/v1/index.d.ts",
+      "import": "./dist/v1/index.js"
     },
     "./client": {
-      "types": "./dist/client/index.d.ts",
-      "import": "./dist/client/index.js"
+      "types": "./dist/v1/client/index.d.ts",
+      "import": "./dist/v1/client/index.js"
     },
     "./middlewares": {
-      "types": "./dist/middlewares/index.d.ts",
-      "import": "./dist/middlewares/index.js"
+      "types": "./dist/v1/middlewares/index.d.ts",
+      "import": "./dist/v1/middlewares/index.js"
     },
     "./middlewares/*": {
-      "types": "./dist/middlewares/*.d.ts",
-      "import": "./dist/middlewares/*.js"
+      "types": "./dist/v1/middlewares/*.d.ts",
+      "import": "./dist/v1/middlewares/*.js"
     },
     "./validators": {
-      "types": "./dist/validators/index.d.ts",
-      "import": "./dist/validators/index.js"
+      "types": "./dist/v1/validators/index.d.ts",
+      "import": "./dist/v1/validators/index.js"
     },
     "./specs": {
-      "types": "./dist/specs/index.d.ts",
-      "import": "./dist/specs/index.js"
+      "types": "./dist/v1/specs/index.d.ts",
+      "import": "./dist/v1/specs/index.js"
     }
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/v1/index.d.ts",
   "publishConfig": {
     "access": "public"
   },
@@ -57,8 +57,9 @@
     "test": "vitest",
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && tsdown",
-    "minify": "terser --compress --module -o ./dist/client/index.js -- ./dist/client/index.js && terser --compress --module -o ./dist/specs/index.js -- ./dist/specs/index.js",
+    "build": "tsc --noEmit && tsdown && tsc --emitDeclarationOnly --outDir dist/v1",
+    "build:dts": "tsc --emitDeclarationOnly --outDir dist/v1",
+    "minify": "terser --compress --module -o ./dist/v1/client/index.js -- ./dist/v1/client/index.js && terser --compress --module -o ./dist/v1/specs/index.js -- ./dist/v1/specs/index.js",
     "patch": "pnpm run build && pnpm version patch --no-git-tag-version"
   },
   "devDependencies": {

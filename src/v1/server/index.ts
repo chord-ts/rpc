@@ -531,6 +531,7 @@ export function toRPC<T extends object>(instance: T): T {
  * Decorator registers method using the class name of parent. That's why you have to specify the same name as key during Composer initialization
  * :::
  * @category General Use
+ * @deprecated Устарело в v2: используйте schema-first регистрацию `fn({ in, out, use })` со статикой `$method` вместо декоратора `@rpc()`.
  * @param {MethodConfig} [config] - The `config` parameter is an optional object that contains
  * configuration options for the `rpc` function. It has the following properties:
  * @returns The `rpc` function returns a new function that takes three arguments: `target`, `key`, and
@@ -568,6 +569,7 @@ export function rpc(config?: MethodConfig) {
  * The `depends` function is used for dependency injection in TypeScript, specifically for injecting
  * the `ctx` property.
  * @returns The function `depends()` returns another function.
+ * @deprecated Устарело в v2: используйте DI через конструктор — `constructor(private readonly ctx: Ctx)`.
  */
 export function depends() {
   return function (target: object, key: PropKey) {
@@ -587,6 +589,9 @@ export function depends() {
   };
 }
 
+/**
+ * @deprecated Устарело в v2: валидация аргументов переезжает в схему `in` у `fn({ in, out, use })`. Используйте поле `in`.
+ */
 export function val(validator: unknown) {
   return (target: Object, key: string | symbol, parameterIndex: number) => {
     Composer.upsertMethod({ target, key, validators: { in: { [parameterIndex]: validator } } });

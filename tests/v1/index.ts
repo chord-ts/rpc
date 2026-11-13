@@ -1,6 +1,6 @@
-import type { Transport, ErrorCallback, IRPC } from "../src/client/types";
-import type { Composed } from "../src/server/types";
-import {Builder, client, Composer, rpc} from '../src'
+import type { Transport, ErrorCallback, IRPC } from "../../src/v1/client/types";
+import type { Composed } from "../../src/v1/server/types";
+import {Builder, client, Composer, rpc} from '../../src/v1'
 
 
 export class TestService {
