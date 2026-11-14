@@ -50,7 +50,7 @@ export type Contract = {
 
 type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
 
-export type Proced<C extends Contract> = C & {
+export type Fn<C extends Contract> = C & {
   fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
 };
 
@@ -58,8 +58,8 @@ export type Proced<C extends Contract> = C & {
  * Declares a procedure from a schema. `$method.fn` is the phantom handler type:
  * the argument is inferred from `in`, the return from `out` (unknown when omitted).
  */
-export function fn<C extends Contract>(c: C): Proced<C> {
-  return c as unknown as Proced<C>;
+export function fn<C extends Contract>(c: C): Fn<C> {
+  return c as unknown as Fn<C>;
 }
 
 // --- DI + Client types ---

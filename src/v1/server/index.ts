@@ -1,5 +1,3 @@
-import 'reflect-metadata';
-
 import type {
   ComposerConfig,
   MethodDescription,
@@ -473,13 +471,10 @@ function getParamNames(func: CallableFunction): string[] {
   return result;
 }
 
-function getMetadata(target: object, key: PropKey): MethodMetadata {
-  return {
-    argsType: Reflect.getMetadata('design:paramtypes', target, key)?.map(
-      (a: { name: string }) => a?.name
-    ),
-    returnType: Reflect.getMetadata('design:returntype', target, key)?.name
-  };
+// reflect-metadata removed: type names were only consumed by getSchema(); the dispatcher relies on
+// argNames/validators. schema-first v2 derives types from the schema instead.
+function getMetadata(_target: object, _key: PropKey): MethodMetadata {
+  return {};
 }
 
 /**

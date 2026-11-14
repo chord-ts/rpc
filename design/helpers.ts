@@ -14,13 +14,13 @@ type Contract = {
 type ContractIn<C extends Contract> = z.infer<C['in']>;
 type ContractOut<C extends Contract> = C['out'] extends z.ZodTypeAny ? z.infer<C['out']> : unknown;
 
-type Proced<C extends Contract> = C & {
+type Fn<C extends Contract> = C & {
   fn: (input: ContractIn<C>) => Promise<ContractOut<C>>;
 };
 
 // Декларирует процедуру и возвращает контракт с фантомным полем `fn` — типом обработчика.
-export function fn<C extends Contract>(c: C): Proced<C> {
-  return c as unknown as Proced<C>;
+export function fn<C extends Contract>(c: C): Fn<C> {
+  return c as unknown as Fn<C>;
 }
 
 // --- DI + toRPC() ---

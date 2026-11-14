@@ -1,1 +1,1 @@
-export { zod } from './zod';
+export { yup } from './yup';

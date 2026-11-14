@@ -2,8 +2,7 @@
 
 > Черновик v2.0 по пунктам 1–2 из [`ROADMAP.md`](../ROADMAP.md). Итоговый API.
 > Канонический пользовательский пример — [`example.ts`](./example.ts), библиотечная механика —
-> [`helpers.ts`](./helpers.ts). Типы проверены компилятором в [`v2-registration.spike.ts`](./v2-registration.spike.ts)
-> (zod-адаптер) и [`v2-schema-agnostic.spike.ts`](./v2-schema-agnostic.spike.ts) (ядро без zod).
+> [`helpers.ts`](./helpers.ts). Типы проверены компилятором в [`v2-types.spike.ts`](./v2-types.spike.ts).
 
 ## Целевой API
 
@@ -56,17 +55,17 @@ type ContractIn<C extends Contract> = z.infer<C['in']>;
 type ContractOut<C extends Contract> = C['out'] extends z.ZodTypeAny ? z.infer<C['out']> : unknown;
 
 // fn() возвращает контракт + фантомное поле `fn` с сигнатурой обработчика.
-type Proced<C extends Contract> = C & {
+type Fn<C extends Contract> = C & {
   fn: (input: ContractIn<C>) => Promise<ContractOut<C>>;
 };
 
-function fn<C extends Contract>(c: C): Proced<C> {
-  return c as unknown as Proced<C>;
+function fn<C extends Contract>(c: C): Fn<C> {
+  return c as unknown as Fn<C>;
 }
 ```
 
 Отсюда `hello: typeof Say.$hello.fn = async (name) => …` — имя аргумента и возврат выводятся из
-типа функции (тот же приём, что `const realisation: Proced = (arg) => …`), рукописных типов нет.
+типа функции (тот же приём, что `const realisation: Fn = (arg) => …`), рукописных типов нет.
 
 Одно имя `fn` покрывает оба смысла: `fn({…})` — объявление, `$hello.fn` — тип.
 
@@ -193,18 +192,18 @@ type InferOutput<S extends AnySchema> = S extends AnySchema<infer O> ? O : never
 type Contract = { in: AnySchema<any>; out?: AnySchema<any>; use?: MaybeArray<Middleware> };
 type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
 
-type Proced<C extends Contract> = C & {
+type Fn<C extends Contract> = C & {
   fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
 };
 ```
 
-`fn` в ядре та же, что в zod-примере, только параметризована `AnySchema`. zod 4 / Valibot / ArkType
-(все реализуют `~standard`) принимаются напрямую, zod 3 — через адаптер. Метод выводит вход из
-`$hello` существующим `InferOutput`.
+`fn` в ядре та же, что в zod-примере, только параметризована `AnySchema`. Метод выводит вход из
+`$hello` существующим `InferOutput`. Любая библиотека, реализующая `~standard` (Standard Schema) —
+zod 4 / Valibot / ArkType — принимается **напрямую**, без адаптера; zod 3 выпилен.
 
-`zod` уходит из `dependencies` → `optionalDependencies` (или `devDependencies`); в `Composer` убираем
-дефолт `this.config.validator ??= ZodAdapter`, адаптеры живут за opt-in entry-points
-(`@chord-ts/rpc/validators/zod`, `/valibot`, `/arktype`).
+Тонкие шимы нужны только для библиотек без `~standard` (сейчас — `yup`): они живут за opt-in
+entry-points (`@chord-ts/rpc/validators/yup`). Тот же адаптерный слой пригодится при генерации
+OpenRPC/OpenAPI/MCP — как место конвертации схемы в JSON Schema для не-нативных библиотек.
 
 ## Закреплённые решения
 

@@ -1,20 +1,22 @@
-// Spike: type contract of the REAL src/v2 core + zod adapter + zod 4 native.
+// Spike: type contract of the REAL src/v2 core + validators.
 // Proves: $method.fn infers input from schema; `out` omitted -> unknown;
 // Client excludes #/private; Client wraps return in Promise; InferOutput; inject typed;
-// zod 4 schemas plug in directly (native `~standard`, no adapter).
+// native `~standard` (zod 4 / valibot / arktype) plugs in directly; yup via shim.
 // Run: npx tsc --noEmit --strict --target es2022 --module commonjs --moduleResolution node --skipLibCheck design/v2-types.spike.ts
-import { z } from 'zod';
 import { z as z4 } from 'zod4';
+import * as v from 'valibot';
+import { type } from 'arktype';
+import * as Yup from 'yup';
 import { fn, toRPC, type Client, type InferOutput, type Injector } from '../src/v2';
-import { zod } from '../src/v2/validators/zod';
+import { yup } from '../src/v2/validators/yup';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 
 class Say {
-  static $hello = fn({ in: zod(z.string()), out: zod(z.string()) });
+  static $hello = fn({ in: z4.string(), out: z4.string() });
   hello: typeof Say.$hello.fn = async (name) => `Hello, ${name}!`;
 
-  static $count = fn({ in: zod(z.number()) }); // out omitted -> unknown
+  static $count = fn({ in: z4.number() }); // out omitted -> unknown
   count: typeof Say.$count.fn = async (n) => n + 1;
 
   #greet(name: string): string {
@@ -48,15 +50,6 @@ const _remote: _remote = true;
 type _remoteCount = Equal<_client['Say']['count'], (input: number) => Promise<unknown>>;
 const _remoteCount: _remoteCount = true;
 
-// InferOutput over the zod 3 adapter.
-const strSchema = zod(z.string());
-type _inferString = Equal<InferOutput<typeof strSchema>, string>;
-const _inferString: _inferString = true;
-
-const objSchema = zod(z.object({ name: z.string() }));
-type _inferObj = Equal<InferOutput<typeof objSchema>, { name: string }>;
-const _inferObj: _inferObj = true;
-
 // --- inject typed from public parameter properties ---
 type Ctx = { user: { name: string } };
 type Logger = { log: (msg: string) => void };
@@ -67,7 +60,7 @@ class Api {
     public readonly logger: Logger,
   ) {}
 
-  static $ping = fn({ in: zod(z.string()), out: zod(z.string()) });
+  static $ping = fn({ in: z4.string(), out: z4.string() });
   ping: typeof Api.$ping.fn = async (s) => s;
 }
 
@@ -127,3 +120,16 @@ const _simpleKeys: _simpleKeys = true;
 
 type _simpleRemote = Equal<Client<{ Simple: typeof Simple }>['Simple']['greet'], (name: string) => Promise<string>>;
 const _simpleRemote: _simpleRemote = true;
+
+// --- other validators: valibot / arktype native, yup via shim ---
+const vStr = v.string();
+type _valibot = Equal<InferOutput<typeof vStr>, string>;
+const _valibot: _valibot = true;
+
+const aNum = type('number');
+type _arktype = Equal<InferOutput<typeof aNum>, number>;
+const _arktype: _arktype = true;
+
+const yStr = yup(Yup.string());
+type _yup = Equal<InferOutput<typeof yStr>, string | undefined>;
+const _yup: _yup = true;

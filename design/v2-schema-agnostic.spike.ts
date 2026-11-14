@@ -24,12 +24,12 @@ type Contract = {
 
 type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
 
-type Proced<C extends Contract> = C & {
+type Fn<C extends Contract> = C & {
   fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
 };
 
-function fn<C extends Contract>(c: C): Proced<C> {
-  return c as unknown as Proced<C>;
+function fn<C extends Contract>(c: C): Fn<C> {
+  return c as unknown as Fn<C>;
 }
 
 // --- Client из классов ---
