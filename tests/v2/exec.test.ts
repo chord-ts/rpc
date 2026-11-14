@@ -6,21 +6,21 @@ class Calc {
   constructor() {}
 
   static $add = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
-  add: typeof Calc.$add.fn = (x) => x.a + x.b;
+  add: typeof Calc.$add.fn = async (x) => x.a + x.b;
 
   static $echo = fn({ in: z.string(), out: z.string() });
-  echo: typeof Calc.$echo.fn = (s) => s;
+  echo: typeof Calc.$echo.fn = async (s) => s;
 
   static $length = fn({ in: z.string(), out: z.number() });
-  length: typeof Calc.$length.fn = (s) => s.length;
+  length: typeof Calc.$length.fn = async (s) => s.length;
 
   static $boom = fn({ in: z.unknown(), out: z.unknown() });
-  boom: typeof Calc.$boom.fn = () => {
+  boom: typeof Calc.$boom.fn = async () => {
     throw new Error('boom');
   };
 
   static $bad = fn({ in: z.unknown(), out: z.string() });
-  bad: typeof Calc.$bad.fn = () => 42 as unknown as string;
+  bad: typeof Calc.$bad.fn = async () => 42 as unknown as string;
 }
 
 const composer = toRPC({ Calc }, { inject: {} });
@@ -98,7 +98,7 @@ test('middlewares run composer-level before per-fn, onion around the handler', a
   class Svc {
     constructor() {}
     static $m = fn({ in: z.unknown(), out: z.string(), use: fnMW });
-    m: typeof Svc.$m.fn = () => {
+    m: typeof Svc.$m.fn = async () => {
       log.push('handler');
       return 'ok';
     };
@@ -117,7 +117,7 @@ test('middleware early return short-circuits without calling the handler', async
   class Guarded {
     constructor() {}
     static $m = fn({ in: z.unknown(), out: z.string(), use: guard });
-    m: typeof Guarded.$m.fn = () => {
+    m: typeof Guarded.$m.fn = async () => {
       log.push('handler');
       return 'ok';
     };
@@ -135,7 +135,7 @@ test('middleware ctx mutation is visible to injected dependencies', async () => 
   class NeedsCtx {
     constructor(public readonly req: ReqCtx) {}
     static $who = fn({ in: z.unknown(), out: z.unknown() });
-    who: typeof NeedsCtx.$who.fn = () => this.req.user ?? null;
+    who: typeof NeedsCtx.$who.fn = async () => this.req.user ?? null;
   }
 
   const enrich: Middleware = async (ctx, next) => {

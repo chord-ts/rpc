@@ -17,7 +17,7 @@ type ContractIn<C extends Contract> = z.infer<C['in']>;
 type ContractOut<C extends Contract> = C['out'] extends z.ZodTypeAny ? z.infer<C['out']> : unknown;
 
 type Proced<C extends Contract> = C & {
-  fn: (input: ContractIn<C>) => ContractOut<C> | Promise<ContractOut<C>>;
+  fn: (input: ContractIn<C>) => Promise<ContractOut<C>>;
 };
 
 function fn<C extends Contract>(c: C): Proced<C> {
@@ -35,10 +35,10 @@ type Client<S extends ServiceMap> = { [K in keyof S]: RemoteService<InstanceType
 
 class Say {
   static $hello = fn({ in: z.string(), out: z.string() });
-  hello: typeof Say.$hello.fn = (name) => `Hello, ${name}!`;
+  hello: typeof Say.$hello.fn = async (name) => `Hello, ${name}!`;
 
   static $count = fn({ in: z.number() }); // out опущен → возврат unknown
-  count: typeof Say.$count.fn = (n) => n + 1;
+  count: typeof Say.$count.fn = async (n) => n + 1;
 
   #greet(name: string): string { return `Hello, ${name}!`; }
   private helper(): string { return 'internal'; }

@@ -20,7 +20,7 @@ export class Say {
     use: logCalls,
   });
 
-  hello: typeof Say.$hello.fn = (name) => {
+  hello: typeof Say.$hello.fn = async (name) => {
     this.logger.log(`hello("${name}")`);
     return `hello ${name}, logged in as ${this.ctx.user.name}`;
   };
@@ -29,16 +29,20 @@ export class Say {
     in: z.number(),
   });
 
-  count: typeof Say.$count.fn = (n) => {
+  count: typeof Say.$count.fn = async (n) => {
     return n + 1;
   };
+
+  async noCheck(name: string) {
+    return `Hello, ${name}`
+  }
 
   // Приватные методы не попадают в эндпоинты.
   #greet(name: string): string {
     return `Hello, ${name}!`;
   }
 
-  private helper(): string {
+  #helper(): string {
     return 'internal';
   }
 }
@@ -61,5 +65,5 @@ const event: Event = {
 };
 
 const say = composer.instantiate(event).Say;
-say.hello('world');
-say.count(2);
+await say.hello('world');
+await say.count(2);

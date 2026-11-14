@@ -51,7 +51,7 @@ export type Contract = {
 type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
 
 export type Proced<C extends Contract> = C & {
-  fn: (input: InferOutput<C['in']>) => Out<C> | Promise<Out<C>>;
+  fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
 };
 
 /**
@@ -122,7 +122,7 @@ export interface RPCResponse {
 export type RPCBody = RPCRequest | RPCRequest[];
 
 type Call = { id: RPCId; method: string; params: unknown };
-type MethodDesc = { service: string; method: string; contract: Contract; use: Middleware[] };
+type MethodDesc = { service: string; method: string; contract: Contract | null; use: Middleware[] };
 
 export interface Composer<S extends ServiceMap> {
   instantiate(ctx: unknown): Instantiated<S>;
@@ -142,7 +142,8 @@ export function toRPC<S extends ServiceMap>(services: S, options: ToRPCOptions<S
       ? [options.use]
       : [];
 
-  // Endpoints come from `static $method = fn({...})` on each service class.
+  // Endpoints come from `static $method = fn({...})` (schema-first) and from public
+  // prototype methods without `$method` (simple, no validation).
   const routes = new Map<string, MethodDesc>();
   for (const [service, Ctor] of Object.entries(services)) {
     for (const [key, contract] of Object.entries(Ctor)) {
@@ -156,6 +157,12 @@ export function toRPC<S extends ServiceMap>(services: S, options: ToRPCOptions<S
         contract: contract as Contract,
         use: Array.isArray(contract.use) ? contract.use : contract.use ? [contract.use] : [],
       });
+    }
+
+    // No `$method` → simple endpoint: types come from the method, validation skipped.
+    for (const method of Object.getOwnPropertyNames(Ctor.prototype)) {
+      if (method === 'constructor' || routes.has(`${service}.${method}`)) continue;
+      routes.set(`${service}.${method}`, { service, method, contract: null, use: [] });
     }
   }
 
@@ -199,27 +206,37 @@ export function toRPC<S extends ServiceMap>(services: S, options: ToRPCOptions<S
     }
 
     try {
-      const parsedIn = await desc.contract.in['~standard'].validate(params);
-      if ('issues' in parsedIn) {
-        return {
-          ok: false,
-          error: { code: ErrorCode.InvalidParams, message: 'Validation error', data: parsedIn.issues },
-        };
-      }
-
-      const value = await handler(parsedIn.value);
-
-      if (desc.contract.out) {
-        const parsedOut = await desc.contract.out['~standard'].validate(value);
-        if ('issues' in parsedOut) {
+      if (desc.contract) {
+        const parsedIn = await desc.contract.in['~standard'].validate(params);
+        if ('issues' in parsedIn) {
           return {
             ok: false,
-            error: { code: ErrorCode.InternalError, message: 'Response validation error', data: parsedOut.issues },
+            error: { code: ErrorCode.InvalidParams, message: 'Validation error', data: parsedIn.issues },
           };
         }
-        return { ok: true, value: parsedOut.value };
+
+        const value = await handler(parsedIn.value);
+
+        if (desc.contract.out) {
+          const parsedOut = await desc.contract.out['~standard'].validate(value);
+          if ('issues' in parsedOut) {
+            return {
+              ok: false,
+              error: { code: ErrorCode.InternalError, message: 'Response validation error', data: parsedOut.issues },
+            };
+          }
+          return { ok: true, value: parsedOut.value };
+        }
+
+        return { ok: true, value };
       }
 
+      // Simple endpoint (no schema): pass params straight to the handler.
+      const value = await (handler.length <= 1
+        ? handler(params)
+        : Array.isArray(params)
+          ? handler(...params)
+          : handler(params));
       return { ok: true, value };
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);

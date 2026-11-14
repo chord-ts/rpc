@@ -12,10 +12,10 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B 
 
 class Say {
   static $hello = fn({ in: zod(z.string()), out: zod(z.string()) });
-  hello: typeof Say.$hello.fn = (name) => `Hello, ${name}!`;
+  hello: typeof Say.$hello.fn = async (name) => `Hello, ${name}!`;
 
   static $count = fn({ in: zod(z.number()) }); // out omitted -> unknown
-  count: typeof Say.$count.fn = (n) => n + 1;
+  count: typeof Say.$count.fn = async (n) => n + 1;
 
   #greet(name: string): string {
     return `Hello, ${name}!`;
@@ -68,7 +68,7 @@ class Api {
   ) {}
 
   static $ping = fn({ in: zod(z.string()), out: zod(z.string()) });
-  ping: typeof Api.$ping.fn = (s) => s;
+  ping: typeof Api.$ping.fn = async (s) => s;
 }
 
 // Keys are the dependency names (public data fields), not the arrow-field methods.
@@ -106,8 +106,24 @@ const _z4obj: _z4obj = true;
 
 class Native {
   static $hello = fn({ in: z4.string(), out: z4.string() });
-  hello: typeof Native.$hello.fn = (name) => `Hello, ${name.toUpperCase()}!`;
+  hello: typeof Native.$hello.fn = async (name) => `Hello, ${name.toUpperCase()}!`;
 }
 
 type _nativeIn = Equal<Parameters<typeof Native.$hello.fn>[0], string>;
 const _nativeIn: _nativeIn = true;
+
+// Simple endpoint: public prototype method without `$method` lands in Client with its own type.
+class Simple {
+  async greet(name: string) {
+    return `Hi ${name}`;
+  }
+  #hidden(): string {
+    return 'no';
+  }
+}
+
+type _simpleKeys = Equal<keyof Client<{ Simple: typeof Simple }>['Simple'], 'greet'>;
+const _simpleKeys: _simpleKeys = true;
+
+type _simpleRemote = Equal<Client<{ Simple: typeof Simple }>['Simple']['greet'], (name: string) => Promise<string>>;
+const _simpleRemote: _simpleRemote = true;

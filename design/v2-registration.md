@@ -24,7 +24,7 @@ export class Say {
   });
 
   // Метод — поле-стрелка: тип функции берётся из $hello.fn, аргумент выводится сам.
-  hello: typeof Say.$hello.fn = (name) => {
+  hello: typeof Say.$hello.fn = async (name) => {
     return `hello ${name}, logged in as ${this.ctx.user.name}`;
   };
 
@@ -57,7 +57,7 @@ type ContractOut<C extends Contract> = C['out'] extends z.ZodTypeAny ? z.infer<C
 
 // fn() возвращает контракт + фантомное поле `fn` с сигнатурой обработчика.
 type Proced<C extends Contract> = C & {
-  fn: (input: ContractIn<C>) => ContractOut<C> | Promise<ContractOut<C>>;
+  fn: (input: ContractIn<C>) => Promise<ContractOut<C>>;
 };
 
 function fn<C extends Contract>(c: C): Proced<C> {
@@ -65,8 +65,8 @@ function fn<C extends Contract>(c: C): Proced<C> {
 }
 ```
 
-Отсюда `hello: typeof Say.$hello.fn = (name) => …` — имя аргумента и возврат выводятся из типа
-функции (тот же приём, что `const realisation: Fn = (arg) => …`), рукописных типов нет.
+Отсюда `hello: typeof Say.$hello.fn = async (name) => …` — имя аргумента и возврат выводятся из
+типа функции (тот же приём, что `const realisation: Proced = (arg) => …`), рукописных типов нет.
 
 Одно имя `fn` покрывает оба смысла: `fn({…})` — объявление, `$hello.fn` — тип.
 
@@ -116,18 +116,22 @@ type Client<S extends ServiceMap> = {
 
 ## Какие методы — эндпоинты
 
-Публичное поле-стрелка с `$метод` — эндпоинт. Внутренние хелперы:
+Обход идёт по **прототипу** класса: все методы без `$метод` становятся **simple-эндпоинтами**, а
+валидацию и типы даёт `$метод` (schema-first).
 
-- `#` (нативный приват) — невидим и в типах, и в рантайме (`Reflect.ownKeys` не вернёт). Канонично.
-- `private` (TS) — невидим в типах, но **стирается в рантайме**: `toRPC` при обходе должен учитывать
-  это (прототип vs own-поля), и «голый» JSON-RPC-вызов до него технически дойдёт. Для жёсткого
-  исключения используй `#`.
+- Публичный метод класса без `$method` — **simple-эндпоинт**: тип из сигнатуры метода, рантайм-валидации
+  нет (быстрое прототипирование).
+- Публичное поле-стрелка со `static $method` — **schema-first-эндпоинт**: validate(in) → invoke →
+  validate(out), тип из схемы.
+- `#` (нативный приват) — невидим и в типах, и в рантайме. Канонично для хелперов. `private` (TS)
+  стирается в рантайме и потому попал бы в simple-развёртку — для приватных хелперов используй `#`.
 
 ```ts
-hello: typeof Say.$hello.fn = (name) => this.#greet(name);
+hello: typeof Say.$hello.fn = async (name) => this.#greet(name);   // schema-first
+async noCheck(name: string) { return `Hello, ${name}`; }           // simple, без валидации
 
-#greet(name: string): string { return `Hello, ${name}!`; }   // не эндпоинт
-private helper(): string { return 'internal'; }              // не эндпоинт в типах
+#greet(name: string): string { return `Hello, ${name}!`; }         // не эндпоинт
+#helper(): string { return 'internal'; }                            // не эндпоинт
 ```
 
 ## Per-fn middleware
@@ -190,7 +194,7 @@ type Contract = { in: AnySchema<any>; out?: AnySchema<any>; use?: MaybeArray<Mid
 type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
 
 type Proced<C extends Contract> = C & {
-  fn: (input: InferOutput<C['in']>) => Out<C> | Promise<Out<C>>;
+  fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
 };
 ```
 
@@ -219,7 +223,5 @@ type Proced<C extends Contract> = C & {
 ## Осталось решить
 
 - Разрешать ли `z.tuple([...])` как уступку старым позиционным вызовам, или только объект/скаляр.
-- **zod 4** (Standard Schema) как optional/dev dependency; в тестах v2 использовать настоящий zod 4
-  вместо fake-схем — прогнать schema-agnostic ядро на реальном `~standard`-валидаторе.
-- Рантайм-обход методов: поле-стрелка — own-свойство инстанса, поэтому `toRPC` должен ходить и по
-  прототипу, и по `Reflect.ownKeys(new Ctor())`.
+- Перенос `zod` из `dependencies` в `optionalDependencies`/`devDependencies` (упаковка; тесты v2 уже
+  гоняются на настоящем zod 4 через devDep-алиас `zod4`).

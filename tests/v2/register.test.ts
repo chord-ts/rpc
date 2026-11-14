@@ -14,16 +14,20 @@ export class Say {
 
   static $hello = fn({ in: z.string(), out: z.string() });
 
-  hello: typeof Say.$hello.fn = (name) => {
+  hello: typeof Say.$hello.fn = async (name) => {
     this.logger.log(`hello("${name}")`);
     return `hello ${name}, logged in as ${this.ctx.user.name}`;
   };
+
+  async plain(name: string) {
+    return `plain ${name}`;
+  }
 
   #greet(name: string): string {
     return `Hello, ${name}!`;
   }
 
-  private helper(): string {
+  #helper(): string {
     return 'internal';
   }
 }
@@ -56,7 +60,7 @@ test('toRPC exposes instantiate and exec', () => {
   expect(typeof composer().exec).toBe('function');
 });
 
-test('instantiate builds a fresh instance per event with constructor DI', () => {
+test('instantiate builds a fresh instance per event with constructor DI', async () => {
   const logs: string[] = [];
   const c = composer();
 
@@ -65,11 +69,16 @@ test('instantiate builds a fresh instance per event with constructor DI', () => 
 
   expect(a).toBeInstanceOf(Say);
   expect(a).not.toBe(b);
-  expect(a.hello('world')).toBe('hello world, logged in as dmdin');
+  expect(await a.hello('world')).toBe('hello world, logged in as dmdin');
   expect(logs).toEqual(['hello("world")']);
 });
 
-test('private members are not endpoints', async () => {
+test('#/private members are not endpoints', async () => {
   const res = await composer().exec({ method: 'Say.helper', id: 1 });
   expect(res).toMatchObject({ jsonrpc: '2.0', id: 1, error: { code: ErrorCode.MethodNotFound } });
+});
+
+test('public method without $method is a simple endpoint (no validation)', async () => {
+  const res = await composer().exec({ method: 'Say.plain', params: 'x', id: 1 });
+  expect(res).toEqual({ jsonrpc: '2.0', id: 1, result: 'plain x' });
 });

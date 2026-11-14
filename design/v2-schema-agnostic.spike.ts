@@ -25,7 +25,7 @@ type Contract = {
 type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
 
 type Proced<C extends Contract> = C & {
-  fn: (input: InferOutput<C['in']>) => Out<C> | Promise<Out<C>>;
+  fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
 };
 
 function fn<C extends Contract>(c: C): Proced<C> {
@@ -50,10 +50,10 @@ function schema<O>(): AnySchema<O> {
 
 class Say {
   static $hello = fn({ in: schema<{ name: string }>(), out: schema<string>() });
-  hello: typeof Say.$hello.fn = (input) => `Hello, ${input.name}!`;
+  hello: typeof Say.$hello.fn = async (input) => `Hello, ${input.name}!`;
 
   static $count = fn({ in: schema<number>() }); // out опущен → возврат unknown
-  count: typeof Say.$count.fn = (n) => n + 1;
+  count: typeof Say.$count.fn = async (n) => n + 1;
 
   #greet(name: string): string { return `Hello, ${name}!`; }
   private helper(): string { return 'internal'; }
