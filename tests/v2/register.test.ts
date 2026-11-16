@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, toRPC, ErrorCode } from '../../src';
+import { fn, compose, ErrorCode } from '../../src';
+import { envelope } from './rpc';
 
 type Ctx = { user: { id: string; name: string } };
 type Logger = { log: (msg: string) => void };
@@ -39,14 +40,16 @@ function makeEvent(logs: string[]): Event {
   };
 }
 
+const options = {
+  inject: {
+    ctx: (e: Event) => e.locals,
+    logger: (e: Event) => e.logger,
+  },
+};
 function composer() {
-  return toRPC({ Say }, {
-    inject: {
-      ctx: (e: Event) => e.locals,
-      logger: (e: Event) => e.logger,
-    },
-  });
+  return compose({ Say }, options);
 }
+const exec = envelope({ Say }, options);
 
 test('fn() stores the schema contract on the static and keeps `fn` phantom', () => {
   const contract = Say.$hello as unknown as Record<string, unknown>;
@@ -55,9 +58,11 @@ test('fn() stores the schema contract on the static and keeps `fn` phantom', () 
   expect('fn' in contract).toBe(false);
 });
 
-test('toRPC exposes instantiate and exec', () => {
+test('compose exposes instantiate/call; jsonrpc binding serves the envelope', async () => {
   expect(typeof composer().instantiate).toBe('function');
-  expect(typeof composer().exec).toBe('function');
+  expect(typeof composer().call).toBe('function');
+  const res = await exec({ method: 'Say.plain', params: 'x', id: 1 });
+  expect(res).toMatchObject({ jsonrpc: '2.0', id: 1, result: 'plain x' });
 });
 
 test('instantiate builds a fresh instance per event with constructor DI', async () => {
@@ -74,11 +79,11 @@ test('instantiate builds a fresh instance per event with constructor DI', async 
 });
 
 test('#/private members are not endpoints', async () => {
-  const res = await composer().exec({ method: 'Say.helper', id: 1 });
+  const res = await exec({ method: 'Say.helper', id: 1 });
   expect(res).toMatchObject({ jsonrpc: '2.0', id: 1, error: { code: ErrorCode.MethodNotFound } });
 });
 
 test('public method without $method is a simple endpoint (no validation)', async () => {
-  const res = await composer().exec({ method: 'Say.plain', params: 'x', id: 1 });
+  const res = await exec({ method: 'Say.plain', params: 'x', id: 1 });
   expect(res).toEqual({ jsonrpc: '2.0', id: 1, result: 'plain x' });
 });

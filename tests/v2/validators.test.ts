@@ -2,8 +2,9 @@ import { expect, test } from 'vitest';
 import * as v from 'valibot';
 import { type } from 'arktype';
 import * as Yup from 'yup';
-import { fn, toRPC, ErrorCode } from '../../src';
+import { fn, ErrorCode } from '../../src';
 import { yup } from '../../src/validators/yup';
+import { envelope } from './rpc';
 
 // Native `~standard` — no adapter.
 class ValibotSvc {
@@ -30,27 +31,27 @@ class YupSvc {
 }
 
 test('valibot (native): valid round-trip and invalid input', async () => {
-  const c = toRPC({ ValibotSvc }, { inject: {} });
+  const exec = envelope({ ValibotSvc }, { inject: {} });
 
-  const ok = await c.exec({ method: 'ValibotSvc.greet', params: 'Ada', id: 1 });
+  const ok = await exec({ method: 'ValibotSvc.greet', params: 'Ada', id: 1 });
   expect(ok).toEqual({ jsonrpc: '2.0', id: 1, result: 'Hi Ada' });
 
-  const bad = await c.exec({ method: 'ValibotSvc.greet', params: 42, id: 2 });
+  const bad = await exec({ method: 'ValibotSvc.greet', params: 42, id: 2 });
   expect(bad).toMatchObject({ jsonrpc: '2.0', id: 2, error: { code: ErrorCode.InvalidParams } });
 });
 
 test('arktype (native): object input round-trip', async () => {
-  const c = toRPC({ ArkTypeSvc }, { inject: {} });
-  const ok = await c.exec({ method: 'ArkTypeSvc.add', params: { a: 1, b: 2 }, id: 1 });
+  const exec = envelope({ ArkTypeSvc }, { inject: {} });
+  const ok = await exec({ method: 'ArkTypeSvc.add', params: { a: 1, b: 2 }, id: 1 });
   expect(ok).toEqual({ jsonrpc: '2.0', id: 1, result: 3 });
 });
 
 test('yup (shim): valid round-trip and invalid input', async () => {
-  const c = toRPC({ YupSvc }, { inject: {} });
+  const exec = envelope({ YupSvc }, { inject: {} });
 
-  const ok = await c.exec({ method: 'YupSvc.greet', params: 'Bob', id: 1 });
+  const ok = await exec({ method: 'YupSvc.greet', params: 'Bob', id: 1 });
   expect(ok).toEqual({ jsonrpc: '2.0', id: 1, result: 'Hey Bob' });
 
-  const bad = await c.exec({ method: 'YupSvc.greet', params: 42, id: 2 });
+  const bad = await exec({ method: 'YupSvc.greet', params: 42, id: 2 });
   expect(bad).toMatchObject({ jsonrpc: '2.0', id: 2, error: { code: ErrorCode.InvalidParams } });
 });

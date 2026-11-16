@@ -186,15 +186,3 @@ export interface TransportResponse {
 export interface Binding {
   handle(req: TransportRequest, ctx?: unknown): Promise<TransportResponse>;
 }
-
-// --- Legacy JSON-RPC composer (toRPC): Core + exec envelope. Kept for backward compat;
-// exec moves to protocol/jsonrpc in the layered migration. ---
-export interface Composer<S extends ServiceMap> extends Core<S> {
-  exec(body: RPCBody, opts?: { ctx?: unknown }): Promise<RPCResponse | RPCResponse[] | undefined>;
-}
-
-export interface ToRPCOptions<S extends ServiceMap> {
-  inject: Injector<S>;
-  use?: MaybeArray<Middleware>;
-  schemas?: SchemaAdapter;
-}

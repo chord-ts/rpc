@@ -17,7 +17,9 @@
 
 - [x] `static $method = fn({ in, out, use })`, тип метода из фантомного `$method.fn` (тип `Fn`).
 - [x] Обработчики всегда async: `(input) => Promise<Out>`.
-- [x] `toRPC({ … }, { inject })` → `{ instantiate, exec }` (src; в спайке предложено `compose` → `Core`).
+- [x] **src:** `compose({ … }, { inject, schemas })` → `Core` (`instantiate/call/notify/endpoints`).
+      Легаси `toRPC`/`Composer`/`ToRPCOptions` **полностью удалены** из src; конверт — в `jsonrpc`-биндинге.
+      v2-тесты на `compose` + `jsonrpc` (helper `tests/v2/rpc.ts`).
 - [x] DI через конструктор + строгая типизация `Injector<S>` (public parameter-properties).
 - [x] `Client` из классов: Promise-wrapped, `#`/`private` исключены.
 - [x] simple-эндпоинты без `$method` (обход прототипа, приватность через `#`).
@@ -46,8 +48,8 @@
 - [x] validate(in) → invoke → validate(out) (один валидатор).
 - [x] Типизированный `Result` + `ErrorObject` (InvalidParams/MethodNotFound/InternalError).
 - [x] Batch коррелируется по id, notification — без ответа.
-- [x] **спайк:** ядро `Core` без `exec` — только `call/notify/endpoints` + `schemas` + `tools()`;
-      JSON-RPC-конверт (normalize/toWire/batch) вынесен в биндинг `jsonrpc`.
+- [x] **src:** ядро `Core` без `exec` — `call/notify/endpoints` + `schemas`; тулы — отдельный
+      `agentTools(composer)` (не метод ядра). JSON-RPC-конверт (normalize/toWire/batch) — в `jsonrpc`.
 - [ ] Клиентская граница `batch(...) => Result[]` — не начата (ждёт client).
 - [x] **src:** изоляция ctx в batch — per-call копия в `exec` и `jsonrpc` (мутации не протекают).
 - [x] **src:** `paramNames` ищет `constructor(` (баг класса без конструктора исправлен); warning
@@ -94,15 +96,19 @@
       редиректы/headers/cookies отсутствуют (v1 `3xx`-костыль выпилен, замены нет).
 - [ ] capnweb: ошибки теряют `code/status` (просто `Error(message)`).
 
-## Дизайн-спайки (design/, форма не одобрена, src не тронут)
+## Дизайн-спайки (design/)
 
-- `v2-transport.{helpers,example}.ts` — ядро `compose`/`Core`, биндинги, транспорты, REST-части, docs.
-- `v2-generate.{helpers,example}.ts` — генераторы OpenAPI/OpenRPC/MCP/AsyncAPI, `packToolArgs`.
-- `v2-schemas.helpers.ts` — `SchemaAdapter`, `ZodAdapter`, `flatToolSchema`.
-- `v2-capnp.{helpers,example}.ts` — capnweb-биндинг + `connect`, pipelining, capabilities.
-- `v2-mcp.example.ts` — MCP-провод + `composer.tools()` для LangChain.
-- Все проверены `tsc --strict` и живым прогоном (loopback/HTTP-дескрипторы). Имена файлов `v2-capnp.*`
-      расходятся с именем биндинга `capnweb` — переименование не одобрено.
+**Чистка выполнена:** superseded-кластер удалён (функциональность перенесена в src, легаси `toRPC`
+выпилен из src полностью): `helpers/example`, `v2-transport.*`, `v2-generate.*`, `v2-schemas.helpers`,
+`v2-mcp.example`, `v2-types.spike`, `v2-schema-agnostic.spike`. Восстановимы из git.
+
+**Активные спайки (форма не одобрена, в src ещё нет):**
+- `v2-stream.{helpers,example}.ts` — третий глагол: `stream({ in, event })`, async-генератор,
+  нативные ошибки (`RpcError`/`AbortError`), один `compose`. Прогнан живьём.
+- `v2-capnp.{helpers,example}.ts` — capnweb-**клиент** `connect<S>` (pipelining, capabilities);
+  серверный биндинг уже в src. Импорты мигрированы на src. Имена файлов `v2-capnp.*` расходятся
+  с именем биндинга `capnweb` — переименование не одобрено.
+- Артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json` (mcp.json устарел — fn-only, без аннотаций).
 
 ## Gap-ревью перед переносом в src (приоритеты)
 

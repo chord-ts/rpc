@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, toRPC, ErrorCode, type Middleware } from '../../src';
+import { fn, ErrorCode, type Middleware } from '../../src';
+import { envelope } from './rpc';
 
 class Calc {
   constructor() {}
@@ -23,20 +24,20 @@ class Calc {
   bad: typeof Calc.$bad.fn = async () => 42 as unknown as string;
 }
 
-const composer = toRPC({ Calc }, { inject: {} });
+const exec = envelope({ Calc }, { inject: {} });
 
 test('exec single request returns a JSON-RPC result', async () => {
-  const res = await composer.exec({ method: 'Calc.add', params: { a: 1, b: 2 }, id: 1 });
+  const res = await exec({ method: 'Calc.add', params: { a: 1, b: 2 }, id: 1 });
   expect(res).toEqual({ jsonrpc: '2.0', id: 1, result: 3 });
 });
 
 test('exec notification produces no response', async () => {
-  const res = await composer.exec({ method: 'Calc.echo', params: 'x' });
+  const res = await exec({ method: 'Calc.echo', params: 'x' });
   expect(res).toBeUndefined();
 });
 
 test('exec batch correlates by id and omits notifications', async () => {
-  const res = await composer.exec([
+  const res = await exec([
     { method: 'Calc.add', params: { a: 10, b: 20 }, id: 1 },
     { method: 'Calc.echo', params: 'hi' },
     { method: 'Calc.length', params: 'abc', id: 'second' },
@@ -48,12 +49,12 @@ test('exec batch correlates by id and omits notifications', async () => {
 });
 
 test('unknown method → MethodNotFound', async () => {
-  const res = await composer.exec({ method: 'Calc.nope', id: 1 });
+  const res = await exec({ method: 'Calc.nope', id: 1 });
   expect(res).toMatchObject({ jsonrpc: '2.0', id: 1, error: { code: ErrorCode.MethodNotFound } });
 });
 
 test('input validation failure → InvalidParams with issues', async () => {
-  const res = await composer.exec({ method: 'Calc.length', params: 42, id: 1 });
+  const res = await exec({ method: 'Calc.length', params: 42, id: 1 });
   expect(res).toMatchObject({
     jsonrpc: '2.0',
     id: 1,
@@ -63,7 +64,7 @@ test('input validation failure → InvalidParams with issues', async () => {
 });
 
 test('handler throw → InternalError with the thrown message', async () => {
-  const res = await composer.exec({ method: 'Calc.boom', id: 1 });
+  const res = await exec({ method: 'Calc.boom', id: 1 });
   expect(res).toMatchObject({
     jsonrpc: '2.0',
     id: 1,
@@ -72,7 +73,7 @@ test('handler throw → InternalError with the thrown message', async () => {
 });
 
 test('output validation failure → InternalError', async () => {
-  const res = await composer.exec({ method: 'Calc.bad', id: 1 });
+  const res = await exec({ method: 'Calc.bad', id: 1 });
   expect(res).toMatchObject({
     jsonrpc: '2.0',
     id: 1,
@@ -104,8 +105,8 @@ test('middlewares run composer-level before per-fn, onion around the handler', a
     };
   }
 
-  const c = toRPC({ Svc }, { inject: {}, use: composerMW });
-  const res = await c.exec({ method: 'Svc.m', id: 1 });
+  const exec = envelope({ Svc }, { inject: {}, use: composerMW });
+  const res = await exec({ method: 'Svc.m', id: 1 });
   expect(res).toEqual({ jsonrpc: '2.0', id: 1, result: 'ok' });
   expect(log).toEqual(['composer:before', 'fn:before', 'handler', 'fn:after', 'composer:after']);
 });
@@ -123,8 +124,8 @@ test('middleware early return short-circuits without calling the handler', async
     };
   }
 
-  const c = toRPC({ Guarded }, { inject: {} });
-  const res = await c.exec({ method: 'Guarded.m', id: 1 });
+  const exec = envelope({ Guarded }, { inject: {} });
+  const res = await exec({ method: 'Guarded.m', id: 1 });
   expect(res).toMatchObject({ jsonrpc: '2.0', id: 1, error: { code: -32000, message: 'denied' } });
   expect(log).toEqual([]);
 });
@@ -143,7 +144,7 @@ test('middleware ctx mutation is visible to injected dependencies', async () => 
     return next(ctx);
   };
 
-  const c = toRPC({ NeedsCtx }, { inject: { req: (ctx: ReqCtx) => ctx }, use: enrich });
-  const res = await c.exec({ method: 'NeedsCtx.who', id: 1 });
+  const exec = envelope({ NeedsCtx }, { inject: { req: (ctx: ReqCtx) => ctx }, use: enrich });
+  const res = await exec({ method: 'NeedsCtx.who', id: 1 });
   expect(res).toEqual({ jsonrpc: '2.0', id: 1, result: 'alice' });
 });

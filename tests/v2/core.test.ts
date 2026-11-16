@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { fn, compose, toRPC, paramNames, type Middleware } from '../../src';
+import { fn, compose, paramNames, type Middleware } from '../../src';
+import { envelope } from './rpc';
 
 // Класс без явного конструктора: первая скобка в toString — из fn(, не из constructor.
 class NoCtor {
@@ -36,8 +37,8 @@ const bump: Middleware = async (ctx, next) => {
 };
 
 test('exec batch: ctx isolated per call (no mutation leak)', async () => {
-  const composer = toRPC({ Svc }, { inject: { ctx: (e: any) => e }, use: bump });
-  const res = await composer.exec([
+  const exec = envelope({ Svc }, { inject: { ctx: (e: any) => e }, use: bump });
+  const res = await exec([
     { method: 'Svc.count', id: 1 },
     { method: 'Svc.count', id: 2 },
   ]);
