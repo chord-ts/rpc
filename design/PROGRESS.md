@@ -48,8 +48,10 @@
 - [x] Batch коррелируется по id, notification — без ответа.
 - [x] **спайк:** ядро `Core` без `exec` — только `call/notify/endpoints` + `schemas` + `tools()`;
       JSON-RPC-конверт (normalize/toWire/batch) вынесен в биндинг `jsonrpc`.
-- [ ] Клиентская граница `batch(...) => Result[]` — не начата.
-- [ ] Изоляция ctx между элементами batch (один общий `opts.ctx`, мутации протекают).
+- [ ] Клиентская граница `batch(...) => Result[]` — не начата (ждёт client).
+- [x] **src:** изоляция ctx в batch — per-call копия в `exec` и `jsonrpc` (мутации не протекают).
+- [x] **src:** `paramNames` ищет `constructor(` (баг класса без конструктора исправлен); warning
+      при схеме без обработчика (`warnMissingHandlers`, probe-инстанс). Минификация DI — отдельно.
 - [ ] Типизированный `ctx` (`Composer<Ctx>` обещан в exec-доке; сейчас везде `unknown`/`any`).
 
 ## 5. Транспорт (call / notify / stream)
@@ -59,7 +61,8 @@
       (+ `shared` helpers). REST-сахар `get/post/put/patch/del/http` + `RestContract` — в `protocol/rest`.
 - [x] **src:** REST — роутинг по шаблону, срезы `{path,query,body}`, `resp`-карта → статусы,
       ошибка валидации → 422; docs-эндпоинты транзитивны (`/openapi.json`, `/docs`, `/redoc`).
-- [x] **src:** capnweb-биндинг `capnweb(composer)` + `capability`-маркер (`Symbol`, `{$cap:id}` на проводе).
+- [x] **src:** capnweb-биндинг `capnweb(composer)` + `capability`-маркер (`Symbol`, `{$cap:id}` на проводе);
+      lifecycle — `release(capId)` / `dispose()` сессии (реестр освобождается). Авто-refcount — позже.
 - [x] **src:** слой `transport/` — `fromSvelteKit` (fetch `Response`, DOM-lib в tsconfig) /
       `fromExpress` (структурные req/res), protocol-agnostic, гоняют байты в `Binding`.
 - [ ] **спайк:** capnweb-клиент `connect<S>` (pipelining) — живёт в спайке, ждёт слой client.
@@ -76,8 +79,9 @@
       для LangChain in-process (`schema`/`invoke`/`func`), общий `packToolArgs` с mcp-биндингом.
 - [x] **src:** слой `format/` — `json` (текстовый шов; байтовый под msgpack/cbor — позже).
 - [x] **src:** MCP-биндинг `mcp(composer)` (tools/list + tools/call); артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json`.
-- [ ] MCP — tools-subset, **нет `initialize`** (protocolVersion/capabilities/serverInfo): реальный
-      клиент (Inspector/Claude Desktop) не подключится. Resources/prompts/list_changed/пагинация — нет.
+- [x] **src:** MCP `initialize`-handshake (protocolVersion-негоциация, capabilities.tools, serverInfo)
+      + `ping` + `notifications/initialized`. Реальный клиент теперь подключается.
+- [ ] MCP — только tools-capability: resources/prompts/sampling/list_changed/пагинация — нет.
 - [ ] AsyncAPI — гипотеза (`stream:{channel}`), реального источника событий нет (ждёт stream).
 - [ ] JSON Schema для не-нативных валидаторов (yup) — шов есть, конвертация не сделана.
 - [ ] A2A Agent Card / манифесты agent-протоколов — не начаты.
@@ -115,7 +119,7 @@
 
 ## Тесты
 
-- [x] `tests/v2` — register/exec/validators/schemas/generate/tools/protocol/transport, 34 теста (src).
+- [x] `tests/v2` — register/exec/validators/schemas/generate/tools/protocol/transport/core/capnweb, 40 тестов (src).
 - [x] type-spike: `v2-types`.
 - [ ] Спайки: compile-checked + ручной прогон, **vitest-покрытия новых слоёв нет**.
 - [ ] v1 `batch`/`spec` — падают (pre-existing shared-state в `Composer`), не чинил.

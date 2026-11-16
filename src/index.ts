@@ -42,10 +42,11 @@ export function toRPC<S extends ServiceMap>(services: S, options: ToRPCOptions<S
     body: RPCBody,
     opts?: { ctx?: unknown }
   ): Promise<RPCResponse | RPCResponse[] | undefined> {
-    const ctx = opts?.ctx ?? {};
+    const ctx = (opts?.ctx ?? {}) as Record<string, unknown>;
     const out: RPCResponse[] = [];
     for (const call of normalize(body)) {
-      const result = await core.call(call.method, call.params, { ctx });
+      // Per-call shallow copy: middleware ctx mutations don't leak across batch items.
+      const result = await core.call(call.method, call.params, { ctx: { ...ctx } });
       if (call.id != null) out.push(toWire(result, call.id));
     }
     return Array.isArray(body) ? out : out[0];

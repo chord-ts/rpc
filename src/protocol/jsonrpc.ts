@@ -27,12 +27,13 @@ export function jsonrpc(
       }
       // normalize → core.call per call → toWire; notification (no id) → no response.
       const calls = Array.isArray(body) ? body : [body];
+      const baseCtx = (ctx ?? {}) as Record<string, unknown>;
       const out: RPCResponse[] = [];
       for (const c of calls) {
         const result: Result =
           c.method === 'rpc.discover'
             ? { ok: true, value: (discovery ??= openrpc(core, { jsonSchema: opts?.jsonSchema, info: opts?.info })) }
-            : await core.call(c.method, c.params, { ctx });
+            : await core.call(c.method, c.params, { ctx: { ...baseCtx } }); // per-call copy: no ctx leak across batch
         if (c.id != null) out.push(toWire(result, c.id));
       }
       const wire = Array.isArray(body) ? out : out[0];

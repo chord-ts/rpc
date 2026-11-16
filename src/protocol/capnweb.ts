@@ -34,19 +34,38 @@ export type Batch = Path[];
 
 export interface ServerSession {
   resolve(batch: Batch, ctx?: unknown): Promise<unknown[]>;
+  /** Free one capability (its id from {$cap:id}); further calls to it fail. */
+  release(capId: number): void;
+  /** End the session: free all capabilities + results. Automatic refcounting is a future step. */
+  dispose(): void;
   lastBatch: Batch | undefined;
 }
 
 export function capnweb(core: Core<any>): ServerSession {
-  const caps: object[] = [];
+  const caps: (object | undefined)[] = [];
   const results: unknown[] = []; // live across batches: `from` references a global index
+  let closed = false;
   const session: ServerSession = {
     lastBatch: undefined,
+    release(capId) {
+      caps[capId] = undefined;
+    },
+    dispose() {
+      caps.length = 0;
+      results.length = 0;
+      closed = true;
+    },
     async resolve(batch, ctx) {
+      if (closed) throw new Error('capnweb session disposed');
       session.lastBatch = batch;
       const deref = (i: number): unknown => {
         const r = results[i];
-        return r && typeof r === 'object' && '$cap' in r ? caps[(r as { $cap: number }).$cap] : r;
+        if (r && typeof r === 'object' && '$cap' in r) {
+          const cap = caps[(r as { $cap: number }).$cap];
+          if (!cap) throw new Error('capability released');
+          return cap;
+        }
+        return r;
       };
       for (const path of batch) {
         let value: unknown;

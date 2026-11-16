@@ -80,3 +80,23 @@ test('mcp: tools/list + tools/call (scalar unwrap)', async () => {
   const call = await binding.handle(rpcBody('tools/call', { name: 'Catalog.count', arguments: { value: 41 } }, 2));
   expect(JSON.parse(call.body!).result.content[0].text).toBe('42');
 });
+
+test('mcp: initialize handshake + ping + notifications/initialized', async () => {
+  const binding = mcp(composer, { info: { title: 'Catalog', version: '2.0.0' } });
+
+  const init = await binding.handle(rpcBody('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } }, 1));
+  const result = JSON.parse(init.body!).result;
+  expect(result.protocolVersion).toBe('2025-06-18');
+  expect(result.capabilities.tools).toBeDefined();
+  expect(result.serverInfo).toEqual({ name: 'Catalog', version: '2.0.0' });
+
+  // Неизвестная версия → сервер предлагает свою поддерживаемую.
+  const fallback = await binding.handle(rpcBody('initialize', { protocolVersion: '1999-01-01' }, 2));
+  expect(JSON.parse(fallback.body!).result.protocolVersion).toBe('2025-06-18');
+
+  const ping = await binding.handle(rpcBody('ping', {}, 3));
+  expect(JSON.parse(ping.body!).result).toEqual({});
+
+  const initialized = await binding.handle(rpcBody('notifications/initialized', undefined));
+  expect(initialized.status).toBe(204);
+});

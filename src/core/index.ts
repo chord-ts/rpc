@@ -26,13 +26,17 @@ export function fn<C extends Contract>(c: C): Fn<C> {
   return c as unknown as Fn<C>;
 }
 
-// Dependency keys match constructor parameter names (parsing fn.toString()).
-// The constructor must be the first class member: `indexOf('(')` finds its parameter list.
+// Dependency keys match constructor parameter names (parsing ctor.toString()).
+// Locate `constructor(` specifically — the first '(' may belong to a static fn() field
+// when the class has no explicit constructor (then there are no deps → []).
+// Known limit: minified bundles mangle parameter names — see DI-minification track.
 export function paramNames(ctor: AnyCtor): string[] {
   const src: string = ctor.toString();
-  const head = src.slice(src.indexOf('(') + 1, src.indexOf(')'));
-  const args = head.match(/([^\s,]+)/g);
-  return args ?? [];
+  const idx = src.indexOf('constructor(');
+  if (idx === -1) return [];
+  const start = idx + 'constructor('.length;
+  const head = src.slice(start, src.indexOf(')', start));
+  return head.match(/([^\s,]+)/g) ?? [];
 }
 
 // Endpoints come from `static $method = fn({...})` (schema-first) and from public
@@ -44,7 +48,8 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
       if (!key.startsWith('$') || typeof contract !== 'object' || contract === null || !('in' in contract)) {
         continue;
       }
-      // TODO нет проверки и warning на отсутствие метода для схемы
+      // Handler presence is verified by warnMissingHandlers (probe instance) at compose;
+      // invoke also guards at call time. Arrow-field handlers aren't on the prototype.
       const method = key.slice(1);
       routes.set(`${service}.${method}`, {
         service,
@@ -62,6 +67,31 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
     }
   }
   return routes;
+}
+
+// DX warning: a `$method` schema declared without a matching handler. Arrow-field handlers are
+// instance properties (not on the prototype), so verify via a probe instance with a permissive
+// dummy ctx. Best-effort: if deps need a real ctx the probe fails silently — invoke still guards.
+function warnMissingHandlers<S extends ServiceMap>(
+  services: S,
+  routes: Map<string, MethodDesc>,
+  inject: Record<string, (ctx: any) => any>,
+): void {
+  const dummy: any = new Proxy(function () {}, { get: () => dummy, apply: () => dummy });
+  for (const [service, Ctor] of Object.entries(services)) {
+    try {
+      const deps = paramNames(Ctor as AnyCtor).map((name) => inject[name]?.(dummy));
+      const instance = new (Ctor as AnyCtor)(...deps);
+      for (const [key, desc] of routes) {
+        if (desc.service !== service || !desc.contract) continue;
+        if (typeof instance[desc.method] !== 'function') {
+          console.warn(`[chord] ${key}: schema $${desc.method} declared but handler "${desc.method}" is missing on ${service}`);
+        }
+      }
+    } catch {
+      // probe needs a real ctx — skip; call-time guard remains
+    }
+  }
 }
 
 function runChain(
@@ -83,6 +113,7 @@ export function compose<S extends ServiceMap>(services: S, options: ComposeOptio
       ? [options.use]
       : [];
   const routes = buildRoutes(services);
+  warnMissingHandlers(services, routes, inject);
   const registry: Endpoint[] = [...routes.values()].map((d) => ({
     service: d.service,
     method: d.method,
