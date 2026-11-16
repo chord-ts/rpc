@@ -10,7 +10,7 @@
 // Прогон (вместе с example):
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-capnp.example.ts
 
-import type { AnySchema, ServiceMap, Result } from '../src/v2';
+import type { AnySchema, ServiceMap, Result } from '../src';
 import type { Core } from './v2-transport.helpers';
 
 // --- capability-маркер: схема «возвращает удалённый объект» ---

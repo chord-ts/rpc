@@ -4,7 +4,7 @@
 // Прогон типов:
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-mcp.example.ts
 
-import { z } from 'zod4';
+import { z } from 'zod';
 import { fn, get, post, compose, mcp } from './v2-transport.helpers';
 import { ZodAdapter } from './v2-schemas.helpers';
 

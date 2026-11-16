@@ -2,8 +2,8 @@ import { expect, test } from 'vitest';
 import * as v from 'valibot';
 import { type } from 'arktype';
 import * as Yup from 'yup';
-import { fn, toRPC, ErrorCode } from '../../src/v2';
-import { yup } from '../../src/v2/validators/yup';
+import { fn, toRPC, ErrorCode } from '../../src';
+import { yup } from '../../src/validators/yup';
 
 // Native `~standard` — no adapter.
 class ValibotSvc {

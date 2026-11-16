@@ -7,8 +7,8 @@
 // Прогон (вместе с example):
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-mcp.example.ts
 
-import { z } from 'zod4';
-import type { AnySchema } from '../src/v2';
+import { z } from 'zod';
+import type { AnySchema } from '../src';
 import type { SchemaAdapter } from './v2-transport.helpers';
 
 /** zod-адаптер: нативные операции над zod-схемами (LangChain получает настоящий zod). */

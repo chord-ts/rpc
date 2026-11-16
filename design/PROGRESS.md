@@ -30,12 +30,13 @@
 ## 3. Единый источник валидации (schema-agnostic)
 
 - [x] Ядро на вендореном `AnySchema` (Standard Schema v1, async `validate`).
-- [x] Native `~standard` напрямую: zod 4 (devDep `zod4`), valibot, arktype.
+- [x] Native `~standard` напрямую: zod 4 (devDep `zod`, алиас `zod4` убран за ненадобностью), valibot, arktype.
 - [x] yup shim (`validators/yup`) — мост для библиотек без `~standard`.
 - [x] zod 3 выпилен (шим, тест, `zod` и `@anatine/zod-mock` из зависимостей).
-- [x] **спайк:** вендорный `SchemaAdapter` (`jsonSchema`/`isObject`/`flatObject`/`wrapScalar`/`string`)
-      регистрируется один в `compose({ schemas })`; генераторы/биндинги/`tools()` берут его из ядра.
-      `ZodAdapter` (нативные zod-схемы для LangChain) + generic `defaultSchemas` (~standard fallback).
+- [x] **src:** слой `schemas/` — `defaultSchemas` (generic ~standard), `flatToolSchema`, `packToolArgs`;
+      вендорный лист `schemas/zod` (`ZodAdapter`, нативные zod-схемы для LangChain). `SchemaAdapter`
+      (`jsonSchema`/`isObject`/`flatObject`/`wrapScalar`/`string`) — в types, регистрируется в `compose({ schemas })`.
+- [ ] generate/биндинги/tools в src ещё берут конвертер параметром — переезд на `core.schemas` при переносе слоёв.
 - [ ] Typia — нужен compiler-трансформер (отдельная инфраструктурная задача).
 
 ## 4. Exec-пайплайн
@@ -111,7 +112,7 @@
 
 ## Тесты
 
-- [x] `tests/v2` — register/exec/validators, 18 тестов (src).
+- [x] `tests/v2` — register/exec/validators/schemas, 23 теста (src).
 - [x] type-spike: `v2-types`.
 - [ ] Спайки: compile-checked + ручной прогон, **vitest-покрытия новых слоёв нет**.
 - [ ] v1 `batch`/`spec` — падают (pre-existing shared-state в `Composer`), не чинил.

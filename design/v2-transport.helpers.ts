@@ -1,5 +1,5 @@
 // Транспортный срез v2 — библиотечная механика (ПРЕДЛАГАЕМОЕ API, спайк).
-// Registration-ядро (fn/типы) — реальный src/v2. Здесь три слоя поверх него:
+// Registration-ядро (fn/типы) — реальный src (корень). Здесь три слоя поверх него:
 //   ядро compose() (instantiate/call/notify/endpoints) → биндинги (jsonrpc/rest/mcp) → транспорты (from*).
 // Протокол выбирается ЯВНО: fromSvelteKit(rest(composer), event). Транспорт не знает протокола.
 // Ядро ПРОТОКОЛ-АГНОСТИЧНО: JSON-RPC-конверт (normalize/toWire/batch) живёт в биндинге jsonrpc,
@@ -25,7 +25,7 @@ import {
   type Contract,
   type AnySchema,
   type Middleware,
-} from '../src/v2';
+} from '../src';
 
 // Генераторы транзитивны протоколу: биндинги сами отдают стандартные эндпоинты
 // (rest → /openapi.json + /docs + /redoc, jsonrpc → rpc.discover, mcp → tools/list).

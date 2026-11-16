@@ -4,7 +4,7 @@
 // Прогон типов:
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-capnp.example.ts
 
-import { z } from 'zod4';
+import { z } from 'zod';
 import { fn, compose } from './v2-transport.helpers';
 import { capability, capnweb, connect } from './v2-capnp.helpers';
 

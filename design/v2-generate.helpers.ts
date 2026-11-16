@@ -7,7 +7,7 @@
 // Прогон (вместе с example):
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-generate.example.ts
 
-import type { AnySchema } from '../src/v2';
+import type { AnySchema } from '../src';
 import type { Core, RestMeta } from './v2-transport.helpers';
 
 export interface GenOptions {

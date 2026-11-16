@@ -24,7 +24,7 @@ gRPC-web — по HTTP (protobuf). Ядро не знает ни протоко�
 
 ## Что уже есть (факт, не намерение)
 
-`src/v2/index.ts` уже содержит нужный шов:
+`src/index.ts` (корень, бывший `src/v2`) уже содержит нужный шов:
 
 - `exec(body, { ctx })` — **JSON-RPC-биндинг**: `normalize(body)` → по каждому вызову `dispatch` →
   `toWire(result, id)`. Говорит только конверт `RPCRequest`/`RPCResponse`.

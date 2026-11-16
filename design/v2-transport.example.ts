@@ -6,7 +6,7 @@
 // Прогон:
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-transport.example.ts
 
-import { z } from 'zod4';
+import { z } from 'zod';
 import {
   fn,
   get,

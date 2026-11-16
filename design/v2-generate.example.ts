@@ -5,7 +5,7 @@
 // Прогон типов:
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-generate.example.ts
 
-import { z } from 'zod4';
+import { z } from 'zod';
 import { fn, get, post, compose, rest, jsonrpc, mcp } from './v2-transport.helpers';
 import { openapi, openrpc, mcpTools, asyncapi } from './v2-generate.helpers';
 import { ZodAdapter } from './v2-schemas.helpers';

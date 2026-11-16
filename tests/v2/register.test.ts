@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { z } from 'zod4';
-import { fn, toRPC, ErrorCode } from '../../src/v2';
+import { z } from 'zod';
+import { fn, toRPC, ErrorCode } from '../../src';
 
 type Ctx = { user: { id: string; name: string } };
 type Logger = { log: (msg: string) => void };

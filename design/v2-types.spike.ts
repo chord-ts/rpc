@@ -1,14 +1,14 @@
-// Spike: type contract of the REAL src/v2 core + validators.
+// Spike: type contract of the REAL src core + validators.
 // Proves: $method.fn infers input from schema; `out` omitted -> unknown;
 // Client excludes #/private; Client wraps return in Promise; InferOutput; inject typed;
 // native `~standard` (zod 4 / valibot / arktype) plugs in directly; yup via shim.
 // Run: npx tsc --noEmit --strict --target es2022 --module commonjs --moduleResolution node --skipLibCheck design/v2-types.spike.ts
-import { z as z4 } from 'zod4';
+import { z as z4 } from 'zod';
 import * as v from 'valibot';
 import { type } from 'arktype';
 import * as Yup from 'yup';
-import { fn, toRPC, type Client, type InferOutput, type Injector } from '../src/v2';
-import { yup } from '../src/v2/validators/yup';
+import { fn, toRPC, type Client, type InferOutput, type Injector } from '../src';
+import { yup } from '../src/validators/yup';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 

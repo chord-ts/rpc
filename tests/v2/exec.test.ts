@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { z } from 'zod4';
-import { fn, toRPC, ErrorCode, type Middleware } from '../../src/v2';
+import { z } from 'zod';
+import { fn, toRPC, ErrorCode, type Middleware } from '../../src';
 
 class Calc {
   constructor() {}

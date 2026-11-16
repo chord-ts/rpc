@@ -53,9 +53,9 @@ importers:
       yup:
         specifier: ^1.7.1
         version: 1.7.1
-      zod4:
-        specifier: npm:zod@4
-        version: zod@4.6.7
+      zod:
+        specifier: ^4
+        version: 4.6.7
 
 packages:
 
