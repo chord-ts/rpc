@@ -6,23 +6,27 @@
 import type { AnySchema, Core, Result } from '../types';
 
 const CAP = Symbol.for('chord.capability');
+const CAP_VENDOR = 'chord-capability';
 
-/** Schema marker: "returns a remote object". The instance is hidden under CAP; the server
- * registers it and emits { $cap: id }. Type claims InstanceType<C>; the wrapper is server-local. */
+/** Schema marker: "returns a remote object". Type claims InstanceType<C>. The CAP wrapping is done
+ * by the capnweb binding (a wire transform, not validation) — independent of the validateOut flag. */
 export function capability<C extends new (...args: any[]) => any>(ctor: C): AnySchema<InstanceType<C>> {
   return {
     '~standard': {
       version: 1,
-      vendor: 'chord',
+      vendor: CAP_VENDOR,
       validate(value) {
         if (value && typeof value === 'object') {
-          return { value: { [CAP]: value } as unknown as InstanceType<C> };
+          return { value: value as InstanceType<C> };
         }
         return { issues: [{ message: 'expected a capability object' }] };
       },
     },
   };
 }
+
+const isCapabilitySchema = (s: AnySchema | undefined): boolean =>
+  !!s && (s as unknown as { '~standard': { vendor: string } })['~standard'].vendor === CAP_VENDOR;
 
 // --- wire: batch of paths (JSON, like capnweb) ---
 export type Step = { get: string } | { call: string; args: unknown[] };
@@ -44,6 +48,7 @@ export interface ServerSession {
 export function capnweb(core: Core<any>): ServerSession {
   const caps: (object | undefined)[] = [];
   const results: unknown[] = []; // live across batches: `from` references a global index
+  const contracts = new Map(core.endpoints().map((e) => [`${e.service}.${e.method}`, e.contract]));
   let closed = false;
   const session: ServerSession = {
     lastBatch: undefined,
@@ -83,9 +88,14 @@ export function capnweb(core: Core<any>): ServerSession {
             results.push(undefined); // intermediate node (namespace/method without call) — placeholder
             continue;
           }
-          const r: Result = await core.call([...names, first.call].join('.'), first.args[0], { ctx });
+          const methodName = [...names, first.call].join('.');
+          const r: Result = await core.call(methodName, first.args[0], { ctx });
           if (!r.ok) throw new Error(r.error.message);
           value = r.value;
+          // capability — wire-обёртка в биндинге (не зависит от validateOut): инстанс под CAP.
+          if (isCapabilitySchema(contracts.get(methodName)?.out as AnySchema | undefined)) {
+            value = { [CAP]: value };
+          }
           steps = steps.slice(i + 1);
         } else {
           value = deref(path.from);

@@ -22,12 +22,16 @@ class Catalog {
     status: 201,
   });
   createItem: typeof Catalog.$createItem.fn = async ({ name }) => ({ id: 'new', name });
-
-  static $count = fn({ in: z.number(), out: z.number() });
-  count: typeof Catalog.$count.fn = async (n) => n + 1;
 }
 
-const composer = compose({ Catalog }, { inject: {}, schemas: new ZodAdapter() });
+// RPC-сервис отдельным классом (REST и fn не смешиваются в одном классе).
+class Math {
+  constructor() {}
+  static $count = fn({ in: z.number(), out: z.number() });
+  count: typeof Math.$count.fn = async (n) => n + 1;
+}
+
+const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
 const req = (method: string, path: string, body?: unknown): TransportRequest => ({
   method,
   url: `http://localhost${path}`,
@@ -38,10 +42,10 @@ const rpcBody = (method: string, params: unknown, id?: number) =>
 
 test('jsonrpc: call, notification (204), rpc.discover', async () => {
   const binding = jsonrpc(composer);
-  const call = await binding.handle(rpcBody('Catalog.count', 5, 1));
+  const call = await binding.handle(rpcBody('Math.count', 5, 1));
   expect(JSON.parse(call.body!)).toEqual({ jsonrpc: '2.0', id: 1, result: 6 });
 
-  const notify = await binding.handle(rpcBody('Catalog.count', 5));
+  const notify = await binding.handle(rpcBody('Math.count', 5));
   expect(notify.status).toBe(204);
 
   const discover = await binding.handle(rpcBody('rpc.discover', undefined, 2));
@@ -75,9 +79,9 @@ test('mcp: tools/list + tools/call (scalar unwrap)', async () => {
   const binding = mcp(composer);
   const list = await binding.handle(rpcBody('tools/list', {}, 1));
   const names = JSON.parse(list.body!).result.tools.map((t: any) => t.name);
-  expect(names).toEqual(expect.arrayContaining(['Catalog.getItem', 'Catalog.count']));
+  expect(names).toEqual(expect.arrayContaining(['Catalog.getItem', 'Math.count']));
 
-  const call = await binding.handle(rpcBody('tools/call', { name: 'Catalog.count', arguments: { value: 41 } }, 2));
+  const call = await binding.handle(rpcBody('tools/call', { name: 'Math.count', arguments: { value: 41 } }, 2));
   expect(JSON.parse(call.body!).result.content[0].text).toBe('42');
 });
 

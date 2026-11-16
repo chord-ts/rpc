@@ -1,28 +1,28 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, compose, openapi, openrpc, mcpTools } from '../../src';
+import { fn, get, compose, openapi, openrpc, mcpTools } from '../../src';
 import { ZodAdapter } from '../../src/schemas/zod';
 
-// REST-контракт собран через fn с метаданными (сахар get/post живёт в protocol/rest, ещё не перенесён).
+// REST-ресурс (сахар get). RPC-методы — отдельным классом (стили не смешиваются).
 class Catalog {
   constructor() {}
 
-  static $getItem = fn({
-    in: z.unknown(),
-    out: z.object({ id: z.string() }),
-    rest: { method: 'GET', endpoint: '/items/{item_id}' },
+  static $getItem = get('/items/{item_id}', {
     query: z.object({ q: z.string().optional() }),
     resp: { 200: z.object({ id: z.string() }) },
     desc: 'Получить предмет',
     tags: ['items'],
   });
   getItem: typeof Catalog.$getItem.fn = async () => ({ id: 'x' });
-
-  static $count = fn({ in: z.number(), out: z.number(), desc: 'Инкремент' });
-  count: typeof Catalog.$count.fn = async (n) => n + 1;
 }
 
-const composer = compose({ Catalog }, { inject: {}, schemas: new ZodAdapter() });
+class Math {
+  constructor() {}
+  static $count = fn({ in: z.number(), out: z.number(), desc: 'Инкремент' });
+  count: typeof Math.$count.fn = async (n) => n + 1;
+}
+
+const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
 
 test('openapi: REST endpoint → path/query parameters + resp status', () => {
   const doc = openapi(composer, { info: { title: 'Catalog', version: '1.0.0' } }) as any;
@@ -40,7 +40,7 @@ test('openapi: REST endpoint → path/query parameters + resp status', () => {
 test('openrpc: only fn methods (REST filtered out)', () => {
   const doc = openrpc(composer) as any;
   const names = doc.methods.map((m: any) => m.name);
-  expect(names).toContain('Catalog.count');
+  expect(names).toContain('Math.count');
   expect(names).not.toContain('Catalog.getItem');
 });
 
@@ -51,7 +51,7 @@ test('mcpTools: all endpoints, REST flattened + auto-path, fn scalar wrapped', (
   expect(getItem.inputSchema.required).toContain('item_id');
   expect(getItem.annotations.readOnlyHint).toBe(true);
 
-  const count = tools.find((t: any) => t.name === 'Catalog.count');
+  const count = tools.find((t: any) => t.name === 'Math.count');
   expect(count.inputSchema).toMatchObject({ type: 'object', properties: { value: { type: 'number' } } });
 });
 

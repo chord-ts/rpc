@@ -138,11 +138,15 @@ export interface Core<S extends ServiceMap> {
   schemas?: SchemaAdapter;
 }
 
-export interface ComposeOptions<S extends ServiceMap> {
-  inject: Injector<S>;
+/** inject обязателен только когда у сервисов есть зависимости (DepKeys); для сервисов без
+ * зависимостей его можно опустить: `compose({ Service })`. */
+export type ComposeOptions<S extends ServiceMap> = {
   use?: MaybeArray<Middleware>;
   schemas?: SchemaAdapter;
-}
+  /** Opt-in runtime validation of handler output against `out` (default false).
+   * `out` always provides the return type; this flag gates the runtime check. */
+  validateOut?: boolean;
+} & ([DepKeys<S>] extends [never] ? { inject?: Injector<S> } : { inject: Injector<S> });
 
 /** REST metadata (shared with generate). Declaration sugar lives in protocol/rest. */
 export interface RestMeta {
@@ -151,11 +155,12 @@ export interface RestMeta {
   status?: number;
 }
 
-// --- Format: codec pair over the protocol envelope (text seam; binary formats extend it later) ---
-export interface Format {
+// --- Format: codec pair over the protocol envelope. Raw — тип провода: текст (string) по
+// умолчанию, байты (Uint8Array) для бинарных форматов (msgpack/cbor). Не зашит на строки. ---
+export interface Format<Raw = string> {
   contentType: string;
-  decode(raw: string): unknown;
-  encode(value: unknown): string;
+  decode(raw: Raw): unknown;
+  encode(value: unknown): Raw;
 }
 
 // --- Agent tool: ready for agent frameworks (LangChain etc.), in-process, no wire ---

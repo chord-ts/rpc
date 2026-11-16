@@ -47,15 +47,17 @@ export type Batch = Path[];
 
 // --- сервер: capnweb(composer) — аналог RpcTarget + newWorkersRpcResponse ---
 
-export interface ServerSession {
+export interface ServerSession<S = unknown> {
   resolve(batch: Batch, ctx?: unknown): Promise<unknown[]>;
   lastBatch: Batch | undefined;
+  /** Фантом: карта сервисов для вывода S в connect(server). Только тип, не рантайм. */
+  readonly '~capnweb'?: S;
 }
 
-export function capnweb(core: Core<any>): ServerSession {
+export function capnweb<S extends ServiceMap>(core: Core<S>): ServerSession<S> {
   const caps: object[] = [];
   const results: unknown[] = []; // живут через батчи: from ссылается на глобальный индекс
-  const session: ServerSession = {
+  const session: ServerSession<S> = {
     lastBatch: undefined,
     async resolve(batch, ctx) {
       session.lastBatch = batch;
@@ -138,7 +140,14 @@ interface Node {
   id?: number;
 }
 
-export function connect<S extends ServiceMap>(send: (batch: Batch) => Promise<unknown[]>): Session<S> {
+// connect(server) выводит S из сессии (тип берётся от composer); connect<S>(send) — для удалённого
+// сервера, где S задаётся явно (из URL тип не вывести).
+export function connect<S extends ServiceMap>(session: ServerSession<S>): Session<S>;
+export function connect<S extends ServiceMap>(send: (batch: Batch) => Promise<unknown[]>): Session<S>;
+export function connect<S extends ServiceMap>(
+  arg: ServerSession<S> | ((batch: Batch) => Promise<unknown[]>),
+): Session<S> {
+  const send = typeof arg === 'function' ? arg : (batch: Batch) => arg.resolve(batch);
   const paths: Path[] = [];
   let sent = 0;
   let flight: { promise: Promise<unknown[]>; base: number } | undefined;

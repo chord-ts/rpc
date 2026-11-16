@@ -1,14 +1,14 @@
 # Регистрация без декораторов + schema-first `fn` — детальный проект
 
 > Черновик v2.0 по пунктам 1–2 из [`ROADMAP.md`](../ROADMAP.md). Итоговый API.
-> Канонический пользовательский пример — [`example.ts`](./example.ts), библиотечная механика —
-> [`helpers.ts`](./helpers.ts). Типы проверены компилятором в [`v2-types.spike.ts`](./v2-types.spike.ts).
+> Канонический пользовательский пример — [`example.ts`](./example.ts) (импортирует src).
+> Библиотечная механика — в `src/` (`core`, `schemas`, …); типы проверены тестами `tests/v2`.
 
 ## Целевой API
 
 ```ts
 import { z } from 'zod';
-import { fn, toRPC, type Middleware } from '@chord-ts/rpc';
+import { fn, compose, type Middleware } from '@chord-ts/rpc';
 
 type Ctx = { user: { id: string; name: string } };
 
@@ -33,7 +33,7 @@ export class Say {
   }
 }
 
-const composer = toRPC(
+const composer = compose(
   { Say },
   { inject: { ctx: (event) => event.locals } },   // DI по имени параметра конструктора
 );
@@ -160,7 +160,7 @@ class Say {
   ) {}
 }
 
-toRPC({ Say }, {
+compose({ Say }, {
   inject: {
     ctx: (event) => event.locals,
     logger: (event) => event.logger,

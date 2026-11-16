@@ -74,9 +74,10 @@ facade       корневой index.ts: публичная поверхност�
   pre/post-сериализация поверх кодека, чистым Format не закрыть (живёт в биндинге).
 - **Выбор формата**: где протокол фиксирует (MCP=json, gRPC=protobuf) — зашит; где negotiable
   (JSON-RPC/REST) — биндинг/транспорт выбирает по Content-Type/Accept (`Format.contentType`).
-- **Байтовый шов**: сейчас текстовый (`string`); бинарное тело REST / msgpack / cbor требуют
-  `Uint8Array`-шов (расширение Format при добавлении кодеков). Для stream ndjson codec'ит каждое
-  событие отдельно, фрейминг — транспорт (ждёт stream-gasket).
+- **Байтовый шов**: `Format<Raw = string>` — generic по типу провода (не зашит на строки).
+  `json: Format<string>`; бинарные msgpack/cbor — `Format<Uint8Array>`. Биндинги/транспорт пока
+  на текстовом шове (`string`); генерализация до байтов — при добавлении бинарных кодеков.
+  Для stream ndjson codec'ит каждое событие отдельно, фрейминг — транспорт (ждёт stream-gasket).
 
 Поэтому format ниже protocol в стеке и импортирует только types.
 
@@ -96,6 +97,32 @@ src — есть.
 
 Ядро максимально чистое: не знает ни генерации, ни тулов. Цена — пользователь теряет
 `composer.tools()` и импортирует `agentTools` отдельно; это осознанный размен на чистоту слоёв.
+
+## Протокол-согласованность класса и роутинг
+
+**Класс сервиса протокол-согласован:** либо REST (`get/post`, `contract.rest`), либо RPC
+(`fn/stream`). Смешивать стили в одном классе нельзя — `compose`/`buildRoutes` бросает
+`[chord] X: mixes REST (get/post) and RPC (fn/stream) declarations in one class…`. REST и RPC разносятся по разным
+сервисам (`Catalog` + `Math`); simple-эндпоинты без `$method` не считаются.
+
+**Composer не решает REST vs RPC.** Ядро — протокол-агностичный плоский реестр
+`Service.method → handler` и один gasket `call(method, params, ctx)`. Решение об адресации
+принимает **биндинг**:
+
+```
+HTTP-запрос → транспорт (fromSvelteKit) → БИНДИНГ (адресация) → composer.call(method, params)
+```
+
+- **rest-биндинг** — адресация по **пути + HTTP-глаголу**: строит маршруты только из эндпоинтов
+  с `rest`-метаданными (`GET /items/{item_id} → Catalog.getItem`), пакует срезы `{path,query,body}`.
+  RPC-эндпоинт без rest-метаданных по пути не вызывается.
+- **jsonrpc/mcp-биндинг** — адресация по **имени** из конверта (`{method:'Math.count'}`);
+  роутинг по пути не нужен. REST-эндпоинт тоже можно вызвать по имени (params — срезы).
+
+Разделение классов — ограничение **декларации** (чистая организация + транзитивные доки:
+REST-класс → OpenAPI, RPC-класс → OpenRPC/MCP, без частичного попадания класса в оба документа).
+В рантайме биндинги агрегируют поверх всех классов одного composer; какой эндпоинт доступен
+по пути, а какой по имени — определяется наличием `rest`-метаданных, а не классом как таковым.
 
 ## Карта экспорта пакета
 
@@ -137,21 +164,24 @@ schemas-листья (peer deps), client (свой рантайм), core (embedd
 Папки `v2` нет. Сборка (tsdown) и корень `.` пока на v1 — переключение `.` на v2 и v2-entries в
 tsdown это отдельный release-шаг, когда рантайм будет готов.
 
-## Маппинг спайков → будущие модули
+## Модули src (реализовано)
 
-| Спайк (design/) | Будущий модуль (корень src/) |
+Superseded-спайки удалены (перенесены в src); канонические примеры — `design/example.ts` (fn),
+`design/example.rest.ts` (REST/мультипротокол). Активные спайки: `v2-stream.*`, `v2-capnp.*` (клиент).
+
+| Модуль (корень src/) | Содержимое |
 |---|---|
-| `v2-transport.helpers` (ядро: compose/Core/registry) | `core/` |
-| `v2-transport.helpers` (REST-сахар get/post/http, RestContract) | `protocol/rest` |
-| `v2-transport.helpers` (биндинги jsonrpc/rest/mcp) | `protocol/{jsonrpc,rest,mcp}` |
-| `v2-transport.helpers` (fromSvelteKit/fromExpress) | `transport/` |
-| `v2-transport.helpers` (Format/json) | `format/` |
-| `v2-transport.helpers` (compose.tools) | `tools/` (agentTools, отдельно от ядра) |
-| `v2-generate.helpers` | `generate/` |
-| `v2-schemas.helpers` (SchemaAdapter/defaultSchemas/flatToolSchema) | `schemas/` |
-| `v2-schemas.helpers` (ZodAdapter) | `schemas/zod` |
-| `v2-capnp.helpers` (capnweb-биндинг) | `protocol/capnweb` |
-| `v2-capnp.helpers` (connect/RpcPromise) | `client/capnweb` |
+| `types.ts` | общие контракты (AnySchema, Result, Core, SchemaAdapter, Binding, Format, …) |
+| `core/` | fn, compose → Core (call/notify/endpoints), registry, dispatch/invoke, paramNames |
+| `schemas/` | defaultSchemas, flatToolSchema, packToolArgs; лист `schemas/zod` (ZodAdapter) |
+| `format/` | json (текстовый кодек) |
+| `generate/` | openapi, openrpc, mcpTools, asyncapi |
+| `tools/` | agentTools (отдельно от ядра) |
+| `protocol/` | jsonrpc, rest (сахар get/post/http + RestContract), mcp, capnweb, shared |
+| `transport/` | fromSvelteKit, fromExpress |
+| `index.ts` | фасад — реэкспорт слоёв |
+| **ещё нет:** `client/` | capnweb connect/RpcPromise (спайк `v2-capnp.*`), typed jsonrpc/rest клиент |
+| **ещё нет:** stream | третий глагол core + SSE/WS (спайк `v2-stream.*`) |
 
 ## Инварианты (чем проверяем)
 
@@ -163,6 +193,8 @@ tsdown это отдельный release-шаг, когда рантайм бу�
    и без сервера, для CLI/статической выгрузки).
 5. **transport protocol-agnostic** — знает только `Binding`, не конкретный протокол.
 6. **types — единственный общий слой** — никаких runtime-зависимостей, только контракты.
+7. **Класс протокол-согласован** — REST или RPC, не смесь; проверяется throw'ом в `compose`
+   (`buildRoutes`). Роутинг — в биндинге, composer — плоский реестр `call(method)`.
 
 ## Зафиксированные решения (2026-11-16)
 
@@ -179,6 +211,10 @@ tsdown это отдельный release-шаг, когда рантайм бу�
 6. **Без папки `v2`** (перенос выполнен): v2 — корень `src/` (`types.ts`/`core/`/`validators/`/
    `index.ts` уже там), v1 изолирован в `src/v1/`. Публичных путей `/v2` нет; переключение корня
    `.` и tsdown-entries на v2 — release-шаг.
+7. **Класс протокол-согласован** (2026-11-17): REST (`get/post`) и RPC (`fn/stream`) не смешиваются
+   в одном классе — `compose` бросает ошибку. REST/RPC — разные сервисы; роутинг решает биндинг
+   (rest — по пути, jsonrpc/mcp — по имени), composer — плоский реестр. Транзитивные доки без
+   частичного попадания класса в оба документа.
 
 ## Не решено здесь (ждёт отдельных дизайн-сессий)
 

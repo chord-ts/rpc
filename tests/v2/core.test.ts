@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { fn, compose, paramNames, type Middleware } from '../../src';
+import { fn, get, compose, paramNames, type Middleware } from '../../src';
 import { envelope } from './rpc';
 
 // Класс без явного конструктора: первая скобка в toString — из fn(, не из constructor.
@@ -11,7 +11,7 @@ class NoCtor {
 
 test('paramNames: class without constructor → no deps, call works', async () => {
   expect(paramNames(NoCtor)).toEqual([]);
-  const composer = compose({ NoCtor }, { inject: {} });
+  const composer = compose({ NoCtor });
   expect(await composer.call('NoCtor.ping', undefined)).toEqual({ ok: true, value: 'pong' });
 });
 
@@ -55,7 +55,32 @@ test('compose warns when a schema is declared without a handler', () => {
     static $ghost = fn({ in: z.unknown(), out: z.unknown() });
     // обработчик ghost забыли
   }
-  compose({ Broken }, { inject: {} });
+  compose({ Broken });
   expect(spy).toHaveBeenCalledWith(expect.stringContaining('Broken.ghost'));
   spy.mockRestore();
+});
+
+test('compose rejects mixing REST and RPC styles in one class', () => {
+  class Mixed {
+    constructor() {}
+    static $item = get('/items', { resp: { 200: z.object({}) } });
+    item: typeof Mixed.$item.fn = async () => ({});
+    static $count = fn({ in: z.number(), out: z.number() });
+    count: typeof Mixed.$count.fn = async (n) => n + 1;
+  }
+  expect(() => compose({ Mixed })).toThrow(/mixes REST/);
+});
+
+test('compose accepts separate REST and RPC classes', () => {
+  class Rest {
+    constructor() {}
+    static $item = get('/items', { resp: { 200: z.object({}) } });
+    item: typeof Rest.$item.fn = async () => ({});
+  }
+  class Rpc {
+    constructor() {}
+    static $count = fn({ in: z.number(), out: z.number() });
+    count: typeof Rpc.$count.fn = async (n) => n + 1;
+  }
+  expect(() => compose({ Rest, Rpc })).not.toThrow();
 });

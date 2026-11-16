@@ -9,12 +9,15 @@ class Catalog {
     resp: { 200: z.object({ id: z.string() }) },
   });
   getItem: typeof Catalog.$getItem.fn = async ({ item_id }) => ({ id: item_id });
-
-  static $count = fn({ in: z.number(), out: z.number() });
-  count: typeof Catalog.$count.fn = async (n) => n + 1;
 }
 
-const composer = compose({ Catalog }, { inject: {}, schemas: new ZodAdapter() });
+class Math {
+  constructor() {}
+  static $count = fn({ in: z.number(), out: z.number() });
+  count: typeof Math.$count.fn = async (n) => n + 1;
+}
+
+const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
 
 test('fromSvelteKit: binding → fetch Response', async () => {
   const res = await fromSvelteKit(rest(composer), {
@@ -35,7 +38,7 @@ test('fromExpress: structural req/res → JSON-RPC response', async () => {
   };
   await fromExpress(
     jsonrpc(composer),
-    { method: 'POST', url: '/rpc', body: { jsonrpc: '2.0', method: 'Catalog.count', params: 5, id: 1 } },
+    { method: 'POST', url: '/rpc', body: { jsonrpc: '2.0', method: 'Math.count', params: 5, id: 1 } },
     res,
   );
   expect(captured.status).toBe(200);

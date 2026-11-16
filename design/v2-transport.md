@@ -24,18 +24,18 @@ gRPC-web — по HTTP (protobuf). Ядро не знает ни протоко�
 
 ## Что уже есть (факт, не намерение)
 
-`src/index.ts` (корень, бывший `src/v2`) уже содержит нужный шов:
+Слои реализованы в `src/` (корень). Канонический пример — [`example.rest.ts`](./example.rest.ts).
 
-- `exec(body, { ctx })` — **JSON-RPC-биндинг**: `normalize(body)` → по каждому вызову `dispatch` →
-  `toWire(result, id)`. Говорит только конверт `RPCRequest`/`RPCResponse`.
-- Внутри `toRPC` есть **протокол-агностичный `dispatch(call, ctx) → Promise<Result>`** — то, что
-  нужно любому протоколу: отдал `(method, params, ctx)`, получил типизированный `Result`.
+- **Ядро** `compose(...) → Core`: протокол-агностичный gasket `call/notify/endpoints` + `schemas`.
+  `call(method, params, ctx) → Promise<Result>` — то, что нужно любому протоколу.
+- **JSON-RPC-биндинг** `jsonrpc(core)`: конверт `normalize → call → toWire`, batch по id,
+  notification без ответа, `rpc.discover`. Конверт живёт в биндинге, не в ядре.
+- **REST/MCP/capnweb-биндинги**, транспорты `fromSvelteKit`/`fromExpress`, генераторы
+  OpenAPI/OpenRPC/MCP/AsyncAPI, агентские тулы `agentTools` — см. [`v2-architecture.md`](./v2-architecture.md).
 - `Result<T> = { ok: true; value: T } | { ok: false; error: ErrorObject }` — единый исход без
-  исключений. `ErrorObject = { code, message, data?, status? }` — поле `status` уже заложено под
-  transport-статус.
+  исключений. `ErrorObject = { code, message, data?, status? }` — поле `status` под transport-статус.
 
-Вывод: ядро для не-JSON-RPC протоколов уже готово. Не хватает только **публичного шва** `call()`
-и протокольных/транспортных/форматных биндингов над ним.
+Осталось: `stream` (третий глагол, SSE/WS), байтовые форматы, типизированный ctx/ошибки — см. PROGRESS.
 
 ## Протоколы
 

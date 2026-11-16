@@ -41,8 +41,8 @@ const server = capnweb(composer);
 
 // Реальный транспорт (следующий шаг): newWebSocketRpcSession / newHttpBatchRpcSession
 // поверх того же server.resolve — провод уже JSON-батч путей.
-// В спайке — loopback: send = server.resolve.
-const api = connect<typeof services>(server.resolve);
+// В спайке — loopback: connect(server), S выводится из composer (без ручного generic).
+const api = connect(server);
 
 // --- клиент: pipelining и capabilities ---
 (async () => {

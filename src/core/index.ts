@@ -44,10 +44,16 @@ export function paramNames(ctor: AnyCtor): string[] {
 function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc> {
   const routes = new Map<string, MethodDesc>();
   for (const [service, Ctor] of Object.entries(services)) {
+    // Класс протокол-согласован: либо REST (get/post, contract.rest), либо RPC (fn/stream).
+    // Смешивать стили в одном классе нельзя — разнесите по разным сервисам.
+    let hasRest = false;
+    let hasRpc = false;
     for (const [key, contract] of Object.entries(Ctor)) {
       if (!key.startsWith('$') || typeof contract !== 'object' || contract === null || !('in' in contract)) {
         continue;
       }
+      if ((contract as { rest?: unknown }).rest) hasRest = true;
+      else hasRpc = true;
       // Handler presence is verified by warnMissingHandlers (probe instance) at compose;
       // invoke also guards at call time. Arrow-field handlers aren't on the prototype.
       const method = key.slice(1);
@@ -58,7 +64,11 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
         use: Array.isArray(contract.use) ? contract.use : contract.use ? [contract.use] : [],
       });
     }
-
+    if (hasRest && hasRpc) {
+      throw new Error(
+        `[chord] ${service}: mixes REST (get/post) and RPC (fn/stream) declarations in one class — split them into separate services`,
+      );
+    }
 
     // Регистрируем отдельно методы без описания
     for (const method of Object.getOwnPropertyNames((Ctor as AnyCtor).prototype)) {
@@ -104,14 +114,13 @@ function runChain(
   return dispatch(0)(ctx);
 }
 
-/** Registers services and returns the protocol-agnostic gasket. */
-export function compose<S extends ServiceMap>(services: S, options: ComposeOptions<S>): Core<S> {
-  const inject = options.inject as unknown as Record<string, (ctx: any) => any>;
-  const composerMiddlewares: Middleware[] = Array.isArray(options.use)
-    ? options.use
-    : options.use
-      ? [options.use]
-      : [];
+/** Registers services and returns the protocol-agnostic gasket.
+ * options опциональны: для сервисов без зависимостей достаточно `compose({ Service })`. */
+export function compose<S extends ServiceMap>(services: S, options?: ComposeOptions<S>): Core<S> {
+  const inject = (options?.inject ?? {}) as unknown as Record<string, (ctx: any) => any>;
+  const use = options?.use;
+  const composerMiddlewares: Middleware[] = Array.isArray(use) ? use : use ? [use] : [];
+  const validateOut = options?.validateOut ?? false;
   const routes = buildRoutes(services);
   warnMissingHandlers(services, routes, inject);
   const registry: Endpoint[] = [...routes.values()].map((d) => ({
@@ -155,7 +164,8 @@ export function compose<S extends ServiceMap>(services: S, options: ComposeOptio
 
         const value = await handler(parsedIn.value);
 
-        if (desc.contract.out) {
+        // out всегда задаёт тип возврата; рантайм-проверка — только по флагу validateOut.
+        if (desc.contract.out && validateOut) {
           const parsedOut = await desc.contract.out['~standard'].validate(value);
           if ('issues' in parsedOut) {
             return {
@@ -198,6 +208,6 @@ export function compose<S extends ServiceMap>(services: S, options: ComposeOptio
       await dispatch({ id: null, method, params }, opts?.ctx ?? {});
     },
     endpoints: () => registry,
-    schemas: options.schemas,
+    schemas: options?.schemas,
   };
 }

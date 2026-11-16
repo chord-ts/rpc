@@ -72,9 +72,15 @@ test('handler throw → InternalError with the thrown message', async () => {
   });
 });
 
-test('output validation failure → InternalError', async () => {
-  const res = await exec({ method: 'Calc.bad', id: 1 });
-  expect(res).toMatchObject({
+test('out validation is opt-in: off by default, on with validateOut', async () => {
+  // По умолчанию out не валидируется — битый возврат проходит как есть.
+  const off = await exec({ method: 'Calc.bad', id: 1 });
+  expect(off).toEqual({ jsonrpc: '2.0', id: 1, result: 42 });
+
+  // С флагом validateOut — битый возврат → InternalError.
+  const validated = envelope({ Calc }, { inject: {}, validateOut: true });
+  const on = await validated({ method: 'Calc.bad', id: 1 });
+  expect(on).toMatchObject({
     jsonrpc: '2.0',
     id: 1,
     error: { code: ErrorCode.InternalError, message: 'Response validation error' },

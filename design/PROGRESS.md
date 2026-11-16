@@ -10,8 +10,9 @@
 - [x] Рантайм физически вынесен в `src/v1`, сборка в `dist/v1` (корень `.` пока на v1).
 - [ ] `@deprecated` на публичных v1-экспортах — отложено до готовности v2.
 - [ ] `exports` для v2 и фасада `./v1`, прогон `publint`/`attw`.
-- [ ] Карта экспорта v2 не спроектирована: сабпаты (`/rest`, `/mcp`, `/capnweb`, `/schemas/zod`?),
-      публичные имена (`compose` vs `toRPC`, `http` vs `rest`, `del`) не утверждены.
+- [x] Карта экспорта и имена зафиксированы в [`v2-architecture.md`](./v2-architecture.md): корневой
+      фасад `.` + листья (`schemas/{zod,valibot,yup}`, `client`, `core`); `compose`/`http`/`del`.
+- [ ] Переключение корня `.` на v2 + v2-entries в tsdown + `dist`-раскладка (release-шаг).
 
 ## 2. Регистрация (schema-first, без декораторов)
 
@@ -21,13 +22,17 @@
       Легаси `toRPC`/`Composer`/`ToRPCOptions` **полностью удалены** из src; конверт — в `jsonrpc`-биндинге.
       v2-тесты на `compose` + `jsonrpc` (helper `tests/v2/rpc.ts`).
 - [x] DI через конструктор + строгая типизация `Injector<S>` (public parameter-properties).
+      `inject` опционален для сервисов без зависимостей (`compose({ Service })`); обязателен при наличии deps.
 - [x] `Client` из классов: Promise-wrapped, `#`/`private` исключены.
 - [x] simple-эндпоинты без `$method` (обход прототипа, приватность через `#`).
 - [x] per-fn middleware `use`.
-- [x] **спайк:** REST-декларации `get/post/…(path, { path?, query?, body?, resp })` — части вместо
-      плоского `in`, авто-path из шаблона, `resp` — карта статусов (FastAPI `responses`), `desc`.
+- [x] **src:** класс протокол-согласован — `compose` бросает ошибку при смешении REST (`get/post`)
+      и RPC (`fn/stream`) деклараций в одном классе; разнести по разным сервисам. Роутинг решает
+      биндинг (rest — по пути, jsonrpc/mcp — по имени), composer — плоский реестр `call(method)`.
+- [x] **src:** REST-декларации `get/post/…(path, { path?, query?, body?, resp })` в `protocol/rest` —
+      части вместо плоского `in`, авто-path из шаблона, `resp` — карта статусов (FastAPI `responses`).
+- [x] **src:** нейтральные поля (`desc`/`summary`/`tags`/`deprecated`) в `RestContract`, читают генераторы.
 - [ ] `z.tuple([...])` — позиционные вызовы (открытый вопрос).
-- [ ] Нейтральные поля в src-контракте (`desc`/`tags`/`deprecated`) — в спайке есть, в src нет.
 
 ## 3. Единый источник валидации (schema-agnostic)
 
@@ -45,7 +50,8 @@
 
 - [x] `exec(body, { ctx })` — ядро транспорт-агностично (src).
 - [x] normalize → route → middleware-цепочка (рекурсия) → invoke.
-- [x] validate(in) → invoke → validate(out) (один валидатор).
+- [x] validate(in) → invoke → validate(out) (один валидатор). **out-валидация opt-in** через
+      `compose({ validateOut: true })`; `out` всегда задаёт тип возврата, рантайм-проверка по флагу.
 - [x] Типизированный `Result` + `ErrorObject` (InvalidParams/MethodNotFound/InternalError).
 - [x] Batch коррелируется по id, notification — без ответа.
 - [x] **src:** ядро `Core` без `exec` — `call/notify/endpoints` + `schemas`; тулы — отдельный
@@ -64,13 +70,15 @@
 - [x] **src:** REST — роутинг по шаблону, срезы `{path,query,body}`, `resp`-карта → статусы,
       ошибка валидации → 422; docs-эндпоинты транзитивны (`/openapi.json`, `/docs`, `/redoc`).
 - [x] **src:** capnweb-биндинг `capnweb(composer)` + `capability`-маркер (`Symbol`, `{$cap:id}` на проводе);
-      lifecycle — `release(capId)` / `dispose()` сессии (реестр освобождается). Авто-refcount — позже.
+      lifecycle — `release(capId)` / `dispose()` сессии. CAP-обёртка — в биндинге (wire-трансформация,
+      не зависит от `validateOut`). Авто-refcount — позже.
 - [x] **src:** слой `transport/` — `fromSvelteKit` (fetch `Response`, DOM-lib в tsconfig) /
       `fromExpress` (структурные req/res), protocol-agnostic, гоняют байты в `Binding`.
 - [ ] **спайк:** capnweb-клиент `connect<S>` (pipelining) — живёт в спайке, ждёт слой client.
 - [ ] **stream — не начат.** Блокирует SSE/WS, настоящий AsyncAPI, A2A/AG-UI/ACP, RSocket.
       Форма `AsyncIterable<Event>`, отмена, backpressure не решены.
-- [ ] Форматы: только текст; MessagePack/CBOR/NDJSON/binary/encryption — нужен байтовый шов `Format`.
+- [ ] Форматы: `Format<Raw = string>` generic (не зашит на строки); бинарные MessagePack/CBOR/NDJSON
+      (`Format<Uint8Array>`) + обобщение биндингов/транспорта до байтов — позже.
 - [ ] Клиентский рантайм: типизированный JSON-RPC/REST-клиент над проводом (capnweb `connect` — частный случай).
 
 ## 6. Генерация артефактов
@@ -79,7 +87,7 @@
       транзитивны протоколу (REST→OpenAPI, fn→OpenRPC/MCP, stream→AsyncAPI-гипотеза). Конвертер из `core.schemas`.
 - [x] **src:** слой `tools/` — `agentTools(composer)` (отдельная функция, не метод ядра): готовые тулы
       для LangChain in-process (`schema`/`invoke`/`func`), общий `packToolArgs` с mcp-биндингом.
-- [x] **src:** слой `format/` — `json` (текстовый шов; байтовый под msgpack/cbor — позже).
+- [x] **src:** слой `format/` — `json: Format<string>`; `Format<Raw>` generic по типу провода.
 - [x] **src:** MCP-биндинг `mcp(composer)` (tools/list + tools/call); артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json`.
 - [x] **src:** MCP `initialize`-handshake (protocolVersion-негоциация, capabilities.tools, serverInfo)
       + `ping` + `notifications/initialized`. Реальный клиент теперь подключается.
