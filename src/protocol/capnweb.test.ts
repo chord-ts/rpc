@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, compose, capnweb, capability } from '../../src';
+import { fn, compose, capnweb, capability } from '../index';
 
 class Counter {
   #v = 0;

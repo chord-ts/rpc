@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { fn, get, compose, paramNames, type Middleware } from '../../src';
-import { envelope } from './rpc';
+import { fn, get, compose, paramNames, type Middleware } from '../index';
+import { envelope } from '../test-utils';
 
 // Класс без явного конструктора: первая скобка в toString — из fn(, не из constructor.
 class NoCtor {

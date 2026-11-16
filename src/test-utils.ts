@@ -1,6 +1,8 @@
 // Test helper: adapts the jsonrpc binding to an exec-like call signature, so envelope tests
 // keep their assertions while exercising the layered API (compose + jsonrpc), not legacy toRPC.
-import { compose, jsonrpc, type ComposeOptions, type ServiceMap } from '../../src';
+import { compose } from './core';
+import { jsonrpc } from './protocol';
+import type { ComposeOptions, ServiceMap } from './types';
 
 export function envelope<S extends ServiceMap>(services: S, options: ComposeOptions<S>) {
   const binding = jsonrpc(compose(services, options));

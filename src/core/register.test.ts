@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, compose, ErrorCode } from '../../src';
-import { envelope } from './rpc';
+import { fn, compose, ErrorCode } from '../index';
+import { envelope } from '../test-utils';
 
 type Ctx = { user: { id: string; name: string } };
 type Logger = { log: (msg: string) => void };

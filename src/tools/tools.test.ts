@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, compose, agentTools } from '../../src';
-import { ZodAdapter } from '../../src/schemas/zod';
+import { fn, get, compose, agentTools } from '../index';
+import { ZodAdapter } from '../schemas/zod';
 
 class Math {
   constructor() {}

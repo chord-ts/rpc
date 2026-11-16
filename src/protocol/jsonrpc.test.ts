@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, ErrorCode, type Middleware } from '../../src';
-import { envelope } from './rpc';
+import { fn, ErrorCode, type Middleware } from '../index';
+import { envelope } from '../test-utils';
 
 class Calc {
   constructor() {}

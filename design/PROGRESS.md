@@ -133,9 +133,12 @@
 
 ## Тесты
 
-- [x] `tests/v2` — register/exec/validators/schemas/generate/tools/protocol/transport/core/capnweb, 40 тестов (src).
-- [x] type-spike: `v2-types`.
-- [ ] Спайки: compile-checked + ручной прогон, **vitest-покрытия новых слоёв нет**.
+- [x] **Ко-локация в src по слоям** (42 теста): `core/{core,register}.test`, `schemas/{schemas,validators}.test`,
+      `generate/generate.test`, `tools/tools.test`, `protocol/{jsonrpc,protocol,capnweb}.test`, `transport/transport.test`.
+      Общий helper — `src/test-utils.ts` (envelope). vitest include `src/**/*.test.ts`; `tsconfig.build.json`
+      исключает тесты из dts-emit. typecheck (`tsc --noEmit`) покрывает и тесты.
+- [x] Канонические примеры `design/example.ts` (fn), `design/example.rest.ts` (REST) — compile-checked против src.
+- [ ] Активные спайки `v2-stream.*`/`v2-capnp.*` — compile-checked + ручной прогон, vitest пока нет.
 - [ ] v1 `batch`/`spec` — падают (pre-existing shared-state в `Composer`), не чинил.
 
 ## Главная ставка / риски

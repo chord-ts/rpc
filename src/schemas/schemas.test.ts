@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { defaultSchemas, flatToolSchema, packToolArgs, type AnySchema } from '../../src';
-import { ZodAdapter } from '../../src/schemas/zod';
+import { defaultSchemas, flatToolSchema, packToolArgs, type AnySchema } from '../index';
+import { ZodAdapter } from './zod';
 
 const adapter = new ZodAdapter();
 const toJson = (s: AnySchema) => adapter.jsonSchema(s);

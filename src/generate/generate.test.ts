@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, compose, openapi, openrpc, mcpTools } from '../../src';
-import { ZodAdapter } from '../../src/schemas/zod';
+import { fn, get, compose, openapi, openrpc, mcpTools } from '../index';
+import { ZodAdapter } from '../schemas/zod';
 
 // REST-ресурс (сахар get). RPC-методы — отдельным классом (стили не смешиваются).
 class Catalog {

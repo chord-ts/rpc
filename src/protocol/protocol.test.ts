@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, post, compose, jsonrpc, rest, mcp, type TransportRequest } from '../../src';
-import { ZodAdapter } from '../../src/schemas/zod';
+import { fn, get, post, compose, jsonrpc, rest, mcp, type TransportRequest } from '../index';
+import { ZodAdapter } from '../schemas/zod';
 
 class Catalog {
   constructor() {}
