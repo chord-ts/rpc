@@ -1,0 +1,93 @@
+{
+  "openrpc": "1.3.2",
+  "info": {
+    "title": "Catalog",
+    "version": "1.0.0"
+  },
+  "methods": [
+    {
+      "name": "Catalog.count",
+      "description": "Инкремент",
+      "params": [
+        {
+          "name": "params",
+          "required": true,
+          "schema": {
+            "type": "number"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "number"
+        }
+      },
+      "errors": [
+        {
+          "code": -32601,
+          "message": "Method not found"
+        },
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32603,
+          "message": "Internal error"
+        }
+      ]
+    },
+    {
+      "name": "Catalog.ticks",
+      "description": "Поток тиков",
+      "params": [
+        {
+          "name": "params",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {
+              "every": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "every"
+            ],
+            "additionalProperties": false
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "tick": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "tick"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "errors": [
+        {
+          "code": -32601,
+          "message": "Method not found"
+        },
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32603,
+          "message": "Internal error"
+        }
+      ]
+    }
+  ]
+}
