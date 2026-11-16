@@ -151,6 +151,42 @@ export interface RestMeta {
   status?: number;
 }
 
+// --- Format: codec pair over the protocol envelope (text seam; binary formats extend it later) ---
+export interface Format {
+  contentType: string;
+  decode(raw: string): unknown;
+  encode(value: unknown): string;
+}
+
+// --- Agent tool: ready for agent frameworks (LangChain etc.), in-process, no wire ---
+export interface AgentTool {
+  name: string;
+  description: string;
+  /** Vendor flat schema — e.g. DynamicStructuredTool.schema in LangChain. */
+  schema: AnySchema;
+  inputSchema: unknown;
+  annotations?: Record<string, boolean>;
+  invoke(args: unknown, ctx?: unknown): Promise<Result>;
+  /** Ready framework call: string result (LangChain func). */
+  func(args: unknown): Promise<string>;
+}
+
+// --- Transport seam (structural, zero-dep: core needs no DOM/node types) ---
+export interface TransportRequest {
+  method: string; // HTTP method
+  url: string; // full URL (pathname + query)
+  text(): Promise<string>;
+}
+export interface TransportResponse {
+  status: number;
+  headers: Record<string, string>;
+  body: string | null;
+}
+/** Protocol binding: raw request + ctx → raw response. Transport picks the binding explicitly. */
+export interface Binding {
+  handle(req: TransportRequest, ctx?: unknown): Promise<TransportResponse>;
+}
+
 // --- Legacy JSON-RPC composer (toRPC): Core + exec envelope. Kept for backward compat;
 // exec moves to protocol/jsonrpc in the layered migration. ---
 export interface Composer<S extends ServiceMap> extends Core<S> {

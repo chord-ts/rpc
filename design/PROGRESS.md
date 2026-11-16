@@ -55,12 +55,14 @@
 ## 5. Транспорт (call / notify / stream)
 
 - [x] call / notify на серверной части (src `exec`; спайк — gasket `Core`).
-- [x] **спайк:** биндинги по имени протокола `jsonrpc`/`rest`/`mcp`/`capnweb`; транспорты
-      `fromSvelteKit`/`fromExpress` (protocol-agnostic, гоняют байты в биндинг); `Format` + `json`.
-- [x] **спайк:** REST — роутинг по шаблону, срезы `{path,query,body}`, `resp`-карта → статусы,
+- [x] **src:** слой `protocol/` — биндинги по имени протокола `jsonrpc`/`rest`/`mcp`/`capnweb`
+      (+ `shared` helpers). REST-сахар `get/post/put/patch/del/http` + `RestContract` — в `protocol/rest`.
+- [x] **src:** REST — роутинг по шаблону, срезы `{path,query,body}`, `resp`-карта → статусы,
       ошибка валидации → 422; docs-эндпоинты транзитивны (`/openapi.json`, `/docs`, `/redoc`).
-- [x] **спайк:** capnweb — `capnweb(composer)` + `connect<S>`, promise pipelining (microtask-батч,
-      один await = один round trip), capability-передача (`Symbol`-маркер, `{$cap:id}` на проводе).
+- [x] **src:** capnweb-биндинг `capnweb(composer)` + `capability`-маркер (`Symbol`, `{$cap:id}` на проводе).
+- [x] **src:** слой `transport/` — `fromSvelteKit` (fetch `Response`, DOM-lib в tsconfig) /
+      `fromExpress` (структурные req/res), protocol-agnostic, гоняют байты в `Binding`.
+- [ ] **спайк:** capnweb-клиент `connect<S>` (pipelining) — живёт в спайке, ждёт слой client.
 - [ ] **stream — не начат.** Блокирует SSE/WS, настоящий AsyncAPI, A2A/AG-UI/ACP, RSocket.
       Форма `AsyncIterable<Event>`, отмена, backpressure не решены.
 - [ ] Форматы: только текст; MessagePack/CBOR/NDJSON/binary/encryption — нужен байтовый шов `Format`.
@@ -68,11 +70,12 @@
 
 ## 6. Генерация артефактов
 
-- [x] **спайк:** генераторы `openapi`/`openrpc`/`mcpTools`/`asyncapi` из одного реестра `endpoints()`;
-      транзитивны протоколу (REST→OpenAPI, fn→OpenRPC/MCP, stream→AsyncAPI-гипотеза).
-- [x] **спайк:** MCP-тулы для всех эндпоинтов (REST-части сплющиваются, аннотации из HTTP-глагола);
-      `composer.tools()` — готовые тулы для LangChain in-process (`schema`/`invoke`/`func`), общий
-      `packToolArgs` с mcp-биндингом. Артефакты: `v2-catalog.{openapi,openrpc,mcp}.json`.
+- [x] **src:** слой `generate/` — `openapi`/`openrpc`/`mcpTools`/`asyncapi` из одного реестра `endpoints()`;
+      транзитивны протоколу (REST→OpenAPI, fn→OpenRPC/MCP, stream→AsyncAPI-гипотеза). Конвертер из `core.schemas`.
+- [x] **src:** слой `tools/` — `agentTools(composer)` (отдельная функция, не метод ядра): готовые тулы
+      для LangChain in-process (`schema`/`invoke`/`func`), общий `packToolArgs` с mcp-биндингом.
+- [x] **src:** слой `format/` — `json` (текстовый шов; байтовый под msgpack/cbor — позже).
+- [x] **src:** MCP-биндинг `mcp(composer)` (tools/list + tools/call); артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json`.
 - [ ] MCP — tools-subset, **нет `initialize`** (protocolVersion/capabilities/serverInfo): реальный
       клиент (Inspector/Claude Desktop) не подключится. Resources/prompts/list_changed/пагинация — нет.
 - [ ] AsyncAPI — гипотеза (`stream:{channel}`), реального источника событий нет (ждёт stream).
@@ -112,7 +115,7 @@
 
 ## Тесты
 
-- [x] `tests/v2` — register/exec/validators/schemas, 23 теста (src).
+- [x] `tests/v2` — register/exec/validators/schemas/generate/tools/protocol/transport, 34 теста (src).
 - [x] type-spike: `v2-types`.
 - [ ] Спайки: compile-checked + ручной прогон, **vitest-покрытия новых слоёв нет**.
 - [ ] v1 `batch`/`spec` — падают (pre-existing shared-state в `Composer`), не чинил.

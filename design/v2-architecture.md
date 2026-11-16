@@ -55,6 +55,31 @@ facade       корневой index.ts: публичная поверхност�
 | **client** | types, protocol (wire-формы), transport (fetch/ws) | server-рантайм core |
 | **facade** | core, tools, schemas (default), types | — (точка сборки) |
 
+## Format и протоколы
+
+`Format` — тупой codec-пара «текст/байты ↔ значение» (`decode/encode: unknown`), **не знает
+протокола**. Протокольный биндинг решает, ЧТО за значение он отдаёт кодеку — единица провода
+у протоколов разная:
+
+| Протокол | Единица провода | Что codec'ит Format | Выбор формата |
+|---|---|---|---|
+| JSON-RPC | конверт `RPCRequest`/`RPCResponse` | весь конверт | negotiable (json/msgpack/cbor) |
+| MCP | тот же JSON-RPC-конверт | конверт, как у JSON-RPC | фиксирован спекой = json |
+| REST | **HTTP-тело** (params/resp) | только тело; статус/headers/path — протокол+транспорт | negotiable по Content-Type/Accept |
+| capnweb | батч путей `{from, steps}` | структуру батча | json + спец. обработка |
+
+- **REST**: нет RPC-конверта. HTTP-семантика (метод/path/query/статус/headers) — протокол+транспорт,
+  не Format. Format codec'ит лишь payload. Один `msgpack` в JSON-RPC пакует конверт, в REST — голое тело.
+- **capnweb**: capability-ссылки и pipelining (`{$cap:id}`, unresolved promises) — protocol-specific
+  pre/post-сериализация поверх кодека, чистым Format не закрыть (живёт в биндинге).
+- **Выбор формата**: где протокол фиксирует (MCP=json, gRPC=protobuf) — зашит; где negotiable
+  (JSON-RPC/REST) — биндинг/транспорт выбирает по Content-Type/Accept (`Format.contentType`).
+- **Байтовый шов**: сейчас текстовый (`string`); бинарное тело REST / msgpack / cbor требуют
+  `Uint8Array`-шов (расширение Format при добавлении кодеков). Для stream ndjson codec'ит каждое
+  событие отдельно, фрейминг — транспорт (ждёт stream-gasket).
+
+Поэтому format ниже protocol в стеке и импортирует только types.
+
 ## Главный узел: `compose.tools()` против чистоты ядра — РЕШЕНО
 
 Сейчас `compose` возвращает `Core` с `tools()`, а `tools()` вызывает `mcpTools` (generate) и

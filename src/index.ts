@@ -5,6 +5,12 @@
 export * from './types';
 export { fn, compose, paramNames } from './core';
 export { defaultSchemas, flatToolSchema, packToolArgs } from './schemas';
+export { json } from './format';
+export { openapi, openrpc, mcpTools, asyncapi } from './generate';
+export type { GenOptions, StreamMeta } from './generate';
+export { agentTools } from './tools';
+export * from './protocol';
+export { fromSvelteKit, fromExpress } from './transport';
 
 import { compose } from './core';
 import {

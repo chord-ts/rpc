@@ -44,6 +44,7 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
       if (!key.startsWith('$') || typeof contract !== 'object' || contract === null || !('in' in contract)) {
         continue;
       }
+      // TODO нет проверки и warning на отсутствие метода для схемы
       const method = key.slice(1);
       routes.set(`${service}.${method}`, {
         service,
@@ -52,6 +53,9 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
         use: Array.isArray(contract.use) ? contract.use : contract.use ? [contract.use] : [],
       });
     }
+
+
+    // Регистрируем отдельно методы без описания
     for (const method of Object.getOwnPropertyNames((Ctor as AnyCtor).prototype)) {
       if (method === 'constructor' || routes.has(`${service}.${method}`)) continue;
       routes.set(`${service}.${method}`, { service, method, contract: null, use: [] });

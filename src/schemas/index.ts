@@ -5,12 +5,21 @@
 import type { AnySchema, SchemaAdapter } from '../types';
 
 const std = (s: AnySchema) =>
-  (s as unknown as { '~standard': { jsonSchema?: (x: AnySchema) => unknown } })['~standard'];
+  (s as unknown as { '~standard': { jsonSchema?: unknown } })['~standard'];
 
 /** Generic ~standard adapter: works with any Standard Schema library without registration.
- * Flat schemas are built by stripping-validation of parts (a vendor adapter gives native ones). */
+ * JSON Schema via the Standard JSON Schema v1 converter (`output({target})`) or a callable
+ * `jsonSchema(s)`; degrades to {} when neither is present. Flat schemas are built by
+ * stripping-validation of parts (a vendor adapter gives native ones). */
 export const defaultSchemas: SchemaAdapter = {
-  jsonSchema: (s) => std(s).jsonSchema?.(s) ?? {},
+  jsonSchema: (s) => {
+    const js = std(s).jsonSchema;
+    if (typeof js === 'function') return (js as (x: AnySchema) => unknown)(s);
+    if (js && typeof (js as { output?: unknown }).output === 'function') {
+      return (js as { output: (o: { target: string }) => unknown }).output({ target: 'draft-2020-12' });
+    }
+    return {};
+  },
   isObject(s) {
     return (this.jsonSchema(s) as { type?: string }).type === 'object';
   },
