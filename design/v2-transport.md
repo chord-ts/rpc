@@ -14,7 +14,7 @@ transport (байты)  →  format (кодек)  →  protocol (конверт)
 
 | Слой | Отвечает за | Примеры |
 |---|---|---|
-| **Ядро** | реестр `$method`, диспатч, валидация, `Result` | уже есть |
+| **Ядро** | реестр `$method`, диспатч, валидация, нативные ошибки (`CoreError`) | уже есть |
 | **Протокол** | конверт запроса/ответа: как выглядит «вызов метода» | JSON-RPC, REST, gRPC-web, GraphQL |
 | **Транспорт** | доставка байтов, сессия, push | HTTP, WebSocket, SSE |
 | **Формат** | кодирование тела | json, msgpack, cbor, ndjson, protobuf |
@@ -27,15 +27,19 @@ gRPC-web — по HTTP (protobuf). Ядро не знает ни протоко�
 Слои реализованы в `src/` (корень). Канонический пример — [`example.rest.ts`](./example.rest.ts).
 
 - **Ядро** `compose(...) → Core`: протокол-агностичный gasket `call/notify/endpoints` + `schemas`.
-  `call(method, params, ctx) → Promise<Result>` — то, что нужно любому протоколу.
+  `call(method, params, ctx) → Promise<unknown>` (значение) — то, что нужно любому протоколу.
 - **JSON-RPC-биндинг** `jsonrpc(core)`: конверт `normalize → call → toWire`, batch по id,
   notification без ответа, `rpc.discover`. Конверт живёт в биндинге, не в ядре.
 - **REST/MCP/capnweb-биндинги**, транспорты `fromSvelteKit`/`fromExpress`, генераторы
   OpenAPI/OpenRPC/MCP/AsyncAPI, агентские тулы `agentTools` — см. [`v2-architecture.md`](./v2-architecture.md).
-- `Result<T> = { ok: true; value: T } | { ok: false; error: ErrorObject }` — единый исход без
-  исключений. `ErrorObject = { code, message, data?, status? }` — поле `status` под transport-статус.
+- **Ошибки нативные** (`Result` удалён): core бросает свою протокол-нейтральную
+  `CoreError(kind, message, data?)` (`not-found`/`invalid-params`/`invalid-output`), ошибки
+  обработчика летят как есть. JSON-RPC-модель (`ErrorCode` + `RpcError(code, data?, status?)`) —
+  в `protocol/jsonrpc`; mcp импортирует её оттуда как профиль. Биндинги мапят в свой провод:
+  jsonrpc/mcp — `toError` (kind → код), rest — kind → статус; `ErrorObject = { code, message, data?, status? }`
+  — wire-форма, поле `status` под transport-статус.
 
-Осталось: `stream` (третий глагол, SSE/WS), байтовые форматы, типизированный ctx/ошибки — см. PROGRESS.
+Осталось: `stream` (третий глагол, SSE/WS), байтовые форматы, типизированный ctx — см. PROGRESS.
 
 ## Протоколы
 
@@ -58,11 +62,13 @@ MCP на проводе говорит JSON-RPC (`tools/list`, `tools/call`). З
 ```ts
 async function fromRest(composer, req) {
   const { method } = route(req);                    // путь → имя метода
-  const result = await composer.call(method, req.body, { ctx: req.locals });
-  if (result.ok) return json(result.value);
-  return text(JSON.stringify(result.error.data ?? result.error.message), {
-    status: result.error.status ?? 400,              // ErrorObject.status → HTTP status
-  });
+  try {
+    return json(await composer.call(method, req.body, { ctx: req.locals }));
+  } catch (e) {
+    const status =                                   // CoreError.kind → HTTP status
+      e instanceof CoreError && e.kind === 'invalid-params' ? 422 : 500;
+    return text(JSON.stringify({ detail: (e as Error).message }), { status });
+  }
 }
 ```
 
@@ -128,8 +134,8 @@ fire-and-forget, request/stream, channel (двунаправленный пот�
 
 Три вывода:
 
-1. **`stream` — событийный, а не `AsyncIterable<Result>`.** Для метод-центричного RPC единица
-   потока вырождается в `Result`, для agent-протоколов — это типизированное **событие** по своей
+1. **`stream` — событийный, голые события.** Для метод-центричного RPC единица потока — значение
+   (ошибки нативно, как у `call`), для agent-протоколов — типизированное **событие** по своей
    схеме (text delta, tool call, state delta, custom). Значит публичный gasket —
    `stream(method, params) => AsyncIterable<Event>`, тип `Event` задаёт биндинг, а не ядро.
 
@@ -262,10 +268,11 @@ http.handle(event);
 ## Рекомендация — порядок работ
 
 1. **Вербо-полный gasket**: вынести `dispatch` наружу как три вербы — `call(method, params, opts?) =>
-   Promise<Result>`, `notify(...) => void`, `stream(...) => AsyncIterable<Event>` (+ отмена). `Event`
-   = `Result` для метод-центричного RPC, типизированное событие — для agent-протоколов
-   (AG-UI/ACP/A2A). `exec` остаётся JSON-RPC-биндингом поверх `call`/`notify`. Без `stream` не
-   открыть WS/SSE/RSocket и stream-протоколы (Thrift/Cap'n/gRPC/AG-UI/ACP/A2A).
+   Promise<unknown>` (значение, ошибки нативно), `notify(...) => void`, `stream(...) =>
+   AsyncIterable<Event>` (+ отмена). `Event` — голое значение для метод-центричного RPC,
+   типизированное событие — для agent-протоколов (AG-UI/ACP/A2A). `exec` остаётся JSON-RPC-биндингом
+   поверх `call`/`notify`. Без `stream` не открыть WS/SSE/RSocket и stream-протоколы
+   (Thrift/Cap'n/gRPC/AG-UI/ACP/A2A).
 2. **Форматы**: `json`/`msgpack`/`cbor` (codec-пара) + `ndjson` под stream. Без нового слоя.
 3. **Транспорты**: `fromSvelteKit`/`fromExpress` (сахар над `exec`), затем WS/SSE поверх `stream`.
 4. **Протоколы без IDL**: REST — биндинг над `call`. Протоколы со своим IDL (gRPC/Thrift/Cap'n) —
@@ -276,7 +283,8 @@ http.handle(event);
 ## Закреплённые решения
 
 1. Четыре слоя: ядро / протокол / транспорт / формат — независимы; ядро не знает о них.
-2. Протокол-агностичный шов — публичный `call(method, params, opts?) => Result`; `exec` — JSON-RPC.
+2. Протокол-агностичный шов — публичный `call(method, params, opts?) => значение` (ошибки нативно,
+   `CoreError`); `exec` — JSON-RPC.
 3. MCP — JSON-RPC, не отдельный протокол; достаётся из `$method`-реестра.
 4. REST и gRPC — тонкие биндинги над `call`, не подменяют ядро; GraphQL — вне приоритета.
 5. Формат = пара `decode`/`encode`; transport-форматы (searchParams/formData/binary/encryption)
@@ -295,9 +303,9 @@ http.handle(event);
 
 ## Открытые вопросы
 
-- **stream**: форма gasket'а — `AsyncIterable<Event>` (тип `Event` — generic: `Result` для RPC,
-  домённый для agent-протоколов) против callback/event-emitter; как отдаются «первые байты vs весь
-  поток» (SSE/WS) и как это связано с отменой.
+- **stream**: форма gasket'а — `AsyncIterable<Event>` (тип `Event` — generic: голое значение для
+  RPC, домённый для agent-протоколов) против callback/event-emitter; как отдаются «первые байты vs
+  весь поток» (SSE/WS) и как это связано с отменой.
 - **notification в WS/SSE**: id-менее вызовы — событие с именем метода? (JSON-RPC notification
    «без ответа» — HTTP-семантика, в WS это фрейм без `id`.)
 - **cancellation**: id стрима + отмена (SSE close / WS frame / HTTP AbortSignal).

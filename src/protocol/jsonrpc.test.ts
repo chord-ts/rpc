@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, ErrorCode, type Middleware } from '../index';
+import { fn, ErrorCode, RpcError, type Middleware } from '../index';
 import { envelope } from '../test-utils';
 
 class Calc {
@@ -117,9 +117,11 @@ test('middlewares run composer-level before per-fn, onion around the handler', a
   expect(log).toEqual(['composer:before', 'fn:before', 'handler', 'fn:after', 'composer:after']);
 });
 
-test('middleware early return short-circuits without calling the handler', async () => {
+test('middleware early throw short-circuits without calling the handler', async () => {
   const log: string[] = [];
-  const guard: Middleware = async () => ({ ok: false, error: { code: -32000, message: 'denied' } });
+  const guard: Middleware = async () => {
+    throw new RpcError(-32000, 'denied');
+  };
 
   class Guarded {
     constructor() {}

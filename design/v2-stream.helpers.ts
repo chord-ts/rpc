@@ -4,7 +4,7 @@
 //   2. обработчик — асинхронный генератор async function* (input, signal);
 //   3. один compose — stream рядом с call/notify;
 //   4. НАТИВНЫЕ ошибки вместо Result: gasket yield'ит голые события AsyncIterable<Event>,
-//      ошибки — typed throw (RpcError) / отмена — AbortError. Async-iterable уже несёт ошибку
+//      ошибки — typed throw (CoreError) / отмена — AbortError. Async-iterable уже несёт ошибку
 //      нативно (next() → Promise reject, for-await пробрасывает), Result дублировал бы канал.
 // SSE/WS-фрейминг — работа транспортного адаптера (потребляет iterable напрямую).
 //
@@ -14,7 +14,7 @@
 import {
   compose as coreCompose,
   paramNames,
-  ErrorCode,
+  CoreError,
   type AnyCtor,
   type AnySchema,
   type InferOutput,
@@ -23,21 +23,7 @@ import {
   type ServiceMap,
 } from '../src';
 
-export { fn } from '../src'; // унарная декларация — без изменений
-
-// --- типизированная ошибка потока (нативный throw, несёт code/data/status) ---
-
-export class RpcError extends Error {
-  constructor(
-    public code: number,
-    message: string,
-    public data?: unknown,
-    public status?: number,
-  ) {
-    super(message);
-    this.name = 'RpcError';
-  }
-}
+export { fn, CoreError } from '../src'; // унарная декларация и ошибка ядра — из src
 
 // --- декларация stream({ in, event }) ---
 
@@ -74,10 +60,10 @@ export function compose<S extends ServiceMap>(services: S, options: { inject: In
   // Голые события + нативный throw. Ошибка терминальна (поток завершается), как у async-iterable.
   async function* stream(method: string, params: unknown, opts?: StreamOpts): AsyncIterable<unknown> {
     const contract = streams.get(method);
-    if (!contract) throw new RpcError(ErrorCode.MethodNotFound, `Not a stream method: ${method}`);
+    if (!contract) throw new CoreError('not-found', `Not a stream method: ${method}`);
 
     const parsedIn = await contract.in['~standard'].validate(params);
-    if ('issues' in parsedIn) throw new RpcError(ErrorCode.InvalidParams, 'Validation error', parsedIn.issues);
+    if ('issues' in parsedIn) throw new CoreError('invalid-params', 'Validation error', parsedIn.issues);
 
     const [service, name] = method.split('.');
     const Ctor = services[service as keyof S] as AnyCtor;
@@ -92,7 +78,7 @@ export function compose<S extends ServiceMap>(services: S, options: { inject: In
     for await (const event of handler(parsedIn.value, signal)) {
       if (signal.aborted) throw new DOMException('The stream was aborted', 'AbortError');
       const parsed = await eventSchema['~standard'].validate(event);
-      if ('issues' in parsed) throw new RpcError(ErrorCode.InternalError, 'Event validation error', parsed.issues);
+      if ('issues' in parsed) throw new CoreError('invalid-output', 'Event validation error', parsed.issues);
       yield parsed.value;
     }
   }

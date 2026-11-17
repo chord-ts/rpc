@@ -31,10 +31,9 @@ export class Say {
 // Регистрация: ключи inject совпадают с именами параметров конструктора.
 const composer = compose({ Say }, { inject: { ctx: (e: Event) => e.locals } });
 
-// Использование: call — протокол-агностичный глагол ядра.
+// Использование: call — протокол-агностичный глагол ядра, ошибки — нативный throw (CoreError).
 const event: Event = { locals: { user: { id: '1', name: 'dmdin' } } };
-const result = await composer.call('Say.hello', 'world', { ctx: event.locals });
-if (result.ok) console.log(result.value);
+console.log(await composer.call('Say.hello', 'world', { ctx: event.locals }));
 
 // instantiate — свежий инстанс на запрос с constructor DI.
 const say = composer.instantiate(event.locals).Say;

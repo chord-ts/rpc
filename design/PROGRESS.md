@@ -52,11 +52,20 @@
 - [x] normalize → route → middleware-цепочка (рекурсия) → invoke.
 - [x] validate(in) → invoke → validate(out) (один валидатор). **out-валидация opt-in** через
       `compose({ validateOut: true })`; `out` всегда задаёт тип возврата, рантайм-проверка по флагу.
-- [x] Типизированный `Result` + `ErrorObject` (InvalidParams/MethodNotFound/InternalError).
+- [x] **Нативные ошибки (2026-11-17): `Result` удалён.** Core бросает свою протокол-нейтральную
+      `CoreError(kind, message, data?)` — kinds `not-found`/`invalid-params`/`invalid-output` (types);
+      ошибки обработчика летят как есть. Middleware — onion `(ctx, next) => value`, short-circuit — throw.
+      JSON-RPC-модель ошибок (`ErrorCode` + `RpcError(code, data?, status?)`) и конверт
+      (`toError`/`toWire`/`rpcResult`) живут в `protocol/jsonrpc/jsonrpc.ts`; **mcp — соседний
+      файл семейства, импортирует провод как JSON-RPC-профиль, не пир** (объединены в папку
+      `jsonrpc/` с публичным index.ts по решению пользователя 2026-11-17). `shared` удалён —
+      content-type инлайнится в ответах. Биндинги мапят: jsonrpc/mcp —
+      `toError` (kind → код, error-конверт / isError-контент), rest — kind → статус (422/500)
+      напрямую без JSON-RPC-модели, capnweb — нативный throw. `ErrorObject` — wire-форма.
 - [x] Batch коррелируется по id, notification — без ответа.
 - [x] **src:** ядро `Core` без `exec` — `call/notify/endpoints` + `schemas`; тулы — отдельный
       `agentTools(composer)` (не метод ядра). JSON-RPC-конверт (normalize/toWire/batch) — в `jsonrpc`.
-- [ ] Клиентская граница `batch(...) => Result[]` — не начата (ждёт client).
+- [ ] Клиентская граница `batch(...)` с per-item значением/ошибкой — не начата (ждёт client).
 - [x] **src:** изоляция ctx в batch — per-call копия в `exec` и `jsonrpc` (мутации не протекают).
 - [x] **src:** `paramNames` ищет `constructor(` (баг класса без конструктора исправлен); warning
       при схеме без обработчика (`warnMissingHandlers`, probe-инстанс). Минификация DI — отдельно.
@@ -65,8 +74,9 @@
 ## 5. Транспорт (call / notify / stream)
 
 - [x] call / notify на серверной части (src `exec`; спайк — gasket `Core`).
-- [x] **src:** слой `protocol/` — биндинги по имени протокола `jsonrpc`/`rest`/`mcp`/`capnweb`
-      (+ `shared` helpers). REST-сахар `get/post/put/patch/del/http` + `RestContract` — в `protocol/rest`.
+- [x] **src:** слой `protocol/` — `jsonrpc/` семейство с публичным index.ts (jsonrpc-биндинг +
+      провод + mcp-профиль), `rest`, `capnweb`; `shared` удалён (content-type инлайнится).
+      REST-сахар `get/post/put/patch/del/http` + `RestContract` — в `protocol/rest`.
 - [x] **src:** REST — роутинг по шаблону, срезы `{path,query,body}`, `resp`-карта → статусы,
       ошибка валидации → 422; docs-эндпоинты транзитивны (`/openapi.json`, `/docs`, `/redoc`).
 - [x] **src:** capnweb-биндинг `capnweb(composer)` + `capability`-маркер (`Symbol`, `{$cap:id}` на проводе);
@@ -102,7 +112,8 @@
 - [ ] Типизированные ошибки (контракт) и per-item ошибки batch на клиенте.
 - [ ] REST: схемы ошибок в `resp` документационные (тело не генерируется/не валидируется);
       редиректы/headers/cookies отсутствуют (v1 `3xx`-костыль выпилен, замены нет).
-- [ ] capnweb: ошибки теряют `code/status` (просто `Error(message)`).
+- [x] capnweb: ошибки больше не теряют контекст — нативный throw `CoreError`/ошибки обработчика
+      (закрыто удалением `Result`, 2026-11-17).
 
 ## Дизайн-спайки (design/)
 
@@ -112,7 +123,8 @@
 
 **Активные спайки (форма не одобрена, в src ещё нет):**
 - `v2-stream.{helpers,example}.ts` — третий глагол: `stream({ in, event })`, async-генератор,
-  нативные ошибки (`RpcError`/`AbortError`), один `compose`. Прогнан живьём.
+  нативные ошибки (`CoreError`/`AbortError`), один `compose`. Прогнан живьём. `CoreError` теперь
+  общий с src (реэкспорт из types, локальный класс удалён).
 - `v2-capnp.{helpers,example}.ts` — capnweb-**клиент** `connect<S>` (pipelining, capabilities);
   серверный биндинг уже в src. Импорты мигрированы на src. Имена файлов `v2-capnp.*` расходятся
   с именем биндинга `capnweb` — переименование не одобрено.
@@ -133,7 +145,7 @@
 
 ## Тесты
 
-- [x] **Ко-локация в src по слоям** (42 теста): `core/{core,register}.test`, `schemas/{schemas,validators}.test`,
+- [x] **Ко-локация в src по слоям** (44 теста): `core/{core,register}.test`, `schemas/{schemas,validators}.test`,
       `generate/generate.test`, `tools/tools.test`, `protocol/{jsonrpc,protocol,capnweb}.test`, `transport/transport.test`.
       Общий helper — `src/test-utils.ts` (envelope). vitest include `src/**/*.test.ts`; `tsconfig.build.json`
       исключает тесты из dts-emit. typecheck (`tsc --noEmit`) покрывает и тесты.

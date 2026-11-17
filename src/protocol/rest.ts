@@ -4,7 +4,7 @@
 
 import { fn } from '../core';
 import {
-  ErrorCode,
+  CoreError,
   type AnySchema,
   type Binding,
   type Core,
@@ -16,7 +16,6 @@ import {
 } from '../types';
 import { json as jsonFormat } from '../format';
 import { openapi } from '../generate';
-import { headersOf } from './shared';
 
 // --- declaration sugar: parts instead of flat in ---
 
@@ -125,8 +124,8 @@ function compilePath(template: string): { regex: RegExp; params: string[] } {
 }
 
 /** REST: routes from endpoints().rest; params packed as slices { path, query, body } (composite `in`
- * validates each slice). Result → HTTP status (validation → 422). Docs are transitive (FastAPI-style):
- * GET /openapi.json, /docs (Swagger UI), /redoc generated from the registry, on by default. */
+ * validates each slice). Native errors → HTTP status (validation → 422). Docs are transitive
+ * (FastAPI-style): GET /openapi.json, /docs (Swagger UI), /redoc generated from the registry, on by default. */
 export function rest(
   core: Core<any>,
   opts?: {
@@ -169,7 +168,7 @@ export function rest(
       if (docs && req.method === 'GET') {
         if (url.pathname === docs.openapi) {
           spec ??= JSON.stringify(openapi(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }), null, 2);
-          return { status: 200, headers: headersOf(format), body: spec };
+          return { status: 200, headers: { 'content-type': format.contentType }, body: spec };
         }
         if (url.pathname === docs.swagger) {
           return html(
@@ -203,7 +202,7 @@ export function rest(
         }
       }
       if (!route) {
-        return { status: 404, headers: headersOf(format), body: format.encode({ detail: 'Not found' }) };
+        return { status: 404, headers: { 'content-type': format.contentType }, body: format.encode({ detail: 'Not found' }) };
       }
 
       const query: Record<string, string> = {};
@@ -216,18 +215,21 @@ export function rest(
         try {
           body = format.decode(text);
         } catch {
-          return { status: 400, headers: headersOf(format), body: format.encode({ detail: 'Parse error' }) };
+          return { status: 400, headers: { 'content-type': format.contentType }, body: format.encode({ detail: 'Parse error' }) };
         }
       }
       // Slices, not merge: each part validated by its schema (composite `in`).
       // query from URL is strings; numeric query fields declared with z.coerce.number().
       const params = { path: pathValues, query, body };
-      const result = await core.call(`${route.service}.${route.handler}`, params, { ctx });
-      if (result.ok) {
-        return { status: route.status ?? 200, headers: headersOf(format), body: format.encode(result.value) };
+      try {
+        const value = await core.call(`${route.service}.${route.handler}`, params, { ctx });
+        return { status: route.status ?? 200, headers: { 'content-type': format.contentType }, body: format.encode(value) };
+      } catch (e) {
+        // REST мапит kind напрямую (без JSON-RPC-модели): invalid-params → 422, прочее → 500.
+        const status = e instanceof CoreError && e.kind === 'invalid-params' ? 422 : 500;
+        const detail = e instanceof Error ? e.message : String(e);
+        return { status, headers: { 'content-type': format.contentType }, body: format.encode({ detail }) };
       }
-      const status = result.error.status ?? (result.error.code === ErrorCode.InvalidParams ? 422 : 500);
-      return { status, headers: headersOf(format), body: format.encode({ detail: result.error.message }) };
     },
   };
 }

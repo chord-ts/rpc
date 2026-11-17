@@ -1,6 +1,6 @@
 import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { fn, get, compose, paramNames, type Middleware } from '../index';
+import { fn, get, compose, paramNames, CoreError, type Middleware } from '../index';
 import { envelope } from '../test-utils';
 
 // Класс без явного конструктора: первая скобка в toString — из fn(, не из constructor.
@@ -12,7 +12,35 @@ class NoCtor {
 test('paramNames: class without constructor → no deps, call works', async () => {
   expect(paramNames(NoCtor)).toEqual([]);
   const composer = compose({ NoCtor });
-  expect(await composer.call('NoCtor.ping', undefined)).toEqual({ ok: true, value: 'pong' });
+  expect(await composer.call('NoCtor.ping', undefined)).toBe('pong');
+});
+
+// Нативные ошибки: свои сбои core — CoreError (протокол-нейтральная), ошибки обработчика как есть.
+class Native {
+  static $num = fn({ in: z.number(), out: z.number() });
+  num: typeof Native.$num.fn = async (n) => n;
+
+  static $boom = fn({ in: z.unknown() });
+  boom: typeof Native.$boom.fn = async () => {
+    throw new Error('handler failed');
+  };
+}
+
+test('call returns the value and throws CoreError for pipeline failures', async () => {
+  const composer = compose({ Native });
+  expect(await composer.call('Native.num', 7)).toBe(7);
+  await expect(composer.call('Native.nope', null)).rejects.toBeInstanceOf(CoreError);
+  await expect(composer.call('Native.nope', null)).rejects.toMatchObject({ kind: 'not-found' });
+  await expect(composer.call('Native.num', 'x')).rejects.toMatchObject({
+    kind: 'invalid-params',
+    message: 'Validation error',
+  });
+});
+
+test('handler errors propagate untouched (no wrapping in core)', async () => {
+  const composer = compose({ Native });
+  await expect(composer.call('Native.boom', null)).rejects.toThrow('handler failed');
+  await expect(composer.call('Native.boom', null)).rejects.not.toBeInstanceOf(CoreError);
 });
 
 test('paramNames: constructor located even after static fn fields', () => {

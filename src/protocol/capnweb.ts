@@ -3,7 +3,7 @@
 // capability(Ctor) marks a return-by-reference object: hidden under Symbol.for, on the wire {$cap:id}.
 // NOTE: capability registry never releases yet (leak); cap calls bypass fn validation — see PROGRESS.
 
-import type { AnySchema, Core, Result } from '../types';
+import type { AnySchema, Core } from '../types';
 
 const CAP = Symbol.for('chord.capability');
 const CAP_VENDOR = 'chord-capability';
@@ -89,9 +89,8 @@ export function capnweb(core: Core<any>): ServerSession {
             continue;
           }
           const methodName = [...names, first.call].join('.');
-          const r: Result = await core.call(methodName, first.args[0], { ctx });
-          if (!r.ok) throw new Error(r.error.message);
-          value = r.value;
+          // Ошибки летят нативно: CoreError (kind), ошибки обработчика — как есть.
+          value = await core.call(methodName, first.args[0], { ctx });
           // capability — wire-обёртка в биндинге (не зависит от validateOut): инстанс под CAP.
           if (isCapabilitySchema(contracts.get(methodName)?.out as AnySchema | undefined)) {
             value = { [CAP]: value };

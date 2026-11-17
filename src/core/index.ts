@@ -4,6 +4,7 @@
 
 import {
   ErrorCode,
+  RpcError,
   type AnyCtor,
   type Call,
   type ComposeOptions,
@@ -14,7 +15,6 @@ import {
   type Instantiated,
   type MethodDesc,
   type Middleware,
-  type Result,
   type ServiceMap,
 } from '../types';
 
@@ -107,9 +107,9 @@ function warnMissingHandlers<S extends ServiceMap>(
 function runChain(
   ctx: unknown,
   middlewares: Middleware[],
-  terminal: (ctx: unknown) => Promise<Result>
-): Promise<Result> {
-  const dispatch = (i: number) => (c: unknown): Promise<Result> =>
+  terminal: (ctx: unknown) => Promise<unknown>
+): Promise<unknown> {
+  const dispatch = (i: number) => (c: unknown): Promise<unknown> =>
     i < middlewares.length ? middlewares[i](c, dispatch(i + 1)) : terminal(c);
   return dispatch(0)(ctx);
 }
@@ -139,63 +139,50 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     return built as Instantiated<S>;
   }
 
-  async function invoke(desc: MethodDesc, params: unknown, ctx: unknown): Promise<Result> {
+  // Нативные ошибки: свои сбои (not found, валидация) — RpcError; ошибки обработчика
+  // летят как есть (биндинги мапят их в провод через toError).
+  async function invoke(desc: MethodDesc, params: unknown, ctx: unknown): Promise<unknown> {
     const Ctor = services[desc.service] as AnyCtor;
     const deps = paramNames(Ctor).map((name) => inject[name](ctx));
     const instance = new Ctor(...deps);
     const handler = instance[desc.method];
 
     if (typeof handler !== 'function') {
-      return {
-        ok: false,
-        error: { code: ErrorCode.MethodNotFound, message: `Method not found: ${desc.service}.${desc.method}` },
-      };
+      throw new RpcError(ErrorCode.MethodNotFound, `Method not found: ${desc.service}.${desc.method}`);
     }
 
-    try {
-      if (desc.contract) {
-        const parsedIn = await desc.contract.in['~standard'].validate(params);
-        if ('issues' in parsedIn) {
-          return {
-            ok: false,
-            error: { code: ErrorCode.InvalidParams, message: 'Validation error', data: parsedIn.issues },
-          };
-        }
-
-        const value = await handler(parsedIn.value);
-
-        // out всегда задаёт тип возврата; рантайм-проверка — только по флагу validateOut.
-        if (desc.contract.out && validateOut) {
-          const parsedOut = await desc.contract.out['~standard'].validate(value);
-          if ('issues' in parsedOut) {
-            return {
-              ok: false,
-              error: { code: ErrorCode.InternalError, message: 'Response validation error', data: parsedOut.issues },
-            };
-          }
-          return { ok: true, value: parsedOut.value };
-        }
-
-        return { ok: true, value };
+    if (desc.contract) {
+      const parsedIn = await desc.contract.in['~standard'].validate(params);
+      if ('issues' in parsedIn) {
+        throw new RpcError(ErrorCode.InvalidParams, 'Validation error', parsedIn.issues);
       }
 
-      // Simple endpoint (no schema): pass params straight to the handler.
-      const value = await (handler.length <= 1
-        ? handler(params)
-        : Array.isArray(params)
-          ? handler(...params)
-          : handler(params));
-      return { ok: true, value };
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      return { ok: false, error: { code: ErrorCode.InternalError, message, data: e } };
+      const value = await handler(parsedIn.value);
+
+      // out всегда задаёт тип возврата; рантайм-проверка — только по флагу validateOut.
+      if (desc.contract.out && validateOut) {
+        const parsedOut = await desc.contract.out['~standard'].validate(value);
+        if ('issues' in parsedOut) {
+          throw new RpcError(ErrorCode.InternalError, 'Response validation error', parsedOut.issues);
+        }
+        return parsedOut.value;
+      }
+
+      return value;
     }
+
+    // Simple endpoint (no schema): pass params straight to the handler.
+    return handler.length <= 1
+      ? handler(params)
+      : Array.isArray(params)
+        ? handler(...params)
+        : handler(params);
   }
 
-  async function dispatch(call: Call, ctx: unknown): Promise<Result> {
+  async function dispatch(call: Call, ctx: unknown): Promise<unknown> {
     const desc = routes.get(call.method);
     if (!desc) {
-      return { ok: false, error: { code: ErrorCode.MethodNotFound, message: `Method not found: ${call.method}` } };
+      throw new RpcError(ErrorCode.MethodNotFound, `Method not found: ${call.method}`);
     }
     const terminal = (c: unknown) => invoke(desc, call.params, c);
     return runChain(ctx, [...composerMiddlewares, ...desc.use], terminal);

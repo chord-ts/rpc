@@ -2,7 +2,7 @@
 // (mcpTools descriptors) + schemas (flatToolSchema/packToolArgs) + core gasket. Not a core method —
 // agentTools(composer) is a standalone function, keeping core free of generation/tools.
 
-import type { AgentTool, AnySchema, Core, Result } from '../types';
+import type { AgentTool, AnySchema, Core } from '../types';
 import { mcpTools, type GenOptions } from '../generate';
 import { defaultSchemas, flatToolSchema, packToolArgs } from '../schemas';
 
@@ -16,16 +16,14 @@ export function agentTools(core: Core<any>, opts: GenOptions = {}): AgentTool[] 
     const c = e.contract!;
     const name = `${e.service}.${e.method}`;
     // Same packing seam as the mcp binding: REST → slices, fn scalar → { value }.
-    const invoke = (args: unknown, ctx?: unknown): Promise<Result> =>
+    // Ошибки — нативный throw (CoreError / ошибка обработчика), фреймворк решает сам.
+    const invoke = (args: unknown, ctx?: unknown): Promise<unknown> =>
       core.call(name, packToolArgs(c, args, toJson), { ctx });
     return {
       ...descriptors[i],
       schema: flatToolSchema(c, schemas),
       invoke,
-      func: async (args: unknown) => {
-        const r = await invoke(args);
-        return JSON.stringify(r.ok ? r.value : r.error);
-      },
+      func: async (args: unknown) => JSON.stringify(await invoke(args)),
     };
   });
 }

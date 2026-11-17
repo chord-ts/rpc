@@ -1,11 +1,11 @@
 // Пользовательский код: stream — третий глагол, нативные ошибки (без Result).
 // Декларация stream({ in, event }); обработчик — async-генератор. Gasket yield'ит голые события,
-// ошибки — typed throw (RpcError) / отмена — AbortError; потребитель — for await + try/catch.
+// ошибки — typed throw (CoreError) / отмена — AbortError; потребитель — for await + try/catch.
 // Прогон типов:
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-stream.example.ts
 
 import { z } from 'zod';
-import { fn, stream, compose, RpcError } from './v2-stream.helpers';
+import { fn, stream, compose, CoreError } from './v2-stream.helpers';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -35,7 +35,7 @@ class Ticker {
 const composer = compose({ Ticker }, { inject: {} });
 
 (async () => {
-  // Унарный вызов — call (Result, как раньше).
+  // Унарный вызов — call (значение, ошибки нативно — как и stream).
   console.log('call:', await composer.call('Ticker.ping', 'hi'));
 
   // Stream: голые события, нативный for await.
@@ -56,13 +56,13 @@ const composer = compose({ Ticker }, { inject: {} });
     console.log('caught:', (e as Error).name); // AbortError
   }
 
-  // Ошибка валидации входа — typed RpcError (нативный throw).
+  // Ошибка валидации входа — typed CoreError (нативный throw).
   console.log('--- invalid input ---');
   try {
     for await (const event of composer.stream('Ticker.countdown', { from: 'x' })) {
       console.log(event);
     }
   } catch (e) {
-    console.log('RpcError code:', (e as RpcError).code); // -32602
+    console.log('CoreError kind:', (e as CoreError).kind); // invalid-params
   }
 })();

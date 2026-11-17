@@ -16,7 +16,7 @@
 ## Стек слоёв (снизу вверх)
 
 ```
-types        AnySchema, Result, Contract, Fn, Client, SchemaAdapter, Endpoint, Core,
+types        AnySchema, CoreError, Contract, Fn, Client, SchemaAdapter, Endpoint, Core,
              AgentTool, Format, Binding, TransportRequest/Response, RPC-wire, RestMeta…
   ↑
 core         fn, compose → Core (instantiate/call/notify/endpoints/schemas), registry,
@@ -31,11 +31,14 @@ generate     openapi, openrpc, mcpTools, asyncapi. Читает core.schemas, н
   ↑
 tools        agentTools(composer): AgentTool поверх generate + schemas (не метод ядра).
   ↑
-protocol     биндинги jsonrpc / rest / mcp / capnweb. Пиры не импортируют друг друга.
+protocol     jsonrpc/ — семейство с публичным index.ts: jsonrpc-биндинг + провод
+             (ErrorCode/RpcError/toError/toWire) + mcp-профиль (импортирует провод
+             из соседнего jsonrpc, не пир). Пиры rest/capnweb не импортируют друг
+             друга. Content-type инлайнится в ответах (shared удалён).
   ↑
 transport    fromSvelteKit / fromExpress / fromNode / ws / sse. Protocol-agnostic.
   ↑
-client       connect (capnweb), typed jsonrpc/rest клиент, batch => Result[].
+client       connect (capnweb), typed jsonrpc/rest клиент, batch => per-item значение/ошибка.
   ↑
 facade       корневой index.ts: публичная поверхность (реэкспорт слоёв).
 ```
@@ -50,7 +53,7 @@ facade       корневой index.ts: публичная поверхност�
 | **format** | types | core-рантайм, protocol |
 | **generate** | types, core (`Core`, `core.schemas`), schemas (операции) | protocol, transport |
 | **tools** | generate (`mcpTools`), schemas (`flatToolSchema`/`packToolArgs`), core | protocol, transport |
-| **protocol** | core (gasket), generate (docs/discovery/tools), format, schemas | transport, другие protocol |
+| **protocol** | core (gasket), generate (docs/discovery/tools), format, schemas; mcp → jsonrpc (профиль) | transport; пиры друг друга (кроме mcp → jsonrpc) |
 | **transport** | protocol (`Binding`), format, types | core-рантайм напрямую, generate |
 | **client** | types, protocol (wire-формы), transport (fetch/ws) | server-рантайм core |
 | **facade** | core, tools, schemas (default), types | — (точка сборки) |
@@ -171,13 +174,13 @@ Superseded-спайки удалены (перенесены в src); канон
 
 | Модуль (корень src/) | Содержимое |
 |---|---|
-| `types.ts` | общие контракты (AnySchema, Result, Core, SchemaAdapter, Binding, Format, …) |
+| `types.ts` | общие контракты (AnySchema, CoreError, Core, SchemaAdapter, Binding, Format, …) |
 | `core/` | fn, compose → Core (call/notify/endpoints), registry, dispatch/invoke, paramNames |
 | `schemas/` | defaultSchemas, flatToolSchema, packToolArgs; лист `schemas/zod` (ZodAdapter) |
 | `format/` | json (текстовый кодек) |
 | `generate/` | openapi, openrpc, mcpTools, asyncapi |
 | `tools/` | agentTools (отдельно от ядра) |
-| `protocol/` | jsonrpc, rest (сахар get/post/http + RestContract), mcp, capnweb, shared |
+| `protocol/` | `jsonrpc/` — семейство с публичным index.ts: jsonrpc (провод + ErrorCode/RpcError/toError/toWire) + mcp (профиль); rest (сахар get/post/http + RestContract), capnweb |
 | `transport/` | fromSvelteKit, fromExpress |
 | `index.ts` | фасад — реэкспорт слоёв |
 | **ещё нет:** `client/` | capnweb connect/RpcPromise (спайк `v2-capnp.*`), typed jsonrpc/rest клиент |

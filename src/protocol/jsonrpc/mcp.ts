@@ -3,11 +3,12 @@
 // tools/list reuses the mcpTools generator; tools/call packs args via the shared packToolArgs seam.
 // NOTE: tools capability only — resources/prompts/sampling not yet; see PROGRESS.
 
-import type { AnySchema, Binding, Core, Format, RPCRequest } from '../types';
-import { json as jsonFormat } from '../format';
-import { mcpTools } from '../generate';
-import { defaultSchemas, packToolArgs } from '../schemas';
-import { headersOf, rpcResult, toWire } from './shared';
+import type { AnySchema, Binding, Core, ErrorObject, Format, RPCRequest } from '../../types';
+import { json as jsonFormat } from '../../format';
+import { mcpTools } from '../../generate';
+import { defaultSchemas, packToolArgs } from '../../schemas';
+// MCP — JSON-RPC-профиль, не пир: провод и модель ошибок берём из соседнего jsonrpc.
+import { rpcResult, toError, toWire } from './jsonrpc';
 
 export interface McpMeta {
   desc?: string;
@@ -55,15 +56,25 @@ export function mcp(
         const { name, arguments: args } = (body.params ?? {}) as { name: string; arguments?: unknown };
         const endpoint = core.endpoints().find((e) => `${e.service}.${e.method}` === name);
         const params = endpoint?.contract ? packToolArgs(endpoint.contract, args, toJson) : args;
-        const r = await core.call(name, params ?? {}, { ctx });
-        const content = [{ type: 'text', text: r.ok ? JSON.stringify(r.value) : r.error.message }];
-        return rpcResult(format, id, { content, isError: !r.ok });
+        // Ошибка исполнения тула — isError-контент (MCP spec), не JSON-RPC error.
+        try {
+          const value = await core.call(name, params ?? {}, { ctx });
+          return rpcResult(format, id, { content: [{ type: 'text', text: JSON.stringify(value) }], isError: false });
+        } catch (e) {
+          return rpcResult(format, id, { content: [{ type: 'text', text: toError(e).message }], isError: true });
+        }
       }
 
       // Other JSON-RPC methods (initialize, ping, …) — same envelope as jsonrpc.
-      const result = await core.call(body.method, body.params, { ctx });
+      let value: unknown;
+      let error: ErrorObject | undefined;
+      try {
+        value = await core.call(body.method, body.params, { ctx });
+      } catch (e) {
+        error = toError(e);
+      }
       if (id == null) return { status: 204, headers: {}, body: null };
-      return { status: 200, headers: headersOf(format), body: format.encode(toWire(result, id)) };
+      return { status: 200, headers: { 'content-type': format.contentType }, body: format.encode(toWire(id, value, error)) };
     },
   };
 }

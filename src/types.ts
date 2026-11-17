@@ -17,27 +17,33 @@ export interface AnySchema<Output = unknown> {
 
 export type InferOutput<S extends AnySchema> = S extends AnySchema<infer O> ? O : never;
 
-// --- Result error codes (JSON-RPC 2.0 numbering, used as generic Result codes) ---
-export const ErrorCode = {
-  ParseError: -32700,
-  InvalidRequest: -32600,
-  MethodNotFound: -32601,
-  InvalidParams: -32602,
-  InternalError: -32603,
-} as const;
-
-// --- Typed result: no exceptions escape the pipeline ---
+// --- Native errors: the pipeline throws, bindings map to their wire format ---
+/** Wire error shape (JSON-RPC error object); produced by protocol/shared toError. */
 export type ErrorObject = { code: number; message: string; data?: unknown; status?: number };
 
-export type Result<T = unknown> =
-  | { ok: true; value: T }
-  | { ok: false; error: ErrorObject };
+/** Protocol-neutral failure kinds of the core gasket. Bindings map them to their own
+ * wire codes/statuses (jsonrpc: -32601/-32602/-32603; rest: 422/500; …). */
+export type CoreErrorKind = 'not-found' | 'invalid-params' | 'invalid-output';
 
-// --- Middleware contract: onion `(ctx, next) => Result` ---
+/** Core's own error (native throw): pipeline failures only (not found, validation).
+ * Handler errors propagate untouched. Protocol-specific errors (RpcError with JSON-RPC
+ * codes) live in the protocol layer, not here. */
+export class CoreError extends Error {
+  constructor(
+    public kind: CoreErrorKind,
+    message: string,
+    public data?: unknown,
+  ) {
+    super(message);
+    this.name = 'CoreError';
+  }
+}
+
+// --- Middleware contract: onion `(ctx, next) => value`, errors via throw ---
 export type Middleware<Ctx = unknown> = (
   ctx: Ctx,
-  next: (ctx: Ctx) => Promise<Result>
-) => Promise<Result>;
+  next: (ctx: Ctx) => Promise<unknown>
+) => Promise<unknown>;
 
 export type MaybeArray<T> = T | T[];
 
@@ -129,10 +135,11 @@ export interface Endpoint {
 }
 
 /** Protocol-agnostic core: verbs + registry + the registered schema adapter.
- * No exec/envelope, no tools() — those live in upper layers (protocol/jsonrpc, tools). */
+ * Verbs return the value and throw natively (CoreError for pipeline failures, handler errors
+ * as-is). No exec/envelope, no tools() — those live in upper layers (protocol/jsonrpc, tools). */
 export interface Core<S extends ServiceMap> {
   instantiate(ctx: unknown): Instantiated<S>;
-  call(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<Result>;
+  call(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<unknown>;
   notify(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<void>;
   endpoints(): readonly Endpoint[];
   schemas?: SchemaAdapter;
@@ -171,7 +178,8 @@ export interface AgentTool {
   schema: AnySchema;
   inputSchema: unknown;
   annotations?: Record<string, boolean>;
-  invoke(args: unknown, ctx?: unknown): Promise<Result>;
+  /** Returns the value; throws natively on failure (CoreError / handler error). */
+  invoke(args: unknown, ctx?: unknown): Promise<unknown>;
   /** Ready framework call: string result (LangChain func). */
   func(args: unknown): Promise<string>;
 }

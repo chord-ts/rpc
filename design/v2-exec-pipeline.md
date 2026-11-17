@@ -3,6 +3,12 @@
 > Инсайт автора: текущий пайп запроса громоздкий — куча проверок и try/catch с непокрытыми
 > кейсами, потому что в одном месте смешаны middleware разных уровней и неявные мутации.
 > Ниже — разбор и целевая модель.
+>
+> **Статус (2026-11-17):** модель реализована в src как `compose` + биндинги (`exec`/конверт
+> живут в `jsonrpc`-биндинге, не в ядре). Ошибки — **нативные**: `Result` удалён, core бросает
+> свою протокол-нейтральную `CoreError(kind, message, data?)`, ошибки обработчика летят как есть;
+> JSON-RPC-модель (`ErrorCode`/`RpcError`) и маппинг `toError` — в `protocol/jsonrpc`
+> (mcp импортирует оттуда как профиль). Секции ниже обновлены под этот контракт.
 
 ## Что сейчас сломано
 
@@ -69,16 +75,18 @@ return json(await composer.exec(body, { ctx: event.locals }));
 - `initCtx` исчезает целиком — угадывания больше нет.
 - `adapter`-мидлварь превращается в pure `parse`.
 - `depends` и `createScoped`-Proxy уходят — их закрывает constructor DI из проекта регистрации.
-- catch-all ошибок заменяется типизированным результатом и явным маппингом (redirect/validation/internal —
-  три раздельных исхода, а не один `InternalError` с «не покрытым» остальным).
+- catch-all ошибок заменяется нативным throw (`CoreError` для сбоев пайплайна, ошибки обработчика
+  как есть) и явным маппингом в биндингах (kind → код/статус протокола — раздельные исхода,
+  а не один `InternalError` с «не покрытым» остальным).
 
-## Middleware-контракт: onion с одним Result
+## Middleware-контракт: onion со значением, ошибки нативно
 
-Выбор — onion `(ctx, next) => Result`, а не чистый `ctx => ctx`. Причина: чистому преобразованию
-недоступна работа «после» (`next` вернул результат — закэшировать, залогировать, переписать).
+Выбор — onion `(ctx, next) => value`, а не чистый `ctx => ctx`. Причина: чистому преобразованию
+недоступна работа «после» (`next` вернул значение — закэшировать, залогировать, переписать).
 Кэш, тайминг и маппинг ответа требуют «после», значит нужен `next`.
 
-Но это ровно один механизм вместо трёх нынешних:
+Ошибки — нативный throw, не обёртка: `Result` дублировал бы канал ошибки, который у Promise уже
+есть (reject). Тот же контракт, что у stream-спайка (`CoreError`/`AbortError`).
 
 ```ts
 // 1. Граница отдаёт уже распарсенное тело + стартовый контекст.
@@ -87,16 +95,18 @@ interface ExecInput<Ctx = BaseContext> {
   ctx: Ctx;
 }
 
-// 2. Единый результат без исключений.
-type ErrorObject = { code: number; message: string; data?: unknown; status?: number };
-type Result<T = JSONRPC.Value> =
-  | { ok: true; value: T }
-  | { ok: false; error: ErrorObject };
+// 2. Ошибка ядра — протокол-нейтральная (нативный throw). Wire-форма — ErrorObject,
+//    маппинг kind → код/статус делает биндинг (toError в protocol/jsonrpc).
+//    JSON-RPC-специфика (ErrorCode, RpcError) живёт в protocol, не в ядре.
+type CoreErrorKind = 'not-found' | 'invalid-params' | 'invalid-output';
+class CoreError extends Error {
+  constructor(public kind: CoreErrorKind, message: string, public data?: unknown);
+}
 
 // 3. Единственный middleware-контракт.
 //    Терминальный next() = сконструировать сервис с текущим ctx и вызвать метод
-//    (validate(in) → invoke → validate(out)).
-type Middleware<Ctx> = (ctx: Ctx, next: (ctx: Ctx) => Promise<Result>) => Promise<Result>;
+//    (validate(in) → invoke → validate(out)). Ошибка — throw, не возврат.
+type Middleware<Ctx> = (ctx: Ctx, next: (ctx: Ctx) => Promise<unknown>) => Promise<unknown>;
 ```
 
 Что это убивает:
@@ -104,8 +114,8 @@ type Middleware<Ctx> = (ctx: Ctx, next: (ctx: Ctx) => Promise<Result>) => Promis
 - `event` из контракта исчезает — парсинг ушёл на границу, ядро видит только `ctx`.
 - `adapter` превращается в pure `parse(event) => { body, ctx }` (сахар `fromSvelteKit`/`fromExpress`).
 - `depends`/`createScoped`-Proxy уходят: сервис инстанцируется в терминале как `new Service(ctx)`.
-- «ранний возврат» — это просто middleware, вернувший `Result` без вызова `next`; отдельной
-  конвенции больше нет.
+- «ранний возврат» — это просто middleware, бросивший ошибку без вызова `next` (или
+  вернувший своё значение); отдельной конвенции больше нет.
 
 ### Мутация ctx — одна и явная
 
@@ -123,9 +133,9 @@ type Middleware<Ctx> = (ctx: Ctx, next: (ctx: Ctx) => Promise<Result>) => Promis
 function runChain<Ctx>(
   ctx: Ctx,
   middlewares: Middleware<Ctx>[],
-  terminal: (ctx: Ctx) => Promise<Result>
-): Promise<Result> {
-  const dispatch = (i: number) => (c: Ctx): Promise<Result> =>
+  terminal: (ctx: Ctx) => Promise<unknown>
+): Promise<unknown> {
+  const dispatch = (i: number) => (c: Ctx): Promise<unknown> =>
     i < middlewares.length ? middlewares[i](c, dispatch(i + 1)) : terminal(c);
   return dispatch(0)(ctx);
 }
@@ -134,9 +144,9 @@ function runChain<Ctx>(
 Терминал — единственное место вызова метода:
 
 ```ts
-function dispatch(call, ctx): Promise<Result> {
+function dispatch(call, ctx): Promise<unknown> {
   const desc = route(call.method);           // method → { service, method, schema }
-  if (!desc) return { ok: false, error: { code: MethodNotFound, message: … } };
+  if (!desc) throw new CoreError('not-found', `Method not found: ${call.method}`);
   const terminal = (c) => invoke(desc, call.params, c); // new Service(c); validate; method; validate
   return runChain(ctx, [...composer.middlewares, ...desc.use], terminal);
 }
@@ -150,7 +160,7 @@ JSON-RPC 2.0 уже задаёт корреляцию по `id`: запрос с
 
 Поэтому конверт ключуется по `id`, а не по индексу, и делается двумя симметричными границами.
 
-Серверная (`Result[]` → wire):
+Серверная (значение/ошибка → wire; живёт в `jsonrpc`-биндинге, не в ядре):
 
 ```ts
 type Call = { id: ID | null; method: string; params: unknown[] | object };
@@ -160,20 +170,22 @@ function normalize(body: JSONRPC.Request | JSONRPC.Batch): Call[];  // Request -
 async function exec(input: ExecInput): Promise<WireResult | WireResult[]> {
   const out: WireResult[] = [];
   for (const call of normalize(input.body)) {
-    const r = await dispatch(call, input.ctx);
-    if (call.id != null) out.push(toWire(r, call.id)); // notification не порождает ответ
+    let value: unknown, error: ErrorObject | undefined;
+    try { value = await dispatch(call, input.ctx); }
+    catch (e) { error = toError(e); }        // CoreError.kind → код; RpcError как есть; прочее → InternalError
+    if (call.id != null) out.push(toWire(call.id, value, error)); // notification не порождает ответ
   }
   return Array.isArray(input.body) ? out : out[0];
 }
 ```
 
-Клиентская (wire → `Result[]`, без потерь):
+Клиентская (wire → per-item значение/ошибка, без потерь; форма границы решается в слое client):
 
 ```ts
-function batch(...calls): Promise<Result[]> {
+function batch(...calls): Promise<Array<{ value: unknown } | { error: ErrorObject }>> {
   const wire = await transport({ body: calls, … });
-  // Собираем ответы по id, ошибки не выбрасываем: каждый элемент —
-  // { ok: true, value } | { ok: false, error }, коррелированный с исходным запросом.
+  // Собираем ответы по id, ошибки не выбрасываем: каждый элемент несёт
+  // значение или ошибку, коррелированную с исходным запросом.
 }
 ```
 
@@ -182,9 +194,17 @@ function batch(...calls): Promise<Result[]> {
 
 ## Закреплённые решения (middleware/конверт)
 
-- Доступ к результату «после» нужен (закэшировать/подменить) — и onion `(ctx, next) => Result`
-  уже даёт его нативно: middleware вызывает `next(ctx)`, берёт `Result` и возвращает заменённый или
-  закэшированный. Отдельного жизненного этапа `.output` не заводим.
+- Доступ к результату «после» нужен (закэшировать/подменить) — и onion `(ctx, next) => value`
+  уже даёт его нативно: middleware вызывает `next(ctx)`, берёт значение и возвращает заменённое или
+  закэшированное; ошибку бросает нативно. Отдельного жизненного этапа `.output` не заводим.
+- **Ошибки нативные (2026-11-17):** `Result` удалён из core/types. Core бросает свою
+  протокол-нейтральную `CoreError(kind, message, data?)` для сбоев пайплайна
+  (`not-found`/`invalid-params`/`invalid-output`), ошибки обработчика пробрасывает как есть.
+  JSON-RPC-модель ошибок (`ErrorCode` + `RpcError(code, data?, status?)`) и конверт живут
+  в `protocol/jsonrpc`; mcp импортирует их оттуда как JSON-RPC-профиль (не пир).
+  Биндинги ловят и мапят: jsonrpc/mcp — `toError` (kind → код), rest — kind → HTTP-статус
+  (422/500) напрямую без JSON-RPC-модели, capnweb — нативный throw. Middleware short-circuit —
+  throw без вызова `next`.
 - Форму `JSONRPC.Error` не специфицируем сверх `{ code, message, data?, status? }`; маппинг в
   `buildResponse`/`buildError` — деталь реализации, не контракт.
 - Валидация фиксирована в терминале `invoke()`, валидатор один на весь `Composer`

@@ -10,7 +10,7 @@
 // Прогон (вместе с example):
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-capnp.example.ts
 
-import type { AnySchema, ServiceMap, Result, Core } from '../src';
+import type { AnySchema, ServiceMap, Core } from '../src';
 
 // --- capability-маркер: схема «возвращает удалённый объект» ---
 // В schema-first мире capability не сериализуется — это ссылка. Маркер прячет инстанс
@@ -82,9 +82,8 @@ export function capnweb<S extends ServiceMap>(core: Core<S>): ServerSession<S> {
             results.push(undefined);
             continue;
           }
-          const r: Result = await core.call([...names, first.call].join('.'), first.args[0], { ctx });
-          if (!r.ok) throw new Error(r.error.message);
-          value = r.value;
+          // Ошибки летят нативно: CoreError (kind), ошибки обработчика — как есть.
+          value = await core.call([...names, first.call].join('.'), first.args[0], { ctx });
           steps = steps.slice(i + 1);
         } else {
           value = deref(path.from);
