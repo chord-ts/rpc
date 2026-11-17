@@ -3,7 +3,8 @@
 // (core.endpoints()), neutral fields (desc/summary/tags/deprecated) shared. Imports types + schemas
 // (default adapter fallback); does NOT import protocol/transport — reusable standalone (CLI/export).
 
-import type { AnySchema, Core, RestMeta } from '../types';
+import type { AnySchema, RestMeta } from '../types';
+import type { Core } from '../core/types';
 import { defaultSchemas } from '../schemas';
 
 export interface GenOptions {

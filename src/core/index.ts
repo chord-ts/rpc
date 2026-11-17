@@ -3,8 +3,7 @@
 // REST sugar and agent tools live in upper layers and build on call/notify/endpoints.
 
 import {
-  ErrorCode,
-  RpcError,
+  CoreError,
   type AnyCtor,
   type Call,
   type ComposeOptions,
@@ -16,7 +15,7 @@ import {
   type MethodDesc,
   type Middleware,
   type ServiceMap,
-} from '../types';
+} from './types';
 
 /**
  * Declares a procedure from a schema. `$method.fn` is the phantom handler type:
@@ -139,8 +138,8 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     return built as Instantiated<S>;
   }
 
-  // Нативные ошибки: свои сбои (not found, валидация) — RpcError; ошибки обработчика
-  // летят как есть (биндинги мапят их в провод через toError).
+  // Нативные ошибки: свои сбои (not found, валидация) — CoreError (протокол-нейтральная);
+  // ошибки обработчика летят как есть (биндинги мапят их в свой провод).
   async function invoke(desc: MethodDesc, params: unknown, ctx: unknown): Promise<unknown> {
     const Ctor = services[desc.service] as AnyCtor;
     const deps = paramNames(Ctor).map((name) => inject[name](ctx));
@@ -148,13 +147,13 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     const handler = instance[desc.method];
 
     if (typeof handler !== 'function') {
-      throw new RpcError(ErrorCode.MethodNotFound, `Method not found: ${desc.service}.${desc.method}`);
+      throw new CoreError('not-found', `Method not found: ${desc.service}.${desc.method}`);
     }
 
     if (desc.contract) {
       const parsedIn = await desc.contract.in['~standard'].validate(params);
       if ('issues' in parsedIn) {
-        throw new RpcError(ErrorCode.InvalidParams, 'Validation error', parsedIn.issues);
+        throw new CoreError('invalid-params', 'Validation error', parsedIn.issues);
       }
 
       const value = await handler(parsedIn.value);
@@ -163,7 +162,7 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
       if (desc.contract.out && validateOut) {
         const parsedOut = await desc.contract.out['~standard'].validate(value);
         if ('issues' in parsedOut) {
-          throw new RpcError(ErrorCode.InternalError, 'Response validation error', parsedOut.issues);
+          throw new CoreError('invalid-output', 'Response validation error', parsedOut.issues);
         }
         return parsedOut.value;
       }
@@ -182,7 +181,7 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
   async function dispatch(call: Call, ctx: unknown): Promise<unknown> {
     const desc = routes.get(call.method);
     if (!desc) {
-      throw new RpcError(ErrorCode.MethodNotFound, `Method not found: ${call.method}`);
+      throw new CoreError('not-found', `Method not found: ${call.method}`);
     }
     const terminal = (c: unknown) => invoke(desc, call.params, c);
     return runChain(ctx, [...composerMiddlewares, ...desc.use], terminal);
@@ -190,9 +189,9 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
 
   return {
     instantiate,
-    call: (method, params, opts) => dispatch({ id: null, method, params }, opts?.ctx ?? {}),
+    call: (method, params, opts) => dispatch({ method, params }, opts?.ctx ?? {}),
     notify: async (method, params, opts) => {
-      await dispatch({ id: null, method, params }, opts?.ctx ?? {});
+      await dispatch({ method, params }, opts?.ctx ?? {});
     },
     endpoints: () => registry,
     schemas: options?.schemas,

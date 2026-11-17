@@ -1,10 +1,12 @@
-// Shared contracts of v2 — the bottom import layer. Pure types + dep-free constants.
-// Every layer imports from here; this module imports nothing above itself.
+// Bottom shared contracts — only what crosses non-adjacent layers. Layer-owned types live in
+// their layers: core/types (gasket, fn, DI, CoreError), format/types (Format), tools/types
+// (AgentTool), protocol/jsonrpc/types (RPC wire). This module imports nothing above itself.
 // `readonly` omitted + `ReadonlyArray` used: SWC 1.5.5 fails to parse `readonly`
 // inside a string-keyed nested method signature.
 
 // --- Schema contract (vendor minimum of the Standard Schema v1 interface) ---
 // zod 4 / valibot / arktype implement this shape; yup needs a shim adapter.
+// Stays at the bottom: core (below schemas runtime) declares Contract over AnySchema.
 type ValidateResult<Output> = { value: Output } | { issues: ReadonlyArray<unknown> };
 
 export interface AnySchema<Output = unknown> {
@@ -16,102 +18,6 @@ export interface AnySchema<Output = unknown> {
 }
 
 export type InferOutput<S extends AnySchema> = S extends AnySchema<infer O> ? O : never;
-
-// --- Native errors: the pipeline throws, bindings map to their wire format ---
-/** Wire error shape (JSON-RPC error object); produced by protocol/shared toError. */
-export type ErrorObject = { code: number; message: string; data?: unknown; status?: number };
-
-/** Protocol-neutral failure kinds of the core gasket. Bindings map them to their own
- * wire codes/statuses (jsonrpc: -32601/-32602/-32603; rest: 422/500; …). */
-export type CoreErrorKind = 'not-found' | 'invalid-params' | 'invalid-output';
-
-/** Core's own error (native throw): pipeline failures only (not found, validation).
- * Handler errors propagate untouched. Protocol-specific errors (RpcError with JSON-RPC
- * codes) live in the protocol layer, not here. */
-export class CoreError extends Error {
-  constructor(
-    public kind: CoreErrorKind,
-    message: string,
-    public data?: unknown,
-  ) {
-    super(message);
-    this.name = 'CoreError';
-  }
-}
-
-// --- Middleware contract: onion `(ctx, next) => value`, errors via throw ---
-export type Middleware<Ctx = unknown> = (
-  ctx: Ctx,
-  next: (ctx: Ctx) => Promise<unknown>
-) => Promise<unknown>;
-
-export type MaybeArray<T> = T | T[];
-
-// --- schema-first contract + `fn` ---
-export type Contract = {
-  in: AnySchema<any>;
-  out?: AnySchema<any>;
-  use?: MaybeArray<Middleware<any>>;
-};
-
-export type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
-
-export type Fn<C extends Contract> = C & {
-  fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
-};
-
-// --- DI + Client types ---
-export type AnyCtor = new (...args: any[]) => any;
-
-export type ServiceMap = Record<string, AnyCtor>;
-
-// DI deps are the public data fields of the instance (constructor parameter properties
-// declared `public readonly`/`readonly`); arrow-field methods are filtered out.
-export type DepKeyOf<C extends AnyCtor> = {
-  [K in keyof InstanceType<C>]: InstanceType<C>[K] extends (...args: any[]) => any ? never : K;
-}[keyof InstanceType<C>] & string;
-
-export type DepKeys<S extends ServiceMap> = { [K in keyof S]: DepKeyOf<S[K]> }[keyof S];
-
-export type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
-
-export type DepType<S extends ServiceMap, K> = UnionToIntersection<
-  { [Svc in keyof S]: InstanceType<S[Svc]> extends infer I ? (K extends keyof I ? I[K] : never) : never }[keyof S]
->;
-
-/** DI factories keyed by dependency name; the return type must match the injected dependency. */
-export type Injector<S extends ServiceMap, Ctx = any> = {
-  [K in DepKeys<S>]: (ctx: Ctx) => DepType<S, K>;
-};
-
-export type Instantiated<S extends ServiceMap> = { [K in keyof S]: InstanceType<S[K]> };
-
-export type MethodKeys<T> = { [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never }[keyof T];
-export type RemoteMethod<F> = F extends (...args: infer A) => infer R ? (...args: A) => Promise<Awaited<R>> : never;
-export type RemoteService<T> = { [K in MethodKeys<T>]: RemoteMethod<T[K]> };
-/** Remote (transport) client type: public arrow fields only, returns wrapped in Promise. */
-export type Client<S extends ServiceMap> = { [K in keyof S]: RemoteService<InstanceType<S[K]>> };
-
-// --- JSON-RPC wire shapes ---
-export type RPCId = string | number | null;
-
-export interface RPCRequest {
-  method: string;
-  params?: unknown;
-  id?: RPCId;
-}
-
-export interface RPCResponse {
-  jsonrpc: '2.0';
-  id: RPCId;
-  result?: unknown;
-  error?: ErrorObject;
-}
-
-export type RPCBody = RPCRequest | RPCRequest[];
-
-export type Call = { id: RPCId; method: string; params: unknown };
-export type MethodDesc = { service: string; method: string; contract: Contract | null; use: Middleware[] };
 
 // --- Vendor schema adapter (registered once in compose; read by generate/tools/protocol) ---
 /** Operations over the validation library, resolved under the hood by one vendor adapter. */
@@ -125,66 +31,17 @@ export interface SchemaAdapter {
   string(): AnySchema;
 }
 
-// --- Protocol-neutral core gasket ---
-/** Registry entry: one endpoint. `contract` carries in/out/use + protocol metadata fields
- * (rest/mcp/…) passed to fn. `null` = simple endpoint without a schema. */
-export interface Endpoint {
-  service: string;
-  method: string;
-  contract: (Contract & Record<string, unknown>) | null;
-}
-
-/** Protocol-agnostic core: verbs + registry + the registered schema adapter.
- * Verbs return the value and throw natively (CoreError for pipeline failures, handler errors
- * as-is). No exec/envelope, no tools() — those live in upper layers (protocol/jsonrpc, tools). */
-export interface Core<S extends ServiceMap> {
-  instantiate(ctx: unknown): Instantiated<S>;
-  call(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<unknown>;
-  notify(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<void>;
-  endpoints(): readonly Endpoint[];
-  schemas?: SchemaAdapter;
-}
-
-/** inject обязателен только когда у сервисов есть зависимости (DepKeys); для сервисов без
- * зависимостей его можно опустить: `compose({ Service })`. */
-export type ComposeOptions<S extends ServiceMap> = {
-  use?: MaybeArray<Middleware>;
-  schemas?: SchemaAdapter;
-  /** Opt-in runtime validation of handler output against `out` (default false).
-   * `out` always provides the return type; this flag gates the runtime check. */
-  validateOut?: boolean;
-} & ([DepKeys<S>] extends [never] ? { inject?: Injector<S> } : { inject: Injector<S> });
-
-/** REST metadata (shared with generate). Declaration sugar lives in protocol/rest. */
+/** REST metadata (shared with generate — generate is below protocol, so the contract stays here).
+ * Declaration sugar lives in protocol/rest. */
 export interface RestMeta {
   method: string;
   endpoint: string;
   status?: number;
 }
 
-// --- Format: codec pair over the protocol envelope. Raw — тип провода: текст (string) по
-// умолчанию, байты (Uint8Array) для бинарных форматов (msgpack/cbor). Не зашит на строки. ---
-export interface Format<Raw = string> {
-  contentType: string;
-  decode(raw: Raw): unknown;
-  encode(value: unknown): Raw;
-}
-
-// --- Agent tool: ready for agent frameworks (LangChain etc.), in-process, no wire ---
-export interface AgentTool {
-  name: string;
-  description: string;
-  /** Vendor flat schema — e.g. DynamicStructuredTool.schema in LangChain. */
-  schema: AnySchema;
-  inputSchema: unknown;
-  annotations?: Record<string, boolean>;
-  /** Returns the value; throws natively on failure (CoreError / handler error). */
-  invoke(args: unknown, ctx?: unknown): Promise<unknown>;
-  /** Ready framework call: string result (LangChain func). */
-  func(args: unknown): Promise<string>;
-}
-
-// --- Transport seam (structural, zero-dep: core needs no DOM/node types) ---
+// --- Transport seam (structural, zero-dep: no DOM/node types) ---
+// Stays at the bottom: protocol implements Binding, transport consumes it — putting the seam
+// in either layer would create an upward import.
 export interface TransportRequest {
   method: string; // HTTP method
   url: string; // full URL (pathname + query)

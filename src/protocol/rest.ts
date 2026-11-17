@@ -3,17 +3,9 @@
 // Format codecs only the HTTP body; status/headers/path are protocol+transport, not Format.
 
 import { fn } from '../core';
-import {
-  CoreError,
-  type AnySchema,
-  type Binding,
-  type Core,
-  type Format,
-  type MaybeArray,
-  type Middleware,
-  type RestMeta,
-  type TransportResponse,
-} from '../types';
+import { CoreError, type Core, type MaybeArray, type Middleware } from '../core/types';
+import type { Format } from '../format/types';
+import type { AnySchema, Binding, RestMeta, TransportResponse } from '../types';
 import { json as jsonFormat } from '../format';
 import { openapi } from '../generate';
 

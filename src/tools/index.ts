@@ -2,7 +2,9 @@
 // (mcpTools descriptors) + schemas (flatToolSchema/packToolArgs) + core gasket. Not a core method —
 // agentTools(composer) is a standalone function, keeping core free of generation/tools.
 
-import type { AgentTool, AnySchema, Core } from '../types';
+import type { AgentTool } from './types';
+import type { AnySchema } from '../types';
+import type { Core } from '../core/types';
 import { mcpTools, type GenOptions } from '../generate';
 import { defaultSchemas, flatToolSchema, packToolArgs } from '../schemas';
 

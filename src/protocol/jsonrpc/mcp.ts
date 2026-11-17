@@ -3,7 +3,10 @@
 // tools/list reuses the mcpTools generator; tools/call packs args via the shared packToolArgs seam.
 // NOTE: tools capability only — resources/prompts/sampling not yet; see PROGRESS.
 
-import type { AnySchema, Binding, Core, ErrorObject, Format, RPCRequest } from '../../types';
+import type { Core } from '../../core/types';
+import type { Format } from '../../format/types';
+import type { AnySchema, Binding } from '../../types';
+import type { ErrorObject, RPCRequest } from './types';
 import { json as jsonFormat } from '../../format';
 import { mcpTools } from '../../generate';
 import { defaultSchemas, packToolArgs } from '../../schemas';

@@ -16,8 +16,10 @@
 ## Стек слоёв (снизу вверх)
 
 ```
-types        AnySchema, CoreError, Contract, Fn, Client, SchemaAdapter, Endpoint, Core,
-             AgentTool, Format, Binding, TransportRequest/Response, RPC-wire, RestMeta…
+types        сквозные контракты: AnySchema/InferOutput, SchemaAdapter, RestMeta,
+             Binding, TransportRequest/Response. Типы слоёв — в своих слоях:
+             core/types (CoreError, Contract/Fn, DI, Core, Client), format/types (Format),
+             tools/types (AgentTool), protocol/jsonrpc/types (RPC-wire, ErrorObject).
   ↑
 core         fn, compose → Core (instantiate/call/notify/endpoints/schemas), registry,
              dispatch/invoke, paramNames. ZERO vendor deps.
@@ -79,7 +81,10 @@ facade       корневой index.ts: публичная поверхност�
   (JSON-RPC/REST) — биндинг/транспорт выбирает по Content-Type/Accept (`Format.contentType`).
 - **Байтовый шов**: `Format<Raw = string>` — generic по типу провода (не зашит на строки).
   `json: Format<string>`; бинарные msgpack/cbor — `Format<Uint8Array>`. Биндинги/транспорт пока
-  на текстовом шове (`string`); генерализация до байтов — при добавлении бинарных кодеков.
+  на текстовом шове (`string`). **Вариант A одобрен для спайка (2026-11-17)** — `v2-bytes.*`:
+  каноническая единица шва `Uint8Array` (`TransportRequest.bytes()`, `body: Uint8Array | null`),
+  граница биндинга `Format<Uint8Array>` (json = TextDecoder/Encoder поверх байтов), адаптеры
+  мапятся нативно (Response/res.send принимают байты). Прогнан живьём; перенос в src не одобрен.
   Для stream ndjson codec'ит каждое событие отдельно, фрейминг — транспорт (ждёт stream-gasket).
 
 Поэтому format ниже protocol в стеке и импортирует только types.
@@ -174,13 +179,13 @@ Superseded-спайки удалены (перенесены в src); канон
 
 | Модуль (корень src/) | Содержимое |
 |---|---|
-| `types.ts` | общие контракты (AnySchema, CoreError, Core, SchemaAdapter, Binding, Format, …) |
-| `core/` | fn, compose → Core (call/notify/endpoints), registry, dispatch/invoke, paramNames |
+| `types.ts` | сквозные контракты: AnySchema/InferOutput, SchemaAdapter, RestMeta, транспортный шов (Binding/TransportRequest/Response) — только то, что нужно несмежным слоям |
+| `core/` | fn, compose → Core (call/notify/endpoints), registry, dispatch/invoke, paramNames; `types.ts` — CoreError, Middleware, Contract/Fn, DI, Core/ComposeOptions/Endpoint, Client-проекция |
 | `schemas/` | defaultSchemas, flatToolSchema, packToolArgs; лист `schemas/zod` (ZodAdapter) |
-| `format/` | json (текстовый кодек) |
+| `format/` | json (текстовый кодек); `types.ts` — Format |
 | `generate/` | openapi, openrpc, mcpTools, asyncapi |
-| `tools/` | agentTools (отдельно от ядра) |
-| `protocol/` | `jsonrpc/` — семейство с публичным index.ts: jsonrpc (провод + ErrorCode/RpcError/toError/toWire) + mcp (профиль); rest (сахар get/post/http + RestContract), capnweb |
+| `tools/` | agentTools (отдельно от ядра); `types.ts` — AgentTool |
+| `protocol/` | `jsonrpc/` — семейство с публичным index.ts: jsonrpc (провод + ErrorCode/RpcError/toError/toWire) + mcp (профиль) + `types.ts` (RPC-wire, ErrorObject); rest (сахар get/post/http + RestContract), capnweb |
 | `transport/` | fromSvelteKit, fromExpress |
 | `index.ts` | фасад — реэкспорт слоёв |
 | **ещё нет:** `client/` | capnweb connect/RpcPromise (спайк `v2-capnp.*`), typed jsonrpc/rest клиент |

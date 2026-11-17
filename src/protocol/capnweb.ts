@@ -3,7 +3,8 @@
 // capability(Ctor) marks a return-by-reference object: hidden under Symbol.for, on the wire {$cap:id}.
 // NOTE: capability registry never releases yet (leak); cap calls bypass fn validation — see PROGRESS.
 
-import type { AnySchema, Core } from '../types';
+import type { AnySchema } from '../types';
+import type { Core } from '../core/types';
 
 const CAP = Symbol.for('chord.capability');
 const CAP_VENDOR = 'chord-capability';

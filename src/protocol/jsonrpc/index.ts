@@ -4,3 +4,4 @@
 
 export { jsonrpc, ErrorCode, RpcError } from './jsonrpc';
 export { mcp, type McpMeta } from './mcp';
+export type { ErrorObject, RPCId, RPCRequest, RPCResponse, RPCBody } from './types';

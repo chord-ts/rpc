@@ -29,6 +29,11 @@
 - [x] **src:** класс протокол-согласован — `compose` бросает ошибку при смешении REST (`get/post`)
       и RPC (`fn/stream`) деклараций в одном классе; разнести по разным сервисам. Роутинг решает
       биндинг (rest — по пути, jsonrpc/mcp — по имени), composer — плоский реестр `call(method)`.
+- [x] **src:** типы разнесены по слоям (2026-11-17): `core/types` (CoreError, Middleware,
+      Contract/Fn, DI, Core/ComposeOptions/Endpoint, Client-проекция), `format/types` (Format),
+      `tools/types` (AgentTool), `protocol/jsonrpc/types` (RPC-wire, ErrorObject). Общий `types.ts` —
+      только сквозные контракты (AnySchema/InferOutput, SchemaAdapter, RestMeta, транспортный шов).
+      `Call` без vestigial `id`. Фасад реэкспортит типы слоёв — публичная поверхность не изменилась.
 - [x] **src:** REST-декларации `get/post/…(path, { path?, query?, body?, resp })` в `protocol/rest` —
       части вместо плоского `in`, авто-path из шаблона, `resp` — карта статусов (FastAPI `responses`).
 - [x] **src:** нейтральные поля (`desc`/`summary`/`tags`/`deprecated`) в `RestContract`, читают генераторы.
@@ -88,7 +93,10 @@
 - [ ] **stream — не начат.** Блокирует SSE/WS, настоящий AsyncAPI, A2A/AG-UI/ACP, RSocket.
       Форма `AsyncIterable<Event>`, отмена, backpressure не решены.
 - [ ] Форматы: `Format<Raw = string>` generic (не зашит на строки); бинарные MessagePack/CBOR/NDJSON
-      (`Format<Uint8Array>`) + обобщение биндингов/транспорта до байтов — позже.
+      (`Format<Uint8Array>`) + обобщение биндингов/транспорта до байтов. **Спайк варианта A
+      (байтовый шов) прогнан** — `v2-bytes.*`: `TransportRequest.bytes()`, `body: Uint8Array | null`,
+      `Format<Uint8Array>` на границе биндинга, json поверх байтов + mock-бинарный кодек,
+      fetch/express-адаптеры нативно. Перенос в src не одобрен (форма — спайк).
 - [ ] Клиентский рантайм: типизированный JSON-RPC/REST-клиент над проводом (capnweb `connect` — частный случай).
 
 ## 6. Генерация артефактов
@@ -128,6 +136,10 @@
 - `v2-capnp.{helpers,example}.ts` — capnweb-**клиент** `connect<S>` (pipelining, capabilities);
   серверный биндинг уже в src. Импорты мигрированы на src. Имена файлов `v2-capnp.*` расходятся
   с именем биндинга `capnweb` — переименование не одобрено.
+- `v2-bytes.{helpers,example}.ts` — байтовый транспортный шов (вариант A, одобрен для спайка
+  2026-11-17): `bytes()`/`Uint8Array`-тело, `Format<Uint8Array>`, json+mock-binary кодеки,
+  унарный jsonrpc-биндинг (конверт/`toError` из src), fetch/express-адаптеры. Прогнан живьём
+  (оба формата, CoreError → -32602, fetch Response). Ядро не меняется; перенос в src не одобрен.
 - Артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json` (mcp.json устарел — fn-only, без аннотаций).
 
 ## Gap-ревью перед переносом в src (приоритеты)

@@ -3,6 +3,6 @@
 // gasket (call/notify/endpoints), generate (docs/discovery/tools), format and schemas.
 // Content-type headers are inlined per response ({ 'content-type': format.contentType }).
 
-export { jsonrpc, ErrorCode, RpcError, mcp, type McpMeta } from './jsonrpc';
+export * from './jsonrpc';
 export { rest, get, post, put, patch, del, http, type RestContract } from './rest';
 export { capnweb, capability, type Step, type Path, type Batch, type ServerSession } from './capnweb';

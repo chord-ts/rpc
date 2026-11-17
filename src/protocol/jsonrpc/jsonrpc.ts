@@ -3,19 +3,10 @@
 // the generated OpenRPC document. mcp (sibling) is a JSON-RPC profile — it imports this model.
 // Public surface of the family: ./index.ts.
 
-import {
-  CoreError,
-  type AnySchema,
-  type Binding,
-  type Core,
-  type CoreErrorKind,
-  type ErrorObject,
-  type Format,
-  type RPCBody,
-  type RPCId,
-  type RPCResponse,
-  type TransportResponse,
-} from '../../types';
+import { CoreError, type Core, type CoreErrorKind } from '../../core/types';
+import type { Format } from '../../format/types';
+import type { AnySchema, Binding, TransportResponse } from '../../types';
+import type { ErrorObject, RPCBody, RPCId, RPCResponse } from './types';
 import { json as jsonFormat } from '../../format';
 import { openrpc } from '../../generate';
 

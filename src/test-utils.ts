@@ -2,7 +2,7 @@
 // keep their assertions while exercising the layered API (compose + jsonrpc), not legacy toRPC.
 import { compose } from './core';
 import { jsonrpc } from './protocol';
-import type { ComposeOptions, ServiceMap } from './types';
+import type { ComposeOptions, ServiceMap } from './core/types';
 
 export function envelope<S extends ServiceMap>(services: S, options: ComposeOptions<S>) {
   const binding = jsonrpc(compose(services, options));
