@@ -79,12 +79,18 @@ facade       корневой index.ts: публичная поверхност�
   pre/post-сериализация поверх кодека, чистым Format не закрыть (живёт в биндинге).
 - **Выбор формата**: где протокол фиксирует (MCP=json, gRPC=protobuf) — зашит; где negotiable
   (JSON-RPC/REST) — биндинг/транспорт выбирает по Content-Type/Accept (`Format.contentType`).
-- **Байтовый шов**: `Format<Raw = string>` — generic по типу провода (не зашит на строки).
-  `json: Format<string>`; бинарные msgpack/cbor — `Format<Uint8Array>`. Биндинги/транспорт пока
-  на текстовом шове (`string`). **Вариант A одобрен для спайка (2026-11-17)** — `v2-bytes.*`:
-  каноническая единица шва `Uint8Array` (`TransportRequest.bytes()`, `body: Uint8Array | null`),
-  граница биндинга `Format<Uint8Array>` (json = TextDecoder/Encoder поверх байтов), адаптеры
-  мапятся нативно (Response/res.send принимают байты). Прогнан живьём; перенос в src не одобрен.
+- **Шов transport↔protocol — значение-уровневый + format-ручка** (одобрен 2026-11-17, спайк
+  `v2-value.*`; байтовый `v2-bytes.*` удалён). **Протокол один**: биндинги — те же `jsonrpc`/`rest`/
+  `mcp`, переведённые на значения (`ProtocolRequest.body: unknown`), конверт/ошибки переиспользуются
+  (`toWire`/`toError`), без format/raw — НЕ форки под шов/формат. **Формат — format-ручка одного
+  generic-адаптера** (`fromSvelteKit(binding, event, {format})`, default json): адаптер — сплав
+  платформы и кодека (паттерн v1 `backendAdapter`), читает тело нативно (`text()`/`arrayBuffer()`/
+  `formData()` по `unit`), декодирует в значение, зовёт биндинг, кодирует ответ. Пользователь втыкает
+  свой кодек (devalue/msgpack/cbor) сменой кодека — **без матрицы протокол×формат**. **Format** —
+  симметричный кодек значений над единицей (`unit: text/bytes`), не знает платформы/протокола.
+  formdata — read-режим (`as`, multipart парсит платформа, асимметричен); docs (`text/html`) —
+  raw-escape (`ProtocolResponse.raw`), мимо negotiated кодека. Биндинги/транспорт в src пока на
+  текстовом raw-шове (`TransportRequest.text()`, format внутри биндинга); перенос не одобрен.
   Для stream ndjson codec'ит каждое событие отдельно, фрейминг — транспорт (ждёт stream-gasket).
 
 Поэтому format ниже protocol в стеке и импортирует только types.

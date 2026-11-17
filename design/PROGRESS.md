@@ -92,11 +92,13 @@
 - [ ] **спайк:** capnweb-клиент `connect<S>` (pipelining) — живёт в спайке, ждёт слой client.
 - [ ] **stream — не начат.** Блокирует SSE/WS, настоящий AsyncAPI, A2A/AG-UI/ACP, RSocket.
       Форма `AsyncIterable<Event>`, отмена, backpressure не решены.
-- [ ] Форматы: `Format<Raw = string>` generic (не зашит на строки); бинарные MessagePack/CBOR/NDJSON
-      (`Format<Uint8Array>`) + обобщение биндингов/транспорта до байтов. **Спайк варианта A
-      (байтовый шов) прогнан** — `v2-bytes.*`: `TransportRequest.bytes()`, `body: Uint8Array | null`,
-      `Format<Uint8Array>` на границе биндинга, json поверх байтов + mock-бинарный кодек,
-      fetch/express-адаптеры нативно. Перенос в src не одобрен (форма — спайк).
+- [ ] Форматы: `Format<Raw = string>` generic (не зашит на строки); бинарные MessagePack/CBOR/NDJSON.
+      **Спайк значение-уровневого шова прогнан** — `v2-value.*`: Format — кодек значений над
+      единицей (text/bytes), transport-адаптер — сплав платформы и Format (читает
+      text()/arrayBuffer()/formData(), декодирует, зовёт биндинг, кодирует ответ), binding —
+      конверт над значениями (без format/raw). Подмена json/devalue/msgpack — один Format у
+      адаптера; formdata — read-режим; docs — raw-escape. Байтовый спайк `v2-bytes.*` удалён
+      (superseded: формат влез в протокол + терялся formdata). Перенос в src не одобрен.
 - [ ] Клиентский рантайм: типизированный JSON-RPC/REST-клиент над проводом (capnweb `connect` — частный случай).
 
 ## 6. Генерация артефактов
@@ -136,10 +138,27 @@
 - `v2-capnp.{helpers,example}.ts` — capnweb-**клиент** `connect<S>` (pipelining, capabilities);
   серверный биндинг уже в src. Импорты мигрированы на src. Имена файлов `v2-capnp.*` расходятся
   с именем биндинга `capnweb` — переименование не одобрено.
-- `v2-bytes.{helpers,example}.ts` — байтовый транспортный шов (вариант A, одобрен для спайка
-  2026-11-17): `bytes()`/`Uint8Array`-тело, `Format<Uint8Array>`, json+mock-binary кодеки,
-  унарный jsonrpc-биндинг (конверт/`toError` из src), fetch/express-адаптеры. Прогнан живьём
-  (оба формата, CoreError → -32602, fetch Response). Ядро не меняется; перенос в src не одобрен.
+- `v2-value.{helpers,example}.ts` — значение-уровневый шов + **format-ручка generic-адаптера**
+  (форма одобрена 2026-11-17; байтовый `v2-bytes.*` удалён). **Протокол один**: биндинги — те же
+  `jsonrpc`/`rest`, что в src, переведённые на значения (конверт `toWire`/`toError` из src, не форки
+  *Value). **Формат — format-ручка одного generic-адаптера** (`fromSvelteKit(binding, event, {format})`,
+  default json): пользователь втыкает свой кодек (devalue/msgpack/cbor) как в v1
+  `composer.use(backendAdapter)` — подмена формата = смена кодека, не адаптера/биндинга;
+  **без матрицы протокол×формат**. Format — кодек значений (unit text/bytes); formdata — read-режим
+  (`as`), docs — raw-escape. Прогнан живьём: default json + пользовательские devalue/msgpack на одном
+  api/адаптере, devalue восстанавливает Date (json теряет), formdata-поля, docs text/html мимо кодека.
+  Перенос в src не одобрен.
+- `v2-backend.example.ts` — спека поверхности бекенд-фреймворков (SvelteKit `+server.ts` POST /
+  Express `app.post`): только импорт композиции, объявление транспорта, ручка формата (`format`).
+  Тривиальный сервис один раз на оба фреймворка. **Причинность**: тело приходит СЫРЫМ от клиента
+  в `event.request`/`req.body` (express.raw()), парсит адаптер на границе — не клиент кодирует body
+  и не handler. В helpers добавлен `fromExpress` (сырой Buffer, без двойного парсинга). Прогнан
+  живьём: SvelteKit POST, Express POST, пользовательский msgpack на том же api/адаптере.
+- `v2-early-body.example.ts` — раннее извлечение тела (v1 `backendAdapter`): пользователь парсит
+  запрос ДО адаптера. **format становится только encode ответа** (decode не нужен — тело уже
+  значение); кодеки запроса/ответа могут различаться (между ними значение). Обычный адаптер после
+  раннего извлечения даёт 400 (stream съеден) — нужен value-level путь (биндинг потребляет значение).
+  Прогнан: early+адаптер→400, early+value-level→200, devalue-запрос/json-ответ, Express express.json().
 - Артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json` (mcp.json устарел — fn-only, без аннотаций).
 
 ## Gap-ревью перед переносом в src (приоритеты)
