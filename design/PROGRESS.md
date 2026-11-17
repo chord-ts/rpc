@@ -92,13 +92,13 @@
 - [ ] **спайк:** capnweb-клиент `connect<S>` (pipelining) — живёт в спайке, ждёт слой client.
 - [ ] **stream — не начат.** Блокирует SSE/WS, настоящий AsyncAPI, A2A/AG-UI/ACP, RSocket.
       Форма `AsyncIterable<Event>`, отмена, backpressure не решены.
-- [ ] Форматы: `Format<Raw = string>` generic (не зашит на строки); бинарные MessagePack/CBOR/NDJSON.
-      **Спайк значение-уровневого шова прогнан** — `v2-value.*`: Format — кодек значений над
-      единицей (text/bytes), transport-адаптер — сплав платформы и Format (читает
-      text()/arrayBuffer()/formData(), декодирует, зовёт биндинг, кодирует ответ), binding —
-      конверт над значениями (без format/raw). Подмена json/devalue/msgpack — один Format у
-      адаптера; formdata — read-режим; docs — raw-escape. Байтовый спайк `v2-bytes.*` удалён
-      (superseded: формат влез в протокол + терялся formdata). Перенос в src не одобрен.
+- [x] **Значение-уровневый шов + format-ручка перенесены в src** (2026-11-17, 44 теста):
+      `TransportRequest.body: unknown` / `TransportResponse.body: unknown + raw`, `Format.unit`
+      (text/bytes); generic-адаптеры `fromSvelteKit`/`fromExpress` с format-ручкой (default json,
+      сырое тело + раннее извлечение + formdata read-режим + docs raw-escape); биндинги
+      jsonrpc/rest/mcp над значениями (формат убран из биндингов, конверт toWire/toError сохранён).
+- [ ] Форматы: реальные бинарные кодеки MessagePack/CBOR/NDJSON (`Format<Uint8Array>`, unit bytes)
+      + devalue — пока mock-кодеки в спайке `v2-value.*`. Байтовый спайк `v2-bytes.*` удалён (superseded).
 - [ ] Клиентский рантайм: типизированный JSON-RPC/REST-клиент над проводом (capnweb `connect` — частный случай).
 
 ## 6. Генерация артефактов
@@ -125,41 +125,38 @@
 - [x] capnweb: ошибки больше не теряют контекст — нативный throw `CoreError`/ошибки обработчика
       (закрыто удалением `Result`, 2026-11-17).
 
-## Дизайн-спайки (design/)
+## Примеры и спайки (design/examples/)
 
-**Чистка выполнена:** superseded-кластер удалён (функциональность перенесена в src, легаси `toRPC`
-выпилен из src полностью): `helpers/example`, `v2-transport.*`, `v2-generate.*`, `v2-schemas.helpers`,
-`v2-mcp.example`, `v2-types.spike`, `v2-schema-agnostic.spike`. Восстановимы из git.
+**Реорганизация (2026-11-17):** примеры собраны в `design/examples/` — прогрессия от простого
+к сложному (01→07), от default к custom; общие тривиальные классы (`shared.ts`: Math/Catalog/Echo/
+Ticker/Counter), mock-кодеки (`codecs.ts`), механики спайков (`helpers/`). Индекс — `examples/README.md`.
+Старые `example.ts`/`example.rest.ts`/`v2-*.example.ts` свёрнуты в нумерованные примеры; продвинутые
+переиспользуют базовые классы. Superseded-кластер удалён ранее (восстановим из git). Все 7 примеров
+compile-checked и прогнаны живьём.
 
-**Активные спайки (форма не одобрена, в src ещё нет):**
-- `v2-stream.{helpers,example}.ts` — третий глагол: `stream({ in, event })`, async-генератор,
-  нативные ошибки (`CoreError`/`AbortError`), один `compose`. Прогнан живьём. `CoreError` теперь
-  общий с src (реэкспорт из types, локальный класс удалён).
-- `v2-capnp.{helpers,example}.ts` — capnweb-**клиент** `connect<S>` (pipelining, capabilities);
-  серверный биндинг уже в src. Импорты мигрированы на src. Имена файлов `v2-capnp.*` расходятся
-  с именем биндинга `capnweb` — переименование не одобрено.
-- `v2-value.{helpers,example}.ts` — значение-уровневый шов + **format-ручка generic-адаптера**
-  (форма одобрена 2026-11-17; байтовый `v2-bytes.*` удалён). **Протокол один**: биндинги — те же
-  `jsonrpc`/`rest`, что в src, переведённые на значения (конверт `toWire`/`toError` из src, не форки
-  *Value). **Формат — format-ручка одного generic-адаптера** (`fromSvelteKit(binding, event, {format})`,
-  default json): пользователь втыкает свой кодек (devalue/msgpack/cbor) как в v1
-  `composer.use(backendAdapter)` — подмена формата = смена кодека, не адаптера/биндинга;
-  **без матрицы протокол×формат**. Format — кодек значений (unit text/bytes); formdata — read-режим
-  (`as`), docs — raw-escape. Прогнан живьём: default json + пользовательские devalue/msgpack на одном
-  api/адаптере, devalue восстанавливает Date (json теряет), formdata-поля, docs text/html мимо кодека.
-  Перенос в src не одобрен.
-- `v2-backend.example.ts` — спека поверхности бекенд-фреймворков (SvelteKit `+server.ts` POST /
-  Express `app.post`): только импорт композиции, объявление транспорта, ручка формата (`format`).
-  Тривиальный сервис один раз на оба фреймворка. **Причинность**: тело приходит СЫРЫМ от клиента
-  в `event.request`/`req.body` (express.raw()), парсит адаптер на границе — не клиент кодирует body
-  и не handler. В helpers добавлен `fromExpress` (сырой Buffer, без двойного парсинга). Прогнан
-  живьём: SvelteKit POST, Express POST, пользовательский msgpack на том же api/адаптере.
-- `v2-early-body.example.ts` — раннее извлечение тела (v1 `backendAdapter`): пользователь парсит
-  запрос ДО адаптера. **format становится только encode ответа** (decode не нужен — тело уже
-  значение); кодеки запроса/ответа могут различаться (между ними значение). Обычный адаптер после
-  раннего извлечения даёт 400 (stream съеден) — нужен value-level путь (биндинг потребляет значение).
-  Прогнан: early+адаптер→400, early+value-level→200, devalue-запрос/json-ответ, Express express.json().
-- Артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json` (mcp.json устарел — fn-only, без аннотаций).
+**В src (примеры 01–04, базовый/расширенный):**
+- 01 rpc, 02 rest — базовые декларации (fn / get-post) + биндинги + транспорт, default json, docs.
+- 03 мультипротокол — один compose → rest/jsonrpc/mcp + agentTools (один реестр).
+- 04 форматы — **значение-уровневый шов + format-ручка generic-адаптера (перенесено в src)**:
+  json → devalue/msgpack сменой кодека (протокол один, без матрицы протокол×формат), formdata
+  read-режим, раннее извлечение тела (format только encode ответа), docs raw-escape. Причинность:
+  тело приходит сырым, парсит адаптер на границе (не клиент/handler).
+
+**Активные спайки (продвинутые, форма не одобрена, в src ещё нет):**
+- 05 websocket + `helpers/message` — **message-шов, вариант B**: самоадресуемые jsonrpc/mcp получают
+  `MessageBinding.handle(value, ctx) => value | null` (null = notification); HTTP-адаптер
+  `messageToHttp` (→ src fromSvelteKit) + WS-адаптер `wsFromMessage` (фреймы). REST остаётся
+  HTTP-связанным. Открывает WS/stream-трек. Прогнан: один биндинг поверх HTTP/WS, notification → 0
+  фреймов, batch. Stream (server-push) — отдельный глагол.
+- 06 stream + `helpers/stream` — третий глагол: `stream({ in, event })`, async-генератор, нативные
+  ошибки (`CoreError`/`AbortError`), один `compose`. Прогнан: события, отмена + cleanup, invalid-params.
+- 07 capnweb + `helpers/capnweb` — capnweb-**клиент** `connect<S>` (pipelining, capabilities по ссылке);
+  серверный биндинг уже в src. Прогнан: pipelining, capability-стаб, цепочка одним round trip.
+- 08 mcp-sse + `helpers/mcp-transport` — **MCP Streamable HTTP** (закрывает пробел 03: POST-only
+  недостаточно): сессии (`Mcp-Session-Id`), `POST → json | 202`, `GET → SSE` (server→client поток),
+  `DELETE → close`, server-push в сессию. Поверх mcpMessage (message-шов). Пользователь вешает
+  обработчик на GET/POST/DELETE. Прогнан: initialize→session, tools/call→42, notification→202,
+  GET SSE→event (list_changed), DELETE→204. Схождение stream-глагола + SSE-адаптера + session-роутера.
 
 ## Gap-ревью перед переносом в src (приоритеты)
 
@@ -180,8 +177,8 @@
       `generate/generate.test`, `tools/tools.test`, `protocol/{jsonrpc,protocol,capnweb}.test`, `transport/transport.test`.
       Общий helper — `src/test-utils.ts` (envelope). vitest include `src/**/*.test.ts`; `tsconfig.build.json`
       исключает тесты из dts-emit. typecheck (`tsc --noEmit`) покрывает и тесты.
-- [x] Канонические примеры `design/example.ts` (fn), `design/example.rest.ts` (REST) — compile-checked против src.
-- [ ] Активные спайки `v2-stream.*`/`v2-capnp.*` — compile-checked + ручной прогон, vitest пока нет.
+- [x] Примеры `design/examples/` (01→07, общие классы `shared.ts`) — compile-checked против src, прогнаны живьём.
+- [ ] Продвинутые спайки `examples/helpers/{message,stream,capnweb}` (05–07) — compile-checked + ручной прогон, vitest пока нет.
 - [ ] v1 `batch`/`spec` — падают (pre-existing shared-state в `Composer`), не чинил.
 
 ## Главная ставка / риски

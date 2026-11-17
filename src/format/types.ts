@@ -3,6 +3,8 @@
 
 export interface Format<Raw = string> {
   contentType: string;
+  /** How the adapter reads the body from the platform: text() or arrayBuffer(). */
+  unit: 'text' | 'bytes';
   decode(raw: Raw): unknown;
   encode(value: unknown): Raw;
 }

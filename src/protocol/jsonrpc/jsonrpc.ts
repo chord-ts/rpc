@@ -4,10 +4,8 @@
 // Public surface of the family: ./index.ts.
 
 import { CoreError, type Core, type CoreErrorKind } from '../../core/types';
-import type { Format } from '../../format/types';
 import type { AnySchema, Binding, TransportResponse } from '../../types';
 import type { ErrorObject, RPCBody, RPCId, RPCResponse } from './types';
-import { json as jsonFormat } from '../../format';
 import { openrpc } from '../../generate';
 
 // --- JSON-RPC 2.0 error codes + typed protocol error ---
@@ -54,28 +52,23 @@ export function toWire(id: RPCId, value: unknown, error?: ErrorObject): RPCRespo
   return error ? { jsonrpc: '2.0', id, error } : { jsonrpc: '2.0', id, result: value };
 }
 
-export function rpcResult(format: Format, id: RPCId, result: unknown): TransportResponse {
-  return { status: 200, headers: { 'content-type': format.contentType }, body: format.encode({ jsonrpc: '2.0', id, result }) };
+/** Value-level JSON-RPC success response (the adapter encodes it with Format). */
+export function rpcResult(id: RPCId, result: unknown): TransportResponse {
+  return { status: 200, body: { jsonrpc: '2.0', id, result } };
 }
 
+/** JSON-RPC binding over VALUES. Format lives in the transport adapter, not here; the envelope
+ * (normalize/batch/toWire) and rpc.discover stay. Parse errors (raw decode) belong to the adapter. */
 export function jsonrpc(
   core: Core<any>,
-  opts?: { format?: Format; jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string; description?: string } },
+  opts?: { jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string; description?: string } },
 ): Binding {
-  const format = opts?.format ?? jsonFormat;
   let discovery: object | undefined; // lazy, generated once
   return {
     async handle(req, ctx): Promise<TransportResponse> {
-      let body: RPCBody;
-      try {
-        body = format.decode(await req.text()) as RPCBody;
-      } catch {
-        const parseError: RPCResponse = {
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: ErrorCode.ParseError, message: 'Parse error' },
-        };
-        return { status: 200, headers: { 'content-type': format.contentType }, body: format.encode(parseError) };
+      const body = req.body as RPCBody;
+      if (body == null) {
+        return { status: 200, body: { jsonrpc: '2.0', id: null, error: { code: ErrorCode.InvalidRequest, message: 'Invalid request' } } };
       }
       // normalize → core.call per call → toWire; notification (no id) → no response.
       const calls = Array.isArray(body) ? body : [body];
@@ -95,8 +88,8 @@ export function jsonrpc(
         if (c.id != null) out.push(toWire(c.id, value, error));
       }
       const wire = Array.isArray(body) ? out : out[0];
-      if (wire === undefined) return { status: 204, headers: {}, body: null };
-      return { status: 200, headers: { 'content-type': format.contentType }, body: format.encode(wire) };
+      if (wire === undefined) return { status: 204, body: null };
+      return { status: 200, body: wire };
     },
   };
 }

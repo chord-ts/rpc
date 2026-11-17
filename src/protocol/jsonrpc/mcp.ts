@@ -4,10 +4,8 @@
 // NOTE: tools capability only — resources/prompts/sampling not yet; see PROGRESS.
 
 import type { Core } from '../../core/types';
-import type { Format } from '../../format/types';
 import type { AnySchema, Binding } from '../../types';
 import type { ErrorObject, RPCRequest } from './types';
-import { json as jsonFormat } from '../../format';
 import { mcpTools } from '../../generate';
 import { defaultSchemas, packToolArgs } from '../../schemas';
 // MCP — JSON-RPC-профиль, не пир: провод и модель ошибок берём из соседнего jsonrpc.
@@ -23,13 +21,12 @@ const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26'];
 
 export function mcp(
   core: Core<any>,
-  opts?: { format?: Format; jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string } },
+  opts?: { jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string } },
 ): Binding {
-  const format = opts?.format ?? jsonFormat;
   const toJson = opts?.jsonSchema ?? core.schemas?.jsonSchema ?? defaultSchemas.jsonSchema;
   return {
     async handle(req, ctx) {
-      const body = format.decode(await req.text()) as RPCRequest;
+      const body = (req.body ?? {}) as RPCRequest;
       const id = body.id ?? null;
 
       // Lifecycle: initialize handshake (protocolVersion negotiation + capabilities + serverInfo).
@@ -38,21 +35,21 @@ export function mcp(
         const version = SUPPORTED_VERSIONS.includes(params.protocolVersion ?? '')
           ? params.protocolVersion!
           : PROTOCOL_VERSION;
-        return rpcResult(format, id, {
+        return rpcResult(id, {
           protocolVersion: version,
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: opts?.info?.title ?? 'chord-mcp', version: opts?.info?.version ?? '1.0.0' },
         });
       }
       if (body.method === 'notifications/initialized') {
-        return { status: 204, headers: {}, body: null }; // notification — no response
+        return { status: 204, body: null }; // notification — no response
       }
       if (body.method === 'ping') {
-        return rpcResult(format, id, {});
+        return rpcResult(id, {});
       }
 
       if (body.method === 'tools/list') {
-        return rpcResult(format, id, mcpTools(core, { jsonSchema: toJson }));
+        return rpcResult(id, mcpTools(core, { jsonSchema: toJson }));
       }
 
       if (body.method === 'tools/call') {
@@ -62,9 +59,9 @@ export function mcp(
         // Ошибка исполнения тула — isError-контент (MCP spec), не JSON-RPC error.
         try {
           const value = await core.call(name, params ?? {}, { ctx });
-          return rpcResult(format, id, { content: [{ type: 'text', text: JSON.stringify(value) }], isError: false });
+          return rpcResult(id, { content: [{ type: 'text', text: JSON.stringify(value) }], isError: false });
         } catch (e) {
-          return rpcResult(format, id, { content: [{ type: 'text', text: toError(e).message }], isError: true });
+          return rpcResult(id, { content: [{ type: 'text', text: toError(e).message }], isError: true });
         }
       }
 
@@ -76,8 +73,8 @@ export function mcp(
       } catch (e) {
         error = toError(e);
       }
-      if (id == null) return { status: 204, headers: {}, body: null };
-      return { status: 200, headers: { 'content-type': format.contentType }, body: format.encode(toWire(id, value, error)) };
+      if (id == null) return { status: 204, body: null };
+      return { status: 200, body: toWire(id, value, error) };
     },
   };
 }

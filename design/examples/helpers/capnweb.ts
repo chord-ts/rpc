@@ -10,7 +10,7 @@
 // Прогон (вместе с example):
 //   npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/v2-capnp.example.ts
 
-import type { AnySchema, ServiceMap, Core } from '../src';
+import type { AnySchema, ServiceMap, Core } from '../../../src';
 
 // --- capability-маркер: схема «возвращает удалённый объект» ---
 // В schema-first мире capability не сериализуется — это ссылка. Маркер прячет инстанс

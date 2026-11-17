@@ -6,6 +6,7 @@ import type { Format } from './types';
 
 export const json: Format = {
   contentType: 'application/json',
+  unit: 'text',
   decode: (raw) => JSON.parse(raw),
   encode: (value) => JSON.stringify(value),
 };

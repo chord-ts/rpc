@@ -7,11 +7,8 @@ import type { ComposeOptions, ServiceMap } from './core/types';
 export function envelope<S extends ServiceMap>(services: S, options: ComposeOptions<S>) {
   const binding = jsonrpc(compose(services, options));
   return async (body: unknown): Promise<any> => {
-    const res = await binding.handle({
-      method: 'POST',
-      url: 'http://localhost/rpc',
-      text: async () => JSON.stringify(body),
-    });
-    return res.body == null ? undefined : JSON.parse(res.body);
+    // value-level шов: тело — значение, ответ binding'а — значение (без raw-конверта).
+    const res = await binding.handle({ method: 'POST', url: 'http://localhost/rpc', body });
+    return res.body == null ? undefined : res.body;
   };
 }

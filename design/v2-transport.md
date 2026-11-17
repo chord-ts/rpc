@@ -24,7 +24,7 @@ gRPC-web — по HTTP (protobuf). Ядро не знает ни протоко�
 
 ## Что уже есть (факт, не намерение)
 
-Слои реализованы в `src/` (корень). Канонический пример — [`example.rest.ts`](./example.rest.ts).
+Слои реализованы в `src/` (корень). Примеры — [`examples/`](./examples/README.md) (прогрессия 01→07).
 
 - **Ядро** `compose(...) → Core`: протокол-агностичный gasket `call/notify/endpoints` + `schemas`.
   `call(method, params, ctx) → Promise<unknown>` (значение) — то, что нужно любому протоколу.

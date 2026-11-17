@@ -32,10 +32,11 @@ class Math {
 }
 
 const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
+// value-level шов: тело — уже значение (без raw text()).
 const req = (method: string, path: string, body?: unknown): TransportRequest => ({
   method,
   url: `http://localhost${path}`,
-  text: async () => (body === undefined ? '' : JSON.stringify(body)),
+  body,
 });
 const rpcBody = (method: string, params: unknown, id?: number) =>
   req('POST', '/rpc', { jsonrpc: '2.0', method, params, id });
@@ -43,63 +44,64 @@ const rpcBody = (method: string, params: unknown, id?: number) =>
 test('jsonrpc: call, notification (204), rpc.discover', async () => {
   const binding = jsonrpc(composer);
   const call = await binding.handle(rpcBody('Math.count', 5, 1));
-  expect(JSON.parse(call.body!)).toEqual({ jsonrpc: '2.0', id: 1, result: 6 });
+  expect(call.body).toEqual({ jsonrpc: '2.0', id: 1, result: 6 });
 
   const notify = await binding.handle(rpcBody('Math.count', 5));
   expect(notify.status).toBe(204);
 
   const discover = await binding.handle(rpcBody('rpc.discover', undefined, 2));
-  expect(JSON.parse(discover.body!).result.openapi).toBeUndefined();
-  expect(JSON.parse(discover.body!).result.openrpc).toBe('1.3.2');
+  expect((discover.body as any).result.openapi).toBeUndefined();
+  expect((discover.body as any).result.openrpc).toBe('1.3.2');
 });
 
 test('rest: GET routing + slices, POST 201, validation 422, docs', async () => {
   const binding = rest(composer);
-  const get = await binding.handle(req('GET', '/items/42?q=hi'));
-  expect(get.status).toBe(200);
-  expect(JSON.parse(get.body!)).toEqual({ id: '42', name: 'item 42 (hi)' });
+  const got = await binding.handle(req('GET', '/items/42?q=hi'));
+  expect(got.status).toBe(200);
+  expect(got.body).toEqual({ id: '42', name: 'item 42 (hi)' });
 
   const created = await binding.handle(req('POST', '/items', { name: 'widget' }));
   expect(created.status).toBe(201);
-  expect(JSON.parse(created.body!)).toEqual({ id: 'new', name: 'widget' });
+  expect(created.body).toEqual({ id: 'new', name: 'widget' });
 
   const invalid = await binding.handle(req('POST', '/items', { name: 123 }));
   expect(invalid.status).toBe(422);
 
+  // openapi.json — raw-escape (финальная json-строка, мимо кодека формата).
   const spec = await binding.handle(req('GET', '/openapi.json'));
   expect(spec.status).toBe(200);
-  expect(JSON.parse(spec.body!).openapi).toBe('3.1.0');
+  expect(JSON.parse(spec.body as string).openapi).toBe('3.1.0');
 
   const docs = await binding.handle(req('GET', '/docs'));
   expect(docs.status).toBe(200);
-  expect(docs.headers['content-type']).toContain('text/html');
+  expect(docs.headers?.['content-type']).toContain('text/html');
 });
 
 test('mcp: tools/list + tools/call (scalar unwrap)', async () => {
   const binding = mcp(composer);
   const list = await binding.handle(rpcBody('tools/list', {}, 1));
-  const names = JSON.parse(list.body!).result.tools.map((t: any) => t.name);
+  const names = (list.body as any).result.tools.map((t: any) => t.name);
   expect(names).toEqual(expect.arrayContaining(['Catalog.getItem', 'Math.count']));
 
   const call = await binding.handle(rpcBody('tools/call', { name: 'Math.count', arguments: { value: 41 } }, 2));
-  expect(JSON.parse(call.body!).result.content[0].text).toBe('42');
+  expect((call.body as any).result.content[0].text).toBe('42');
 });
 
 test('mcp: initialize handshake + ping + notifications/initialized', async () => {
   const binding = mcp(composer, { info: { title: 'Catalog', version: '2.0.0' } });
 
   const init = await binding.handle(rpcBody('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } }, 1));
-  const result = JSON.parse(init.body!).result;
+  const result = (init.body as any).result;
   expect(result.protocolVersion).toBe('2025-06-18');
   expect(result.capabilities.tools).toBeDefined();
   expect(result.serverInfo).toEqual({ name: 'Catalog', version: '2.0.0' });
 
   // Неизвестная версия → сервер предлагает свою поддерживаемую.
   const fallback = await binding.handle(rpcBody('initialize', { protocolVersion: '1999-01-01' }, 2));
-  expect(JSON.parse(fallback.body!).result.protocolVersion).toBe('2025-06-18');
+  expect((fallback.body as any).result.protocolVersion).toBe('2025-06-18');
 
   const ping = await binding.handle(rpcBody('ping', {}, 3));
-  expect(JSON.parse(ping.body!).result).toEqual({});
+  expect((ping.body as any).result).toEqual({});
 
   const initialized = await binding.handle(rpcBody('notifications/initialized', undefined));
   expect(initialized.status).toBe(204);

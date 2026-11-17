@@ -21,9 +21,9 @@ import {
   type Injector,
   type Middleware,
   type ServiceMap,
-} from '../src';
+} from '../../../src';
 
-export { fn, CoreError } from '../src'; // унарная декларация и ошибка ядра — из src
+export { fn, CoreError } from '../../../src'; // унарная декларация и ошибка ядра — из src
 
 // --- декларация stream({ in, event }) ---
 

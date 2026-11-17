@@ -39,20 +39,23 @@ export interface RestMeta {
   status?: number;
 }
 
-// --- Transport seam (structural, zero-dep: no DOM/node types) ---
+// --- Transport seam, value-level (structural, zero-dep: no DOM/node types) ---
 // Stays at the bottom: protocol implements Binding, transport consumes it — putting the seam
-// in either layer would create an upward import.
+// in either layer would create an upward import. The seam carries VALUES, not raw wire: the
+// generic transport adapter reads raw (text/bytes/formData) and decodes via Format into body,
+// then encodes the response value back. Raw text/bytes are a codec+adapter detail, not the seam.
 export interface TransportRequest {
   method: string; // HTTP method
   url: string; // full URL (pathname + query)
-  text(): Promise<string>;
+  body: unknown; // parsed request value (adapter × Format, or early-extracted by the user)
 }
 export interface TransportResponse {
   status: number;
-  headers: Record<string, string>;
-  body: string | null;
+  headers?: Record<string, string>;
+  body: unknown; // response value — the adapter encodes it with Format
+  raw?: boolean; // escape: body is final (docs text/html, openapi.json) — bypass the codec
 }
-/** Protocol binding: raw request + ctx → raw response. Transport picks the binding explicitly. */
+/** Protocol binding: parsed request + ctx → response value. Transport picks the binding explicitly. */
 export interface Binding {
   handle(req: TransportRequest, ctx?: unknown): Promise<TransportResponse>;
 }

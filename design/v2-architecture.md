@@ -88,9 +88,11 @@ facade       корневой index.ts: публичная поверхност�
   `formData()` по `unit`), декодирует в значение, зовёт биндинг, кодирует ответ. Пользователь втыкает
   свой кодек (devalue/msgpack/cbor) сменой кодека — **без матрицы протокол×формат**. **Format** —
   симметричный кодек значений над единицей (`unit: text/bytes`), не знает платформы/протокола.
-  formdata — read-режим (`as`, multipart парсит платформа, асимметричен); docs (`text/html`) —
-  raw-escape (`ProtocolResponse.raw`), мимо negotiated кодека. Биндинги/транспорт в src пока на
-  текстовом raw-шове (`TransportRequest.text()`, format внутри биндинга); перенос не одобрен.
+  formdata — read-режим (`as`, multipart парсит платформа, асимметричен); docs (`text/html`,
+  openapi.json) — raw-escape (`TransportResponse.raw`), мимо negotiated кодека. **Перенесено в src**
+  (2026-11-17): шов значение-уровневый (`TransportRequest.body: unknown`), `Format.unit`,
+  format-ручка у generic-адаптеров `fromSvelteKit`/`fromExpress` (сырое тело + раннее извлечение),
+  биндинги над значениями. Реальные бинарные кодеки (msgpack/cbor) — следующий шаг.
   Для stream ndjson codec'ит каждое событие отдельно, фрейминг — транспорт (ждёт stream-gasket).
 
 Поэтому format ниже protocol в стеке и импортирует только types.
@@ -180,8 +182,9 @@ tsdown это отдельный release-шаг, когда рантайм бу�
 
 ## Модули src (реализовано)
 
-Superseded-спайки удалены (перенесены в src); канонические примеры — `design/example.ts` (fn),
-`design/example.rest.ts` (REST/мультипротокол). Активные спайки: `v2-stream.*`, `v2-capnp.*` (клиент).
+Superseded-спайки удалены (перенесены в src). Примеры — `design/examples/` (прогрессия 01→07,
+общие классы `shared.ts`, индекс `README.md`): 01–04 на механиках src, 05–07 — спайки
+(message-шов WS / stream / capnweb-клиент) в `examples/helpers/`.
 
 | Модуль (корень src/) | Содержимое |
 |---|---|
