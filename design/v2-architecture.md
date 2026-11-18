@@ -17,12 +17,14 @@
 
 ```
 types        сквозные контракты: AnySchema/InferOutput, SchemaAdapter, RestMeta,
-             Binding, TransportRequest/Response. Типы слоёв — в своих слоях:
-             core/types (CoreError, Contract/Fn, DI, Core, Client), format/types (Format),
+             Binding, TransportRequest/Response, MessageBinding, StreamBinding + проекции
+             HttpProtocol/MessageProtocol/StreamProtocol (модели взаимодействия транспорта).
+             Типы слоёв — в своих слоях:
+             core/types (CoreError, Contract/Fn/StreamFn, DI, Core, Client), format/types (Format),
              tools/types (AgentTool), protocol/jsonrpc/types (RPC-wire, ErrorObject).
   ↑
-core         fn, compose → Core (instantiate/call/notify/endpoints/schemas), registry,
-             dispatch/invoke, paramNames. ZERO vendor deps.
+core         fn/stream, compose → Core (instantiate/call/notify/stream/endpoints/schemas),
+             registry, dispatch/invoke, paramNames. ZERO vendor deps.
   ↑
 schemas      defaultSchemas (generic ~standard), flatToolSchema, packToolArgs;
              листья: schemas/zod, schemas/valibot, schemas/yup (opt-in, peer deps)
@@ -37,8 +39,11 @@ protocol     jsonrpc/ — семейство с публичным index.ts: jso
              (ErrorCode/RpcError/toError/toWire) + mcp-профиль (импортирует провод
              из соседнего jsonrpc, не пир). Пиры rest/capnweb не импортируют друг
              друга. Content-type инлайнится в ответах (shared удалён).
+             Фабрики отдают проекции: rest → { http }, jsonrpc/mcp/capnweb →
+             { message, http }, events → { stream }; мост messageToHttp — protocol/message.ts.
   ↑
-transport    fromSvelteKit / fromExpress / fromNode / ws / sse. Protocol-agnostic.
+transport    fromSvelteKit / fromExpress / fromWs / fromWsStream (+ fromNode / sse позже).
+             Protocol-agnostic: потребляет проекции ({ http } / { message } / { stream }).
   ↑
 client       connect (capnweb), typed jsonrpc/rest клиент, batch => per-item значение/ошибка.
   ↑
@@ -56,7 +61,7 @@ facade       корневой index.ts: публичная поверхност�
 | **generate** | types, core (`Core`, `core.schemas`), schemas (операции) | protocol, transport |
 | **tools** | generate (`mcpTools`), schemas (`flatToolSchema`/`packToolArgs`), core | protocol, transport |
 | **protocol** | core (gasket), generate (docs/discovery/tools), format, schemas; mcp → jsonrpc (профиль) | transport; пиры друг друга (кроме mcp → jsonrpc) |
-| **transport** | protocol (`Binding`), format, types | core-рантайм напрямую, generate |
+| **transport** | types (проекции HttpProtocol/MessageProtocol), format | protocol, core-рантайм напрямую, generate |
 | **client** | types, protocol (wire-формы), transport (fetch/ws) | server-рантайм core |
 | **facade** | core, tools, schemas (default), types | — (точка сборки) |
 
@@ -83,7 +88,7 @@ facade       корневой index.ts: публичная поверхност�
   `v2-value.*`; байтовый `v2-bytes.*` удалён). **Протокол один**: биндинги — те же `jsonrpc`/`rest`/
   `mcp`, переведённые на значения (`ProtocolRequest.body: unknown`), конверт/ошибки переиспользуются
   (`toWire`/`toError`), без format/raw — НЕ форки под шов/формат. **Формат — format-ручка одного
-  generic-адаптера** (`fromSvelteKit(binding, event, {format})`, default json): адаптер — сплав
+  generic-адаптера** (`fromSvelteKit(protocol, event, {format})`, default json): адаптер — сплав
   платформы и кодека (паттерн v1 `backendAdapter`), читает тело нативно (`text()`/`arrayBuffer()`/
   `formData()` по `unit`), декодирует в значение, зовёт биндинг, кодирует ответ. Пользователь втыкает
   свой кодек (devalue/msgpack/cbor) сменой кодека — **без матрицы протокол×формат**. **Format** —
@@ -93,7 +98,8 @@ facade       корневой index.ts: публичная поверхност�
   (2026-11-17): шов значение-уровневый (`TransportRequest.body: unknown`), `Format.unit`,
   format-ручка у generic-адаптеров `fromSvelteKit`/`fromExpress` (сырое тело + раннее извлечение),
   биндинги над значениями. Реальные бинарные кодеки (msgpack/cbor) — следующий шаг.
-  Для stream ndjson codec'ит каждое событие отдельно, фрейминг — транспорт (ждёт stream-gasket).
+  Для stream ndjson codec'ит каждое событие отдельно, фрейминг — транспорт (глагол в src;
+  ndjson-кодек — следующий шаг).
 
 Поэтому format ниже protocol в стеке и импортирует только types.
 
@@ -123,10 +129,10 @@ src — есть.
 
 **Composer не решает REST vs RPC.** Ядро — протокол-агностичный плоский реестр
 `Service.method → handler` и один gasket `call(method, params, ctx)`. Решение об адресации
-принимает **биндинг**:
+принимает **протокол** (фабрики отдают проекции, адаптер берёт свою):
 
 ```
-HTTP-запрос → транспорт (fromSvelteKit) → БИНДИНГ (адресация) → composer.call(method, params)
+HTTP-запрос → транспорт (fromSvelteKit) → ПРОЕКЦИЯ ПРОТОКОЛА (адресация) → composer.call(method, params)
 ```
 
 - **rest-биндинг** — адресация по **пути + HTTP-глаголу**: строит маршруты только из эндпоинтов
@@ -139,6 +145,61 @@ HTTP-запрос → транспорт (fromSvelteKit) → БИНДИНГ (а�
 REST-класс → OpenAPI, RPC-класс → OpenRPC/MCP, без частичного попадания класса в оба документа).
 В рантайме биндинги агрегируют поверх всех классов одного composer; какой эндпоинт доступен
 по пути, а какой по имени — определяется наличием `rest`-метаданных, а не классом как таковым.
+
+## Binding на уровне адаптера — проекции протоколов (перенесено в src 2026-11-18)
+
+**Разворот зависимостей:** не адаптер подстраивается под форму протокола, а протокол сам отдаёт
+адаптеру нужный контракт. Биндинг — **модель взаимодействия транспорта** (транспорт-адресуемый
+http / самоадресуемый message / поток stream), а не контракт на протокол; словарь мал и растёт
+аддитивно (спайк 10: stream-модель добавлена новыми файлами, старые не тронуты).
+
+- Контракты — в types.ts: `Binding` (http), `MessageBinding` (value → value|null), проекции
+  `HttpProtocol { http }`, `MessageProtocol extends HttpProtocol { message }`.
+- Фабрики: `rest → { http }`; `jsonrpc/mcp → { message, http }`; capnweb `ServerSession` +
+  message/http. Мост `messageToHttp` (protocol/message.ts) встроен в фабрику — пользователь
+  не пишет кастомный binding: `fromSvelteKit(jsonrpc(composer))` как `fromSvelteKit(rest(composer))`.
+- Адаптеры стабильны и протокол-агностичны: fromSvelteKit/fromExpress требуют `{ http }`,
+  fromWs — `{ message }`. Пересечение моделей enforced типами (REST × WS — ошибка типов);
+  проекции — обычные поля, способности композируются spread'ом, кастомный транспорт берёт
+  контракт напрямую (`rpc.message.handle`).
+- Транспорт больше не импортирует protocol — только types (проекции) + format.
+
+## Матрица протоколов и адаптеров
+
+Протокол заявляет проекции (модели взаимодействия), адаптер требует свою. Совместимость —
+пересечение, enforced типами: «—» = проекции нет, передача адаптеру — ошибка типов.
+«мост» = встроенный `messageToHttp` (фабрика строит сама, пользователь не пишет).
+
+### Протоколы × проекции
+
+| Протокол | Где | http (`Binding`) | message (`MessageBinding`) | stream (`StreamBinding`) | Адресация |
+|---|---|---|---|---|---|
+| `rest` | src | ✓ нативная | — | — | транспортная: method+path+query |
+| `jsonrpc` | src | ✓ мост | ✓ нативная | — | самоадресуемая: `body.method` |
+| `mcp` | src | ✓ мост | ✓ нативная | — | самоадресуемая: `body.method` |
+| `capnweb` | src | ✓ мост | ✓ нативная (batch→batch) | — | самоадресуемая: путь в батче |
+| `events` | src | — | — | ✓ нативная | самоадресуемая подписка `{method,params}` |
+| `{...rpc, ...events}` | src (композиция) | ✓ | ✓ | ✓ | композиция способностей spread'ом |
+
+- capnweb: проекции живут на `ServerSession` (`resolve/release/dispose` сохранены).
+- stream-модель в src (2026-11-18): глагол `core.stream` + `StreamBinding/StreamProtocol` +
+  `events` + `fromWsStream`. Unary-генераторы (openrpc/mcpTools/agentTools) stream исключают,
+  AsyncAPI строится из stream-контрактов (`contract.event`).
+
+### Адаптеры × требуемая проекция
+
+| Адаптер | Где | Требует | Подружится с |
+|---|---|---|---|
+| `fromSvelteKit` | src | `{ http }` | rest, jsonrpc, mcp, capnweb, hybrid |
+| `fromExpress` | src | `{ http }` | rest, jsonrpc, mcp, capnweb, hybrid |
+| `fromWs` | src | `{ message }` | jsonrpc, mcp, capnweb, hybrid; **rest — ошибка типов** |
+| `fromWsStream` | src | `{ stream }` | events, hybrid; jsonrpc/rest — ошибка типов |
+| `mcpStreamableHttp` | спайк 08 | `MessageBinding` напрямую | `mcp.message` (сессии + SSE — MCP-специфика) |
+| `fromNode` / generic SSE | план | `{ http }` / `{ stream }` | по мере реализации |
+
+Кастомный транспорт берёт проекцию напрямую (`rpc.message.handle(value)`, `cap.stream.handle(...)`) —
+адаптеры и мост не обязательны. Format — отдельная ручка каждого адаптера (default json); матрицы
+протокол×формат нет — единицы провода см. в таблице «Format и протоколы» выше.
 
 ## Карта экспорта пакета
 
@@ -182,23 +243,23 @@ tsdown это отдельный release-шаг, когда рантайм бу�
 
 ## Модули src (реализовано)
 
-Superseded-спайки удалены (перенесены в src). Примеры — `design/examples/` (прогрессия 01→07,
-общие классы `shared.ts`, индекс `README.md`): 01–04 на механиках src, 05–07 — спайки
-(message-шов WS / stream / capnweb-клиент) в `examples/helpers/`.
+Superseded-спайки удалены (перенесены в src). Примеры — `design/examples/` (прогрессия 01→10,
+общие классы `shared.ts`, индекс `README.md`): 01–06/09–10 на механиках src, 07/08 — спайки
+(capnweb-клиент / MCP-SSE) в `examples/helpers/`.
 
 | Модуль (корень src/) | Содержимое |
 |---|---|
-| `types.ts` | сквозные контракты: AnySchema/InferOutput, SchemaAdapter, RestMeta, транспортный шов (Binding/TransportRequest/Response) — только то, что нужно несмежным слоям |
-| `core/` | fn, compose → Core (call/notify/endpoints), registry, dispatch/invoke, paramNames; `types.ts` — CoreError, Middleware, Contract/Fn, DI, Core/ComposeOptions/Endpoint, Client-проекция |
+| `types.ts` | сквозные контракты: AnySchema/InferOutput, SchemaAdapter, RestMeta, шов (Binding/TransportRequest/Response, MessageBinding, StreamBinding) + проекции HttpProtocol/MessageProtocol/StreamProtocol — только то, что нужно несмежным слоям |
+| `core/` | fn/stream, compose → Core (call/notify/stream/endpoints), registry, dispatch/invoke, paramNames; `types.ts` — CoreError, Middleware, Contract/Fn/StreamContract/StreamFn/StreamOpts, DI, Core/ComposeOptions/Endpoint, Client-проекция |
 | `schemas/` | defaultSchemas, flatToolSchema, packToolArgs; лист `schemas/zod` (ZodAdapter) |
 | `format/` | json (текстовый кодек); `types.ts` — Format |
 | `generate/` | openapi, openrpc, mcpTools, asyncapi |
 | `tools/` | agentTools (отдельно от ядра); `types.ts` — AgentTool |
-| `protocol/` | `jsonrpc/` — семейство с публичным index.ts: jsonrpc (провод + ErrorCode/RpcError/toError/toWire) + mcp (профиль) + `types.ts` (RPC-wire, ErrorObject); rest (сахар get/post/http + RestContract), capnweb |
-| `transport/` | fromSvelteKit, fromExpress |
+| `protocol/` | `jsonrpc/` — семейство с публичным index.ts: jsonrpc (провод + ErrorCode/RpcError/toError/toWire) + mcp (профиль) + `types.ts` (RPC-wire, ErrorObject); rest (сахар get/post/http + RestContract), capnweb, events (stream); `message.ts` — мост messageToHttp. Фабрики отдают проекции: rest → { http }, jsonrpc/mcp/capnweb → { message, http }, events → { stream } |
+| `transport/` | fromSvelteKit, fromExpress ({ http }), fromWs + Socket ({ message }), fromWsStream ({ stream }); format-ручка |
 | `index.ts` | фасад — реэкспорт слоёв |
-| **ещё нет:** `client/` | capnweb connect/RpcPromise (спайк `v2-capnp.*`), typed jsonrpc/rest клиент |
-| **ещё нет:** stream | третий глагол core + SSE/WS (спайк `v2-stream.*`) |
+| **ещё нет:** `client/` | capnweb connect/RpcPromise (спайк 07), typed jsonrpc/rest клиент |
+| **ещё нет:** stream-довески | backpressure, мультиплексирование подписок по id, middleware вокруг stream, generic SSE-адаптер |
 
 ## Инварианты (чем проверяем)
 
@@ -208,7 +269,7 @@ Superseded-спайки удалены (перенесены в src). Приме
    по умолчанию (иначе zod попадёт в обязательные deps).
 4. **generate переиспользуем standalone** — не импортирует protocol/transport (генераторы работают
    и без сервера, для CLI/статической выгрузки).
-5. **transport protocol-agnostic** — знает только `Binding`, не конкретный протокол.
+5. **transport protocol-agnostic** — знает только проекции (HttpProtocol/MessageProtocol), не конкретный протокол.
 6. **types — единственный общий слой** — никаких runtime-зависимостей, только контракты.
 7. **Класс протокол-согласован** — REST или RPC, не смесь; проверяется throw'ом в `compose`
    (`buildRoutes`). Роутинг — в биндинге, composer — плоский реестр `call(method)`.
@@ -235,7 +296,9 @@ Superseded-спайки удалены (перенесены в src). Приме
 
 ## Не решено здесь (ждёт отдельных дизайн-сессий)
 
-- `stream` — третий глагол core; меняет gasket и protocol/transport (SSE/WS). Слой тот же,
-  но форма `AsyncIterable<Event>`/отмена не спроектированы.
+- `stream` — глагол + проекция в src (2026-11-18): `stream({in,event})`, async-генератор, один
+  compose, нативные ошибки/отмена; StreamBinding/StreamProtocol, events, fromWsStream.
+  Не решены: backpressure, мультиплексирование подписок по id, middleware вокруг stream
+  (обёртка вокруг iterable vs per-event), generic SSE-адаптер.
 - Типизированный `ctx` (`Core<Ctx>`) — проходит сквозь все слои, сейчас `unknown`.
 - Минификация DI (`paramNames`) — стратегия unbuilt `.ts`/явные ключи; влияет на core.

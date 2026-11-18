@@ -4,7 +4,7 @@
 
 export * from './types';
 export * from './core/types';
-export { fn, compose, paramNames } from './core';
+export { fn, stream, compose, paramNames } from './core';
 export { defaultSchemas, flatToolSchema, packToolArgs } from './schemas';
 export { json } from './format';
 export type { Format } from './format/types';
@@ -13,4 +13,4 @@ export type { GenOptions, StreamMeta } from './generate';
 export { agentTools } from './tools';
 export type { AgentTool } from './tools/types';
 export * from './protocol';
-export { fromSvelteKit, fromExpress } from './transport';
+export { fromSvelteKit, fromExpress, fromWs, fromWsStream, type Socket } from './transport';

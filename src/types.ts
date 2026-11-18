@@ -59,3 +59,31 @@ export interface TransportResponse {
 export interface Binding {
   handle(req: TransportRequest, ctx?: unknown): Promise<TransportResponse>;
 }
+
+// --- Interaction models (transport vocabulary, not per-protocol contracts) ---
+// A binding is a transport interaction model: transport-addressed (http), self-addressed
+// (message), stream. Protocols declare their nature once and hand adapters the contract they
+// need — projections. Adapters stay stable and protocol-agnostic: each consumes its own view.
+// New models are added additively (new seam + projection); existing code does not change.
+
+/** Self-addressed seam: parsed message + ctx → reply value; null = no reply (notification). */
+export interface MessageBinding {
+  handle(value: unknown, ctx?: unknown): Promise<unknown | null>;
+}
+/** HTTP projection — what HTTP adapters (fromSvelteKit/fromExpress) require. */
+export interface HttpProtocol {
+  http: Binding;
+}
+/** Self-addressed protocol: native message seam + built-in HTTP projection (messageToHttp). */
+export interface MessageProtocol extends HttpProtocol {
+  message: MessageBinding;
+}
+/** Stream seam: subscription value + ctx → event iterable. Cancellation is native to the
+ * iterator (return()/throw() → generator finally-cleanup); errors propagate as native throw. */
+export interface StreamBinding {
+  handle(value: unknown, ctx?: unknown): AsyncIterable<unknown>;
+}
+/** Stream projection — what stream adapters (fromWsStream) require. */
+export interface StreamProtocol {
+  stream: StreamBinding;
+}

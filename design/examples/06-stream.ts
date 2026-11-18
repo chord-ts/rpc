@@ -1,8 +1,8 @@
-// 06 · Stream (продвинутый). Третий глагол: stream({ in, event }), обработчик — async-генератор.
+// 06 · Stream (продвинутый, в src). Третий глагол: stream({ in, event }), обработчик — async-генератор.
 // Голые события, нативные ошибки (CoreError) / отмена (AbortError). Переиспользует Ticker.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/06-stream.ts
 
-import { compose, CoreError } from './helpers/stream';
+import { compose, CoreError } from '../../src';
 import { Ticker } from './shared';
 
 const composer = compose({ Ticker }, { inject: {} });

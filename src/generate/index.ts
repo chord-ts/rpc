@@ -37,8 +37,7 @@ const reasonPhrase = (status: number) => REASON[status] ?? 'Response';
 
 type JsonObj = { properties?: Record<string, unknown>; required?: string[] };
 
-// --- stream metadata hypothesis (AsyncAPI needs an event-schema source) ---
-// stream gasket not designed yet; `stream` field on fn is a proposal: channel + event schema = out.
+// --- stream metadata: optional channel override for AsyncAPI (default channel = Service.method) ---
 export interface StreamMeta {
   channel: string;
 }
@@ -106,13 +105,13 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): object {
 }
 
 // --- OpenRPC 1.3 (method-centric JSON-RPC) ---
-// Transitive to JSON-RPC: fn declarations (no rest). params is a single 'params' descriptor
-// (our call takes one value, not a positional array).
+// Transitive to JSON-RPC: unary fn declarations (no rest, no stream — stream описывает AsyncAPI).
+// params is a single 'params' descriptor (our call takes one value, not a positional array).
 export function openrpc(core: Core<any>, opts: GenOptions = {}): object {
   const toJson = converter(opts, core);
   const methods = core
     .endpoints()
-    .filter((e) => !e.contract?.rest)
+    .filter((e) => !e.contract?.rest && !e.contract?.event)
     .map((e) => {
       const c = (e.contract ?? {}) as Record<string, unknown>;
       return {
@@ -133,9 +132,10 @@ export function openrpc(core: Core<any>, opts: GenOptions = {}): object {
 }
 
 // --- MCP tools/list ---
-// Tools for ALL endpoints with a schema (agent needs REST and fn). REST: path/query/body parts
-// flattened into one inputSchema; annotations derived from the HTTP verb. fn: scalar in wrapped
-// into { value: … } (MCP requires inputSchema.type === 'object').
+// Tools for ALL unary endpoints with a schema (agent needs REST and fn; stream — не тул,
+// его описывает AsyncAPI). REST: path/query/body parts flattened into one inputSchema;
+// annotations derived from the HTTP verb. fn: scalar in wrapped into { value: … }
+// (MCP requires inputSchema.type === 'object').
 type JsonSchemaObj = { type?: string; properties?: Record<string, unknown>; required?: string[] };
 
 const READ_ONLY = ['GET', 'HEAD', 'OPTIONS'];
@@ -151,7 +151,7 @@ export function mcpTools(core: Core<any>, opts: GenOptions = {}): { tools: unkno
   const toJson = converter(opts, core);
   const tools = core
     .endpoints()
-    .filter((e) => e.contract)
+    .filter((e) => e.contract && !e.contract.event)
     .map((e) => {
       const c = e.contract!;
       const meta = c.mcp as { desc?: string; title?: string } | undefined;
@@ -196,22 +196,22 @@ export function mcpTools(core: Core<any>, opts: GenOptions = {}): { tools: unkno
   return { tools };
 }
 
-// --- AsyncAPI 3.0 (hypothesis: depends on stream design) ---
-// A channel per endpoint with stream metadata; send = params (in), receive = event (out).
+// --- AsyncAPI 3.0 ---
+// Transitive to stream: a channel per stream endpoint (contract.event); send = params (in),
+// receive = event. Channel address = Service.method, override — contract.stream.channel.
 export function asyncapi(core: Core<any>, opts: GenOptions = {}): object {
   const toJson = converter(opts, core);
   const channels: Record<string, unknown> = {};
   const operations: Record<string, unknown> = {};
 
   for (const e of core.endpoints()) {
-    const meta = e.contract?.stream as StreamMeta | undefined;
-    if (!meta || !e.contract) continue;
-    const ch = meta.channel;
+    if (!e.contract?.event) continue;
+    const ch = (e.contract.stream as StreamMeta | undefined)?.channel ?? `${e.service}.${e.method}`;
     channels[ch] = {
       address: ch,
       messages: {
         params: { payload: toJson(e.contract.in) },
-        event: { payload: e.contract.out ? toJson(e.contract.out) : {} },
+        event: { payload: toJson(e.contract.event) },
       },
     };
     operations[`${ch}.send`] = {

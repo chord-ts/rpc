@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, compose, agentTools } from '../index';
+import { fn, get, stream, compose, agentTools } from '../index';
 import { ZodAdapter } from '../schemas/zod';
 
 class Math {
@@ -34,4 +34,18 @@ test('agentTools: REST tool — flat vendor schema with auto-path, invoke ok', a
   const getItem = tools.find((t) => t.name === 'Catalog.getItem')!;
   expect(getItem.schema['~standard'].validate({ item_id: '7', q: 'x' })).toEqual({ value: { item_id: '7', q: 'x' } });
   expect(await getItem.invoke({ item_id: '7' })).toEqual({ id: 'x' });
+});
+
+test('agentTools: stream-эндпоинты не тулы (unary only)', () => {
+  class Ticker {
+    constructor() {}
+    static $countdown = stream({ in: z.object({ from: z.number() }), event: z.object({ n: z.number() }) });
+    countdown: typeof Ticker.$countdown.fn = async function* ({ from }) {
+      yield { n: from };
+    };
+  }
+  const c = compose({ Math, Ticker }, { inject: {}, schemas: new ZodAdapter() });
+  const names = agentTools(c).map((t) => t.name);
+  expect(names).toContain('Math.count');
+  expect(names).not.toContain('Ticker.countdown');
 });

@@ -3,15 +3,14 @@
 // server→client канал (SSE) + сессии. Пользователь вешает обработчик на GET (SSE-подписка),
 // POST (сообщения) и DELETE (завершение сессии) — не только POST.
 //
-// Поверх message-биндинга (mcpMessage: value → value | null). POST → json-ответ (или 202 для
-// notification); GET → SSE-поток сессии (server-push); DELETE → close. Mcp-Session-Id выдаётся
+// Поверх message-биндинга (mcp(composer).message: value → value | null). POST → json-ответ (или 202
+// для notification); GET → SSE-поток сессии (server-push); DELETE → close. Mcp-Session-Id выдаётся
 // на initialize. SSE-фреймы текстовые (MCP фиксирует json): `data: {json}\n\n`.
 //
 // Это схождение stream-глагола (server-push) + SSE-адаптера + session-роутера. Generic унарный
 // fromSvelteKit сюда не годится (один Response, не поток) — нужен session-aware SSE-транспорт.
 
-import { json, type Format } from '../../../src';
-import type { MessageBinding } from './message';
+import { json, type Format, type MessageBinding } from '../../../src';
 
 const encoder = new TextEncoder();
 

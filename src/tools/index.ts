@@ -12,7 +12,8 @@ export function agentTools(core: Core<any>, opts: GenOptions = {}): AgentTool[] 
   const schemas = core.schemas ?? defaultSchemas;
   const toJson = opts.jsonSchema ?? schemas.jsonSchema;
   const descriptors = mcpTools(core, opts).tools as Array<Omit<AgentTool, 'schema' | 'invoke' | 'func'>>;
-  const endpoints = core.endpoints().filter((e) => e.contract);
+  // Unary only: stream-эндпоинты не тулы (mcpTools их тоже исключает — индексы сходятся).
+  const endpoints = core.endpoints().filter((e) => e.contract && !e.contract.event);
 
   return endpoints.map((e, i) => {
     const c = e.contract!;

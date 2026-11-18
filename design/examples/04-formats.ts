@@ -43,6 +43,6 @@ const addCall = { jsonrpc: '2.0', method: 'Math.add', params: { a: 2, b: 3 }, id
   // Раннее извлечение: пользователь парсит тело сам → value-level биндинг, format только encode ответа.
   const req = new Request('http://localhost/rpc', { method: 'POST', body: JSON.stringify(addCall) });
   const early = await req.json();
-  const res = await rpcApi.handle({ method: 'POST', url: req.url, body: early });
+  const res = await rpcApi.http.handle({ method: 'POST', url: req.url, body: early });
   console.log('04 early-body →', res.body); // { jsonrpc, id: 1, result: 5 }
 })();

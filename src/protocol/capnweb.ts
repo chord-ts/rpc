@@ -3,8 +3,9 @@
 // capability(Ctor) marks a return-by-reference object: hidden under Symbol.for, on the wire {$cap:id}.
 // NOTE: capability registry never releases yet (leak); cap calls bypass fn validation — see PROGRESS.
 
-import type { AnySchema } from '../types';
+import type { AnySchema, MessageBinding, MessageProtocol } from '../types';
 import type { Core } from '../core/types';
+import { messageToHttp } from './message';
 
 const CAP = Symbol.for('chord.capability');
 const CAP_VENDOR = 'chord-capability';
@@ -37,7 +38,9 @@ export interface Path {
 }
 export type Batch = Path[];
 
-export interface ServerSession {
+/** Cap'n Web session: batch-of-paths resolve + capability lifecycle, plus transport projections
+ * (self-addressed batch → batch results, so the native seam is message; http is the built-in bridge). */
+export interface ServerSession extends MessageProtocol {
   resolve(batch: Batch, ctx?: unknown): Promise<unknown[]>;
   /** Free one capability (its id from {$cap:id}); further calls to it fail. */
   release(capId: number): void;
@@ -51,8 +54,11 @@ export function capnweb(core: Core<any>): ServerSession {
   const results: unknown[] = []; // live across batches: `from` references a global index
   const contracts = new Map(core.endpoints().map((e) => [`${e.service}.${e.method}`, e.contract]));
   let closed = false;
+  const message: MessageBinding = { handle: (value, ctx) => session.resolve(value as Batch, ctx) };
   const session: ServerSession = {
     lastBatch: undefined,
+    message,
+    http: messageToHttp(message),
     release(capId) {
       caps[capId] = undefined;
     },

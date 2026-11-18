@@ -5,8 +5,12 @@
 // codec, not the adapter/binding. No protocol×format matrix. Protocol/format-agnostic otherwise.
 // Early extraction: pass a pre-parsed `body` (or express.json() object) — decode is skipped,
 // Format then only encodes the response.
+// Adapters own the transport contract and consume the protocol's projection: HTTP adapters
+// require { http }, fromWs requires { message }, fromWsStream requires { stream }. The protocol
+// hands over the contract it built (message protocols bridge via messageToHttp inside the
+// factory) — no user-written bindings.
 
-import type { Binding, TransportResponse } from '../types';
+import type { HttpProtocol, MessageProtocol, StreamProtocol, TransportResponse } from '../types';
 import type { Format } from '../format/types';
 import { json } from '../format';
 
@@ -40,7 +44,7 @@ async function readBody(request: FetchRequest, format: Format<any>, as: ReadMode
 }
 
 export async function fromSvelteKit(
-  binding: Binding,
+  protocol: HttpProtocol,
   event: { request: FetchRequest; locals?: unknown },
   opts: { format?: Format<any>; as?: ReadMode; body?: unknown } = {},
 ): Promise<Response> {
@@ -52,7 +56,7 @@ export async function fromSvelteKit(
     // Parse-error — граница адаптера (протокол-агностично).
     return new Response(JSON.stringify({ detail: 'Parse error' }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
-  const res = await binding.handle({ method: event.request.method, url: event.request.url, body }, event.locals);
+  const res = await protocol.http.handle({ method: event.request.method, url: event.request.url, body }, event.locals);
   return respond(res, format);
 }
 
@@ -79,7 +83,7 @@ export interface ExpressRes {
 }
 
 export async function fromExpress(
-  binding: Binding,
+  protocol: HttpProtocol,
   req: ExpressReq,
   res: ExpressRes,
   opts: { format?: Format<any> } = {},
@@ -97,8 +101,58 @@ export async function fromExpress(
     res.status(400).set('content-type', 'application/json').send(JSON.stringify({ detail: 'Parse error' }));
     return;
   }
-  const r = await binding.handle({ method: req.method, url: `http://localhost${req.url}`, body }, req.ctx);
+  const r = await protocol.http.handle({ method: req.method, url: `http://localhost${req.url}`, body }, req.ctx);
   res.status(r.status);
   for (const [k, v] of Object.entries({ 'content-type': format.contentType, ...r.headers })) res.set(k, v);
   res.send(r.status === 204 ? null : r.raw ? (r.body as string | Uint8Array) : format.encode(r.body));
+}
+
+// --- WebSocket: message-проекция ↔ фреймы сокета. Format codec'ит фрейм (text/bytes).
+// null-ответ (notification) → фрейм не шлётся. Серверный push (stream) — отдельная модель, позже.
+
+export interface Socket {
+  send(data: string | Uint8Array): void;
+  onMessage(handler: (data: string | Uint8Array) => void | Promise<void>): void;
+}
+
+export function fromWs(protocol: MessageProtocol, socket: Socket, opts: { format?: Format<any> } = {}): void {
+  const format = opts.format ?? json;
+  socket.onMessage(async (data) => {
+    const value = format.decode(data); // фрейм → значение
+    const reply = await protocol.message.handle(value);
+    if (reply != null) socket.send(format.encode(reply)); // значение → фрейм; null → не слать
+  });
+}
+
+// --- WebSocket stream: фрейм-подписка → события; {cancel:true} → return() итератора (cleanup).
+// Одна активная подписка на сокет (мультиплексирование по id — следующий шаг). Ошибка стрима —
+// нативный throw → error-фрейм (wire ошибок — конвенция адаптера, протокол может задать свою).
+
+export function fromWsStream(protocol: StreamProtocol, socket: Socket, opts: { format?: Format<any> } = {}): void {
+  const format = opts.format ?? json;
+  let active: AsyncIterator<unknown> | undefined;
+  socket.onMessage(async (data) => {
+    const value = format.decode(data) as { cancel?: boolean } | null;
+    if (value?.cancel) {
+      const it = active;
+      active = undefined;
+      await it?.return?.(); // return() → finally генератора (cleanup)
+      return;
+    }
+    const prev = active;
+    const it = protocol.stream.handle(value)[Symbol.asyncIterator]();
+    active = it; // синхронно: cancel-фрейм сразу за подпиской уже видит итератор
+    await prev?.return?.(); // новая подписка вытесняет старую
+    try {
+      for (;;) {
+        const { value: event, done } = await it.next();
+        if (done) break;
+        socket.send(format.encode(event));
+      }
+    } catch (e) {
+      socket.send(format.encode({ error: e instanceof Error ? e.message : String(e) }));
+    } finally {
+      if (active === it) active = undefined;
+    }
+  });
 }

@@ -1,16 +1,15 @@
 // 08 · MCP Streamable HTTP (продвинутый). MCP требует НЕ только POST, но и GET-подписку (SSE
 // server→client) + сессии. Пользователь вешает обработчик на GET, POST и DELETE. Переиспользует Math.
-// Поверх mcpMessage (message-шов) — транспорт добавляет сессию + SSE-канал.
+// Поверх mcp(composer).message (message-шов в src) — транспорт добавляет сессию + SSE-канал.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/08-mcp-sse.ts
 
-import { compose } from '../../src';
+import { compose, mcp } from '../../src';
 import { ZodAdapter } from '../../src/schemas/zod';
 import { Math } from './shared';
-import { mcpMessage } from './helpers/message';
 import { mcpStreamableHttp } from './helpers/mcp-transport';
 
 const composer = compose({ Math }, { inject: {}, schemas: new ZodAdapter() });
-const mcpHttp = mcpStreamableHttp(mcpMessage(composer));
+const mcpHttp = mcpStreamableHttp(mcp(composer).message);
 
 // SvelteKit: src/routes/mcp/+server.ts — обработчик на ВСЕ три метода, не только POST.
 export const GET = (event: { request: Request }) => mcpHttp.handle(event); // SSE-подписка

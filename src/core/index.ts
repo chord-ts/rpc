@@ -15,6 +15,9 @@ import {
   type MethodDesc,
   type Middleware,
   type ServiceMap,
+  type StreamContract,
+  type StreamFn,
+  type StreamOpts,
 } from './types';
 
 /**
@@ -23,6 +26,14 @@ import {
  */
 export function fn<C extends Contract>(c: C): Fn<C> {
   return c as unknown as Fn<C>;
+}
+
+/**
+ * Declares a stream endpoint: `$method.fn` — async-генератор (input, signal) → события.
+ * Тип аргумента из `in`, тип события из `event`. Отмена нативная (signal / return() итератора).
+ */
+export function stream<C extends StreamContract>(c: C): StreamFn<C> {
+  return c as unknown as StreamFn<C>;
 }
 
 // Dependency keys match constructor parameter names (parsing ctor.toString()).
@@ -183,8 +194,45 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     if (!desc) {
       throw new CoreError('not-found', `Method not found: ${call.method}`);
     }
+    if (desc.contract?.event) {
+      throw new CoreError('invalid-params', `Method ${call.method} is a stream — use stream() instead`);
+    }
     const terminal = (c: unknown) => invoke(desc, call.params, c);
     return runChain(ctx, [...composerMiddlewares, ...desc.use], terminal);
+  }
+
+  // Третий глагол: голые события + нативные ошибки. Валидация входа и каждого события;
+  // отмена gasket-enforced (signal.aborted → AbortError), return()/break потребителя →
+  // finally-cleanup генератора. Middleware вокруг stream — отдельный вопрос (обёртка вокруг
+  // iterable vs per-event), пока не применяется.
+  async function* stream(method: string, params: unknown, opts?: StreamOpts): AsyncIterable<unknown> {
+    const desc = routes.get(method);
+    if (!desc || !desc.contract?.event) {
+      throw new CoreError('not-found', `Not a stream method: ${method}`);
+    }
+    const parsedIn = await desc.contract.in['~standard'].validate(params);
+    if ('issues' in parsedIn) {
+      throw new CoreError('invalid-params', 'Validation error', parsedIn.issues);
+    }
+    const Ctor = services[desc.service] as AnyCtor;
+    const ctx = opts?.ctx ?? {};
+    const deps = paramNames(Ctor).map((name) => inject[name](ctx));
+    const instance = new Ctor(...deps);
+    const handler = instance[desc.method];
+    if (typeof handler !== 'function') {
+      throw new CoreError('not-found', `Method not found: ${method}`);
+    }
+    const signal = opts?.signal ?? new AbortController().signal;
+    const eventSchema = desc.contract.event;
+    // .call(instance): обработчик — async function* (не стрелка), this = инстанс (this.ctx и DI).
+    for await (const event of handler.call(instance, parsedIn.value, signal)) {
+      if (signal.aborted) throw new DOMException('The stream was aborted', 'AbortError');
+      const parsed = await eventSchema['~standard'].validate(event);
+      if ('issues' in parsed) {
+        throw new CoreError('invalid-output', 'Event validation error', parsed.issues);
+      }
+      yield parsed.value;
+    }
   }
 
   return {
@@ -193,6 +241,7 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     notify: async (method, params, opts) => {
       await dispatch({ method, params }, opts?.ctx ?? {});
     },
+    stream,
     endpoints: () => registry,
     schemas: options?.schemas,
   };

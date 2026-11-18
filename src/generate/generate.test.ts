@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, compose, openapi, openrpc, mcpTools } from '../index';
+import { fn, get, stream, compose, openapi, openrpc, mcpTools, asyncapi } from '../index';
 import { ZodAdapter } from '../schemas/zod';
 
 // REST-ресурс (сахар get). RPC-методы — отдельным классом (стили не смешиваются).
@@ -60,4 +60,31 @@ test('generate works without registered adapter (generic fallback)', () => {
   const doc = openapi(bare) as any;
   // defaultSchemas reads zod ~standard.jsonSchema natively
   expect(doc.paths['/items/{item_id}'].get.responses['200'].content['application/json'].schema).toMatchObject({ type: 'object' });
+});
+
+class Ticker {
+  constructor() {}
+  static $countdown = stream({ in: z.object({ from: z.number() }), event: z.object({ n: z.number() }), desc: 'Обратный отсчёт' });
+  countdown: typeof Ticker.$countdown.fn = async function* ({ from }) {
+    for (let n = from; n > 0; n--) yield { n };
+  };
+}
+
+test('asyncapi: канал на stream-эндпоинт (send=in, receive=event); unary-генераторы stream не берут', () => {
+  const c = compose({ Catalog, Math, Ticker }, { inject: {}, schemas: new ZodAdapter() });
+  const doc = asyncapi(c) as any;
+  expect(doc.asyncapi).toBe('3.0.0');
+  const ch = doc.channels['Ticker.countdown'];
+  expect(ch.address).toBe('Ticker.countdown');
+  expect(ch.messages.params.payload).toMatchObject({ type: 'object' });
+  expect(ch.messages.event.payload.properties.n).toMatchObject({ type: 'number' });
+  expect(doc.operations['Ticker.countdown.send'].action).toBe('send');
+  expect(doc.operations['Ticker.countdown.receive'].action).toBe('receive');
+  // только stream-эндпоинты: unary в AsyncAPI не попадают
+  expect(Object.keys(doc.channels)).toEqual(['Ticker.countdown']);
+
+  const rpc = openrpc(c) as any;
+  expect(rpc.methods.map((m: any) => m.name)).not.toContain('Ticker.countdown');
+  const { tools } = mcpTools(c) as any;
+  expect(tools.map((t: any) => t.name)).not.toContain('Ticker.countdown');
 });

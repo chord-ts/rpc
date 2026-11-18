@@ -6,3 +6,5 @@
 export * from './jsonrpc';
 export { rest, get, post, put, patch, del, http, type RestContract } from './rest';
 export { capnweb, capability, type Step, type Path, type Batch, type ServerSession } from './capnweb';
+export { events } from './events';
+export { messageToHttp } from './message';

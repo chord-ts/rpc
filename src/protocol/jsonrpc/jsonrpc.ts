@@ -4,9 +4,10 @@
 // Public surface of the family: ./index.ts.
 
 import { CoreError, type Core, type CoreErrorKind } from '../../core/types';
-import type { AnySchema, Binding, TransportResponse } from '../../types';
+import type { AnySchema, MessageBinding, MessageProtocol } from '../../types';
 import type { ErrorObject, RPCBody, RPCId, RPCResponse } from './types';
 import { openrpc } from '../../generate';
+import { messageToHttp } from '../message';
 
 // --- JSON-RPC 2.0 error codes + typed protocol error ---
 export const ErrorCode = {
@@ -52,44 +53,42 @@ export function toWire(id: RPCId, value: unknown, error?: ErrorObject): RPCRespo
   return error ? { jsonrpc: '2.0', id, error } : { jsonrpc: '2.0', id, result: value };
 }
 
-/** Value-level JSON-RPC success response (the adapter encodes it with Format). */
-export function rpcResult(id: RPCId, result: unknown): TransportResponse {
-  return { status: 200, body: { jsonrpc: '2.0', id, result } };
-}
-
-/** JSON-RPC binding over VALUES. Format lives in the transport adapter, not here; the envelope
- * (normalize/batch/toWire) and rpc.discover stay. Parse errors (raw decode) belong to the adapter. */
+/** JSON-RPC protocol over VALUES: self-addressed (method inside the envelope), so the native
+ * seam is MessageBinding; the http projection is the built-in messageToHttp bridge. Format lives
+ * in the transport adapter; the envelope (normalize/batch/toWire) and rpc.discover stay here.
+ * Parse errors (raw decode) belong to the adapter. */
 export function jsonrpc(
   core: Core<any>,
   opts?: { jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string; description?: string } },
-): Binding {
+): MessageProtocol {
   let discovery: object | undefined; // lazy, generated once
-  return {
-    async handle(req, ctx): Promise<TransportResponse> {
-      const body = req.body as RPCBody;
+  const message: MessageBinding = {
+    async handle(value, ctx): Promise<unknown | null> {
+      const body = value as RPCBody;
       if (body == null) {
-        return { status: 200, body: { jsonrpc: '2.0', id: null, error: { code: ErrorCode.InvalidRequest, message: 'Invalid request' } } };
+        return { jsonrpc: '2.0', id: null, error: { code: ErrorCode.InvalidRequest, message: 'Invalid request' } };
       }
       // normalize → core.call per call → toWire; notification (no id) → no response.
       const calls = Array.isArray(body) ? body : [body];
       const baseCtx = (ctx ?? {}) as Record<string, unknown>;
       const out: RPCResponse[] = [];
       for (const c of calls) {
-        let value: unknown;
+        let v: unknown;
         let error: ErrorObject | undefined;
         try {
-          value =
+          v =
             c.method === 'rpc.discover'
               ? (discovery ??= openrpc(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }))
               : await core.call(c.method, c.params, { ctx: { ...baseCtx } }); // per-call copy: no ctx leak across batch
         } catch (e) {
           error = toError(e);
         }
-        if (c.id != null) out.push(toWire(c.id, value, error));
+        if (c.id != null) out.push(toWire(c.id, v, error));
       }
-      const wire = Array.isArray(body) ? out : out[0];
-      if (wire === undefined) return { status: 204, body: null };
-      return { status: 200, body: wire };
+      // JSON-RPC spec: a batch of only notifications gets no response (not an empty array).
+      if (Array.isArray(body)) return out.length ? out : null;
+      return out[0] ?? null;
     },
   };
+  return { message, http: messageToHttp(message) };
 }

@@ -34,6 +34,8 @@ export type MaybeArray<T> = T | T[];
 export type Contract = {
   in: AnySchema<any>;
   out?: AnySchema<any>;
+  /** stream-декларация: схема события (вместо out); наличие отличает stream-эндпоинт. */
+  event?: AnySchema<any>;
   use?: MaybeArray<Middleware<any>>;
 };
 
@@ -42,6 +44,21 @@ export type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : 
 export type Fn<C extends Contract> = C & {
   fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
 };
+
+// --- schema-first stream declaration + `stream` ---
+export type StreamContract = {
+  in: AnySchema<any>;
+  event: AnySchema<any>;
+  use?: MaybeArray<Middleware<any>>;
+  desc?: string;
+};
+
+/** Фантомный тип обработчика: async-генератор (input, signal) → события. */
+export type StreamFn<C extends StreamContract> = C & {
+  fn: (input: InferOutput<C['in']>, signal: AbortSignal) => AsyncIterable<InferOutput<C['event']>>;
+};
+
+export type StreamOpts = { ctx?: unknown; signal?: AbortSignal };
 
 // --- DI + Client types ---
 export type AnyCtor = new (...args: any[]) => any;
@@ -91,11 +108,14 @@ export interface Endpoint {
 
 /** Protocol-agnostic core: verbs + registry + the registered schema adapter.
  * Verbs return the value and throw natively (CoreError for pipeline failures, handler errors
- * as-is). No exec/envelope, no tools() — those live in upper layers (protocol/jsonrpc, tools). */
+ * as-is). stream yields bare events (AsyncIterable); cancellation is native — signal.aborted →
+ * AbortError, consumer return()/break → generator finally-cleanup. No exec/envelope, no tools() —
+ * those live in upper layers (protocol/jsonrpc, tools). */
 export interface Core<S extends ServiceMap> {
   instantiate(ctx: unknown): Instantiated<S>;
   call(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<unknown>;
   notify(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<void>;
+  stream(method: string, params: unknown, opts?: StreamOpts): AsyncIterable<unknown>;
   endpoints(): readonly Endpoint[];
   schemas?: SchemaAdapter;
 }

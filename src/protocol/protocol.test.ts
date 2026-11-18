@@ -42,7 +42,7 @@ const rpcBody = (method: string, params: unknown, id?: number) =>
   req('POST', '/rpc', { jsonrpc: '2.0', method, params, id });
 
 test('jsonrpc: call, notification (204), rpc.discover', async () => {
-  const binding = jsonrpc(composer);
+  const binding = jsonrpc(composer).http;
   const call = await binding.handle(rpcBody('Math.count', 5, 1));
   expect(call.body).toEqual({ jsonrpc: '2.0', id: 1, result: 6 });
 
@@ -55,7 +55,7 @@ test('jsonrpc: call, notification (204), rpc.discover', async () => {
 });
 
 test('rest: GET routing + slices, POST 201, validation 422, docs', async () => {
-  const binding = rest(composer);
+  const binding = rest(composer).http;
   const got = await binding.handle(req('GET', '/items/42?q=hi'));
   expect(got.status).toBe(200);
   expect(got.body).toEqual({ id: '42', name: 'item 42 (hi)' });
@@ -78,7 +78,7 @@ test('rest: GET routing + slices, POST 201, validation 422, docs', async () => {
 });
 
 test('mcp: tools/list + tools/call (scalar unwrap)', async () => {
-  const binding = mcp(composer);
+  const binding = mcp(composer).http;
   const list = await binding.handle(rpcBody('tools/list', {}, 1));
   const names = (list.body as any).result.tools.map((t: any) => t.name);
   expect(names).toEqual(expect.arrayContaining(['Catalog.getItem', 'Math.count']));
@@ -88,7 +88,7 @@ test('mcp: tools/list + tools/call (scalar unwrap)', async () => {
 });
 
 test('mcp: initialize handshake + ping + notifications/initialized', async () => {
-  const binding = mcp(composer, { info: { title: 'Catalog', version: '2.0.0' } });
+  const binding = mcp(composer, { info: { title: 'Catalog', version: '2.0.0' } }).http;
 
   const init = await binding.handle(rpcBody('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } }, 1));
   const result = (init.body as any).result;
@@ -105,4 +105,26 @@ test('mcp: initialize handshake + ping + notifications/initialized', async () =>
 
   const initialized = await binding.handle(rpcBody('notifications/initialized', undefined));
   expect(initialized.status).toBe(204);
+});
+
+test('jsonrpc: message-проекция — значения, notification → null', async () => {
+  const { message } = jsonrpc(composer);
+  const call = await message.handle({ jsonrpc: '2.0', method: 'Math.count', params: 5, id: 1 });
+  expect(call).toEqual({ jsonrpc: '2.0', id: 1, result: 6 });
+  expect(await message.handle({ jsonrpc: '2.0', method: 'Math.count', params: 5 })).toBeNull();
+});
+
+test('jsonrpc: batch из одних notification → null / 204 (спека: пустой batch не шлётся)', async () => {
+  const rpc = jsonrpc(composer);
+  const notifications = [{ jsonrpc: '2.0', method: 'Math.count', params: 5 }];
+  expect(await rpc.message.handle(notifications)).toBeNull();
+  const res = await rpc.http.handle(req('POST', '/rpc', notifications));
+  expect(res.status).toBe(204);
+});
+
+test('mcp: message-проекция — tools/list значением', async () => {
+  const { message } = mcp(composer);
+  const list = (await message.handle({ jsonrpc: '2.0', method: 'tools/list', params: {}, id: 1 })) as any;
+  expect(list.result.tools.map((t: any) => t.name)).toEqual(expect.arrayContaining(['Math.count']));
+  expect(await message.handle({ jsonrpc: '2.0', method: 'notifications/initialized' })).toBeNull();
 });

@@ -4,7 +4,7 @@
 
 import { fn } from '../core';
 import { CoreError, type Core, type MaybeArray, type Middleware } from '../core/types';
-import type { AnySchema, Binding, RestMeta, TransportResponse } from '../types';
+import type { AnySchema, Binding, HttpProtocol, RestMeta, TransportResponse } from '../types';
 import { openapi } from '../generate';
 
 // --- declaration sugar: parts instead of flat in ---
@@ -123,7 +123,7 @@ export function rest(
     info?: { title: string; version: string; description?: string };
     docs?: boolean | { openapi?: string; swagger?: string; redoc?: string };
   },
-): Binding {
+): HttpProtocol {
   const routes: RestRoute[] = [];
   for (const e of core.endpoints()) {
     const meta = e.contract?.rest as RestMeta | undefined;
@@ -150,7 +150,8 @@ export function rest(
     raw: true,
   });
 
-  return {
+  // REST транспорт-адресуемый (method+path) — нативный контракт HTTP, проекция одна.
+  const http: Binding = {
     async handle(req, ctx) {
       const url = new URL(req.url);
 
@@ -214,4 +215,5 @@ export function rest(
       }
     },
   };
+  return { http };
 }

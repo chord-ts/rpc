@@ -33,3 +33,15 @@ test('capnweb: capability resolve, release, dispose', async () => {
   session.dispose();
   await expect(session.resolve([])).rejects.toThrow('disposed');
 });
+
+test('capnweb: проекции message/http поверх сессии', async () => {
+  const batch = [{ from: null, steps: [{ get: 'Catalog' }, { call: 'counter', args: [] }] }];
+
+  const s1 = capnweb(composer);
+  expect(await s1.message.handle(batch)).toEqual([{ $cap: 0 }]);
+
+  const s2 = capnweb(composer);
+  const res = await s2.http.handle({ method: 'POST', url: 'http://localhost/capnweb', body: batch });
+  expect(res.status).toBe(200);
+  expect(res.body).toEqual([{ $cap: 0 }]);
+});

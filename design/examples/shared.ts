@@ -2,8 +2,7 @@
 // Объявления schema-first: тип метода выводится из фантомного $method.fn.
 
 import { z } from 'zod';
-import { fn, get, post } from '../../src';
-import { stream } from './helpers/stream';
+import { fn, get, post, stream } from '../../src';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
