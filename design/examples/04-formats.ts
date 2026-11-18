@@ -1,6 +1,6 @@
 // 04 · Форматы (расширенный, default → custom). Format — codec-ручка generic-адаптера:
 // default json, пользователь втыкает devalue/msgpack сменой кодека (протокол/адаптер те же).
-// formdata — read-режим; раннее извлечение тела — format только на ответ.
+// formdata — read-режим; раннее извлечение тела — нативный message-шов (значение на руках).
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/04-formats.ts
 
 import { compose, jsonrpc, rest, fromSvelteKit, json, type Format } from '../../src';
@@ -40,9 +40,10 @@ const addCall = { jsonrpc: '2.0', method: 'Math.add', params: { a: 2, b: 3 }, id
   const formRes = await fromSvelteKit(restApi, { request: new Request('http://localhost/items', { method: 'POST', body: fd }) }, { as: 'formdata' });
   console.log('04 formdata →', await formRes.json()); // { id: 'new', name: 'widget' }
 
-  // Раннее извлечение: пользователь парсит тело сам → value-level биндинг, format только encode ответа.
+  // Раннее извлечение: тело распарсено пользователем (кастомный формат / express.json()) →
+  // значение на руках → нативный message-шов: без dummy method/url, null = notification.
   const req = new Request('http://localhost/rpc', { method: 'POST', body: JSON.stringify(addCall) });
   const early = await req.json();
-  const res = await rpcApi.http.handle({ method: 'POST', url: req.url, body: early });
-  console.log('04 early-body →', res.body); // { jsonrpc, id: 1, result: 5 }
+  const reply = await rpcApi.message.handle(early);
+  console.log('04 early-body (message) →', reply); // { jsonrpc, id: 1, result: 5 }
 })();

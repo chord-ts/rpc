@@ -101,6 +101,10 @@
       обрастает message/http (resolve/release/dispose сохранены). Адаптеры стабильны: fromSvelteKit/
       fromExpress требуют { http }, fromWs — { message }; REST × WS — ошибка типов. Поведение:
       jsonrpc batch из одних notification → 204 (спека JSON-RPC; раньше было 200 []).
+      **Форма ЗАФИКСИРОВАНА (2026-11-18); правки — с обоснованием/доказательством/альтернативами,
+      не втихую.** Семантика раннего извлечения:
+      значение на руках → message.handle (нативно, без dummy method/url; пример 04); HTTP-ответ
+      с ранним телом в кастомном формате → адаптер opts.body; REST → всегда http.
 - [ ] **спайк:** capnweb-клиент `connect<S>` (pipelining) — живёт в спайке, ждёт слой client.
 - [x] **src: stream — третий глагол + проекция** (2026-11-18, 62 теста): `stream({in,event})`
       в core (один compose рядом с fn), `Core.stream(method, params, {ctx,signal})` → голые
@@ -155,16 +159,17 @@ Ticker/Counter), mock-кодеки (`codecs.ts`), механики спайко�
 переиспользуют базовые классы. Superseded-кластер удалён ранее (восстановим из git). Все 10 примеров
 compile-checked и прогнаны живьём.
 
-**В src (примеры 01–06, 09–10):**
+**В src (примеры 01–06, 09–10; 01–05 согласованы пользователем 2026-11-18):**
 - 01 rpc, 02 rest — базовые декларации (fn / get-post) + биндинги + транспорт, default json, docs.
 - 03 мультипротокол — один compose → rest/jsonrpc/mcp + agentTools (один реестр).
 - 04 форматы — **значение-уровневый шов + format-ручка generic-адаптера (перенесено в src)**:
   json → devalue/msgpack сменой кодека (протокол один, без матрицы протокол×формат), formdata
   read-режим, раннее извлечение тела (format только encode ответа), docs raw-escape. Причинность:
   тело приходит сырым, парсит адаптер на границе (не клиент/handler).
-- 05 websocket — **message-шов в src** (перенос 2026-11-18): jsonrpc-проекции { message, http },
-  fromSvelteKit + fromWs поверх одного протокола; `helpers/message` сжат до демо-LoopbackSocket.
-  Прогнан: HTTP/WS result 5, notification → 0 фреймов.
+- 05 websocket — **WS через message-шов в src** (перенос 2026-11-18): fromWs поверх jsonrpc.message,
+  фреймы/notification/batch + format-ручка (default json и кастомный msgpack). HTTP-демо убрано
+  (SvelteKit/Request не про сокеты, WS идёт через message). `helpers/message` — демо-LoopbackSocket.
+  Прогнан: call→5, notification→0 фреймов, batch→массив, msgpack-фрейм→5.
 - 06 stream — **третий глагол в src** (перенос 2026-11-18): stream({in,event}) + compose.stream,
   голые события, отмена + cleanup, нативные ошибки, DI. Прогнан: countdown, abort→AbortError,
   invalid-params.
@@ -186,6 +191,16 @@ compile-checked и прогнаны живьём.
   Пользователь вешает обработчик на GET/POST/DELETE. Прогнан: initialize→session, tools/call→42,
   notification→202, GET SSE→event (list_changed), DELETE→204. Схождение stream-глагола +
   SSE-адаптера + session-роутера.
+- 11 group-stream + `helpers/group-stream` — **group/broadcast-стрим, вариант 3b** (форма выбрана
+  пользователем 2026-11-18 после сравнения 1/2/3a/3b; перенос в src не одобрен). Декларация
+  `stream({ in, event, group, backpressure })` с типизированными хэндлами `Board.$events.publish(room, e)`
+  / `Board.$events.subscribe(room, signal)` (без magic strings, типы из схемы). Общий генератор на
+  группу (дедуп по ключу, сигнатура `(input, signal)` прежняя) тапает subscribe-хэндл и деривирует
+  события; канал ядра держит fan-out / refcount / per-subscriber backpressure (reliable буфер+disconnect,
+  lossy drop). Связь applyUpdate→events — явный publish. CRDT-доска. Прогнан: два подписчика комнаты
+  (fan-out), накопление снапшота, отмена одного→другой продолжает (refcount), отдельная комната,
+  reliable-overflow→disconnect. Транспорт подписки — тот же stream-шов (fromWsStream/SSE не меняются).
+  Открыто: мультиплексирование calls+подписок по id на одном сокете, типизированный клиент.
 
 ## Gap-ревью перед переносом в src (приоритеты)
 
