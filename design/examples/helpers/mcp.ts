@@ -229,32 +229,122 @@ export function mcp(core: Core<any>, opts: McpOptions = {}): McpEndpoint {
     }
   }
 
+  // --- индекс реестра: MCP-имена плоские, chord адресует Service.method ---
+  // kind различается meta-полями декларации: mcp.resource / mcp.prompt / иначе тул.
+  type ResourceMeta = { name: string; uri?: string; uriTemplate?: string; title?: string; mimeType?: string };
+  type PromptMeta = { name: string; title?: string; arguments?: { name: string; description?: string; required?: boolean }[] };
+  type Meta = { name?: string; resource?: ResourceMeta; prompt?: PromptMeta };
+  const metaOf = (e: { contract: unknown }): Meta => ((e.contract as { mcp?: Meta } | null)?.mcp ?? {}) as Meta;
+  const registryName = (e: { service: string; method: string }) => `${e.service}.${e.method}`;
+  const declared = () => core.endpoints().filter((e) => e.contract && !e.contract.event);
+  const toolEndpoints = () => declared().filter((e) => !metaOf(e).resource && !metaOf(e).prompt);
+  const resourceEndpoints = () => declared().filter((e) => metaOf(e).resource);
+  const promptEndpoints = () => declared().filter((e) => metaOf(e).prompt);
+  const toolName = (e: { service: string; method: string; contract: unknown }) => metaOf(e).name ?? registryName(e);
+
+  const templateMatch = (uriTemplate: string, uri: string): boolean => {
+    const re = new RegExp(`^${uriTemplate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\{[^}]+\\\}/g, '[^/]+')}$`);
+    return re.test(uri);
+  };
+
+  /** Обработчик может вернуть готовый CallToolResult (content-блоки MCP) — не оборачиваем.
+   * Иначе значение сериализуется в text-блок. Эвристика по форме content — вопрос формы. */
+  function callToolResult(v: unknown): Record<string, unknown> {
+    const content = (v as { content?: unknown } | null)?.content;
+    if (Array.isArray(content) && content.every((b) => typeof (b as { type?: unknown })?.type === 'string')) {
+      return v as Record<string, unknown>;
+    }
+    return { content: [{ type: 'text', text: JSON.stringify(v) }] };
+  }
+
   async function unary(msg: RPCRequest, params: Params, ctx: unknown): Promise<unknown> {
     const id = msg.id ?? null;
     try {
       if (msg.method === 'server/discover') {
         return ok(id, {
           supportedVersions: supported,
-          capabilities: { tools: {}, ...(opts.resources ? { resources: {} } : {}) },
+          capabilities: {
+            tools: {},
+            ...(opts.resources || resourceEndpoints().length ? { resources: {} } : {}),
+            ...(promptEndpoints().length ? { prompts: {} } : {}),
+            completions: {},
+          },
           instructions: opts.instructions,
           ttlMs,
           cacheScope,
         });
       }
+
       if (msg.method === 'tools/list') {
-        return ok(id, { ...mcpTools(core, { jsonSchema: toJson }), ttlMs, cacheScope });
+        // mcpTools строит схемы из реестра; resources/prompts тулами не являются, а имена
+        // берём из mcp.name. Фильтрованный view ядра — чтобы не править src-шный генератор.
+        const toolsCore = { ...core, endpoints: () => toolEndpoints() };
+        const listed = mcpTools(toolsCore as Core<any>, { jsonSchema: toJson }).tools as { name: string }[];
+        const names = new Map(toolEndpoints().map((e) => [registryName(e), toolName(e)]));
+        return ok(id, { tools: listed.map((t) => ({ ...t, name: names.get(t.name) ?? t.name })), ttlMs, cacheScope });
       }
+
       if (msg.method === 'tools/call') {
-        const name = params.name as string;
-        const endpoint = core.endpoints().find((e) => `${e.service}.${e.method}` === name);
-        const args = endpoint?.contract ? packToolArgs(endpoint.contract, params.arguments, toJson) : params.arguments;
+        const target = toolEndpoints().find((e) => toolName(e) === params.name);
+        const args = target?.contract ? packToolArgs(target.contract, params.arguments, toJson) : params.arguments;
         try {
-          const v = await core.call(name, args ?? {}, { ctx });
-          return ok(id, { content: [{ type: 'text', text: JSON.stringify(v) }], isError: false });
+          const v = await core.call(target ? registryName(target) : (params.name as string), args ?? {}, { ctx });
+          return ok(id, { ...callToolResult(v), isError: false });
         } catch (e) {
           return ok(id, { content: [{ type: 'text', text: e instanceof Error ? e.message : String(e) }], isError: true });
         }
       }
+
+      if (msg.method === 'resources/list') {
+        const resources = resourceEndpoints()
+          .filter((e) => metaOf(e).resource?.uri)
+          .map((e) => {
+            const r = metaOf(e).resource!;
+            return { uri: r.uri, name: r.name, title: r.title, description: e.contract?.desc, mimeType: r.mimeType };
+          });
+        return ok(id, { resources, ttlMs, cacheScope });
+      }
+
+      if (msg.method === 'resources/templates/list') {
+        const resourceTemplates = resourceEndpoints()
+          .filter((e) => metaOf(e).resource?.uriTemplate)
+          .map((e) => {
+            const r = metaOf(e).resource!;
+            return { uriTemplate: r.uriTemplate, name: r.name, title: r.title, description: e.contract?.desc, mimeType: r.mimeType };
+          });
+        return ok(id, { resourceTemplates, ttlMs, cacheScope });
+      }
+
+      if (msg.method === 'resources/read') {
+        const uri = params.uri as string;
+        const target = resourceEndpoints().find((e) => {
+          const r = metaOf(e).resource!;
+          return r.uri === uri || (r.uriTemplate ? templateMatch(r.uriTemplate, uri) : false);
+        });
+        // SEP-2164: resource not found → -32602 (Invalid Params) + data.uri, не -32601.
+        if (!target) return fail(id, ErrorCode.InvalidParams, `Resource not found: ${uri}`, undefined, { uri });
+        // CacheableResult обязателен и на resources/read, не только на list (SEP-2549).
+        return ok(id, { ...(await core.call(registryName(target), { uri }, { ctx }) as object), ttlMs, cacheScope });
+      }
+
+      if (msg.method === 'prompts/list') {
+        const prompts = promptEndpoints().map((e) => {
+          const p = metaOf(e).prompt!;
+          return { name: p.name, title: p.title, description: e.contract?.desc, arguments: p.arguments };
+        });
+        return ok(id, { prompts, ttlMs, cacheScope });
+      }
+
+      if (msg.method === 'prompts/get') {
+        const target = promptEndpoints().find((e) => metaOf(e).prompt!.name === params.name);
+        if (!target) return fail(id, ErrorCode.InvalidParams, `Prompt not found: ${String(params.name)}`, undefined, { name: params.name });
+        return ok(id, await core.call(registryName(target), params.arguments ?? {}, { ctx }));
+      }
+
+      if (msg.method === 'completion/complete') {
+        return ok(id, { completion: { values: [], total: 0, hasMore: false } });
+      }
+
       // Прочие методы — chord-расширение поверх реестра; _meta не аргумент метода.
       const { _meta, ...rest } = params;
       return ok(id, await core.call(msg.method, rest, { ctx }));

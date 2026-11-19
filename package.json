@@ -55,6 +55,8 @@
     "format": "prettier --write ./src/**/*.{js,json,html,ts}",
     "lint": "eslint --fix ./src",
     "test": "vitest",
+    "test:mcp": "vitest run src/protocol/mcp/tests",
+    "test:mcp:report": "MCP_CONFORMANCE_REPORT=1 vitest run src/protocol/mcp/tests",
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && tsdown && tsc -p tsconfig.build.json --emitDeclarationOnly --outDir dist/v1",
@@ -63,7 +65,9 @@
     "patch": "pnpm run build && pnpm version patch --no-git-tag-version"
   },
   "devDependencies": {
+    "@modelcontextprotocol/conformance": "0.2.0-alpha.12",
     "@open-rpc/meta-schema": "^1.14.6",
+    "@types/node": "^24.19.2",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@vitest/coverage-v8": "^1.6.0",
     "arktype": "^2.2.9",

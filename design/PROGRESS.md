@@ -5,6 +5,74 @@
 > намерениям. Два трека: **src** — фактический рантайм; **спайк** — compile-checked примеры в
 > `design/` (проверены `tsc --strict` и живым прогоном, но в src не перенесены, форма не одобрена).
 
+## TODO — продолжение (точка входа 2026-11-20)
+
+Снято 2026-11-19. Детали — в записи спайка 06 и в разделе «Тесты» ниже; устройство
+conformance-инфраструктуры — `src/protocol/mcp/tests/README.md`.
+
+**Где остановились.** MCP 2026-07-28: поверхность `mcp(composer, {…})` + `fromSvelteKit(endpoint)`
+(7 строк), домен публикует изменения через `publish({ kind })`. Официальный рефери и
+fixture-контракт апстрима подключены: **127 passed / 44 failed checks, 23 из 37 scored-сценариев
+проходят, baseline 14 записей, ratchet зелёный** (до fixture-контракта было 106/62 и 6 чистых).
+Реализация в src **не перенесена**: `src/protocol/mcp/index.ts` пустой, тесты импортируют спайк
+`design/examples/helpers/{mcp,http}` — временная зависимость src → design принята осознанно.
+
+**Команды возобновления:** `pnpm test:mcp` (ratchet) · `pnpm test:mcp:report` (отчёт) ·
+`npx vitest run src --exclude '**/mcp/tests/**'` (62 unit) · `npx tsc --noEmit`.
+
+### Следующее — по payoff
+
+- [ ] **MRTR (SEP-2322) — закрывает 12 из 14 оставшихся сценариев.** `resultType: 'input_required'`,
+      `inputRequests`, `requestState`, multi-round, отказ на tampered-state, capability gating.
+      Fixture-тулы `test_input_required_result_*` и `test_missing_capability` уже объявлены и ждут.
+      **Вопрос формы (решить до кода):** как chord-обработчик возвращает «нужен ввод клиента» —
+      отдельный тип возврата, маркер по образцу `capability()`, или throw?
+      Не склонирован ещё `test_input_required_result_prompt` (MRTR на prompts/get).
+- [ ] **`-32021` MissingRequiredClientCapability** — 2 оставшиеся проверки `server-stateless`:
+      гейтинг по `_meta['io.modelcontextprotocol/clientCapabilities']` + HTTP 400.
+- [ ] **Request-scoped `notifications/progress`** — 1 сценарий (`tools-call-with-progress`).
+      Канал подписок есть; нужен progress, привязанный к потоку ответа конкретного запроса
+      (`progressToken` из `_meta`), а не к подписке.
+
+### Решения, блокирующие перенос в src
+
+- [ ] **Дельта к шву (аддитивна, ждёт согласования):** `TransportRequest += headers?, signal?`;
+      `fromSvelteKit(protocol) → handler` (каррирование, per-call форма сохранена перегрузкой);
+      SSE-фрейминг, когда `body` — AsyncIterable; `body == null` → тела нет.
+      Проверено: старые биндинги/адаптеры и примеры 01–05/09 не ломаются.
+- [ ] **Passthrough CallToolResult** — сейчас эвристика по форме `content`-массива.
+      Оставить эвристику или ввести явный маркер?
+- [ ] **Resources/prompts через meta** (`mcp.resource` / `mcp.prompt` на `fn`) — постоянный
+      словарь или отдельный declaration sugar? Ядро не менялось: `fn` пропускает meta в реестр.
+- [ ] **`mcpTools` в src** не знает про resource/prompt-эндпоинты и `mcp.name` — спайк обходит
+      фильтрованным view ядра + картой переименований. При переносе починить генератор.
+- [ ] Судьба legacy `mcp()` (2025-06-18): замена на modern или dual-era на одном эндпоинте.
+      Legacy обслуживает примеры 03/09.
+
+### Не scored / позже
+
+- [ ] `x-mcp-header` (SEP-2243): аннотировать fixture-тул, затем полная сверка `Mcp-Param-*`
+      с телом (сейчас проверяется только кодировка/base64-сентинел).
+- [ ] `json-schema-2020-12`: нужен hand-authored JSON Schema (`$defs`/`$anchor`/`allOf`/`if-then`) —
+      zod такие ключевые слова не эмитит.
+- [ ] Tasks-расширение (SEP-2663): 10 сценариев вне замороженного набора 2026-07-28.
+- [ ] Backpressure канала подписок: очередь на подписку не ограничена (пересечение со спайком 11,
+      который **под вопросом**).
+
+### Грабли, на которые уже наступили
+
+- **WARNING ≠ pass.** Pretty-сводка печатает `✓ N passed, 0 failed` для сценариев с WARNING
+  (SHOULD-проверки), но reconciliation считает их непрохождением. Снятие таких строк с baseline
+  по сводке делает прогон красным — они обязаны быть в baseline с пометкой `(WARNING)`.
+- **Extension/pending нельзя baselined** при `--requirements 2026-07-28` — рефери пометит их stale.
+- **Пин рефери точный** (`0.2.0-alpha.12`, как у апстрима): бамп пина и пересборка baseline —
+  одним изменением.
+- **Отмена async-генератора на `await` отложена, не потеряна.** Клиентский cancel не должен ждать
+  чужой cleanup: `void it.return()` вместо `return it.return()` (замер 51ms → 0ms).
+- `@types/node` добавлен в devDeps; `tsconfig.build.json` exclude `src/**/tests/**` — dts-emit
+  проверен, tests не публикуются.
+- v1 `batch`/`spec` — 6 pre-existing падений, не чинились.
+
 ## 1. Версии и миграция (v1 deprecated → v2)
 
 - [x] Рантайм физически вынесен в `src/v1`, сборка в `dist/v1` (корень `.` пока на v1).
@@ -299,9 +367,55 @@ compile-checked и прогнаны живьём.
       Общий helper — `src/test-utils.ts` (envelope). vitest include `src/**/*.test.ts`; `tsconfig.build.json`
       исключает тесты из dts-emit. typecheck (`tsc --noEmit`) покрывает и тесты.
 - [x] Примеры `design/examples/` (01→11, общие классы `shared.ts`) — compile-checked против src, прогнаны живьём.
+- [x] **MCP conformance: официальный рефери + fixture-контракт апстрима** (2026-11-19,
+      `src/protocol/mcp/tests/` — ко-локация с модулем, решение пользователя).
+      `@modelcontextprotocol/conformance@0.2.0-alpha.12` (MIT, точный пин — тот же, что у апстрима
+      `modelcontextprotocol/typescript-sdk`, `test/conformance`). Рефери ходит по HTTP как настоящий
+      клиент, чёрный ящик, без привязки к API SDK. Набор заморожен ревизией:
+      `conformance server --requirements 2026-07-28` → 50 сценариев запущено, 37 scored,
+      13 extension/pending не оцениваются. `pnpm test:mcp` (ratchet) / `pnpm test:mcp:report` (отчёт).
+      `harness.ts` поднимает endpoint на 127.0.0.1:random и мостит node:http ↔ fetch
+      Request/Response со стримингом SSE; под тестом спайк `design/examples/helpers/{mcp,http}` —
+      после переноса в `src/protocol/mcp` меняются импорты harness, сценарии/baseline не трогаются.
+      `@types/node` добавлен в devDeps (harness использует node:http, тесты теперь внутри src и
+      попадают в typecheck); `tsconfig.build.json` exclude += `src/**/tests/**` — проверено,
+      в dts-emit попадает только `protocol/mcp/index.d.ts`.
+      **Fixture-контракт склонирован** (`fixtures.ts`): клонирован КОНТРАКТ, а не код апстримного
+      `everythingServer.ts` (1659 строк под API SDK; пин коммита
+      `5ee54ee30ddc00a914a3d981880f87fdce0e6246`). Имена/схемы/поведение выражены через `fn` + meta,
+      чтобы шли валидация, DI и реестр chord. Имена тулов в MCP плоские (`test_image_content`),
+      реестр адресует `Service.method` → имя через `mcp.name`, профиль строит индекс.
+      Resources/prompts различаются meta `mcp.resource`/`mcp.prompt` и в tools/list не попадают.
+      **Ядро не менялось**: `fn<C extends Contract>` пропускает meta в реестр. Объём — scored-набор
+      2026-07-28; legacy-тулы прежних ревизий и tasks-расширение не клонированы (не скорятся).
+      Профиль расширен: passthrough CallToolResult (content-блоки image/audio/resource/mixed),
+      resources/list + read + templates/list, prompts/list + get, completion/complete,
+      CacheableResult на read (не только list), SEP-2164 → -32602 + data.uri.
+      **Baseline:** `expected-failures.yaml`, 14 записей, формат апстрима. Рефери падает
+      и на unexpected failure (регрессия), и на **stale entry** (сценарий из списка начал проходить →
+      убери строку). Проверено вживую: добавление проходящего `tools-call-simple-text` → «Stale
+      baseline entries» + exit 1. Подвох: pretty-сводка печатает ✓ для сценариев с WARNING
+      (SHOULD-проверки), но reconciliation считает их непрохождением — они обязаны быть в baseline
+      (на этом споткнулись: снятие двух таких строк по сводке сделало прогон красным).
+      **Динамика:** до fixture-контракта 106 passed / 62 failed и 6 чистых scored-сценариев →
+      после **127 passed / 44 failed, 23 из 37 scored проходят**. Закрыты: tools-list,
+      контент-тулы (image/audio/embedded/mixed), completion-complete, resources-list/read-text/
+      read-binary/templates-read, prompts-list и все prompts-get-*, caching, sep-2164.
+      `http-header-validation` — 14/14, `server-stateless` — 26/28 включая wire-schema-valid:
+      независимое подтверждение формы (POST-only, заголовки, Origin, SSE, stateless).
+      **Осталось (корневые причины):** (1) MRTR SEP-2322 — 12 сценариев (`input_required`,
+      `inputRequests`, `requestState`, multi-round, tampered-state, capability gating);
+      (2) `-32021` MissingRequiredClientCapability — 2 проверки server-stateless;
+      (3) request-scoped `notifications/progress` — канал есть, привязки к запросу нет.
+      Не scored: tasks-* (SEP-2663), json-schema-2020-12 (нужен hand-authored JSON Schema —
+      zod такие ключевые слова не эмитит), http-custom-header-server-validation (SEP-2243
+      x-mcp-header, ни один тул не аннотирован). Лицензии: MCP в переходе MIT → Apache-2.0
+      (доки CC-BY-4.0), рефери MIT, chord Apache-2.0 — совместимо; attribution и пин коммита сохранены.
 - [ ] Продвинутые спайки `examples/helpers/{mcp,http,mcp-client,capnweb,group-stream}`
-      (06/08/11) — compile-checked + ручной прогон, vitest пока нет. `mcp-client` — демо-стенд,
-      не публичный API и не клиентский рантайм пакета; `http` — предлагаемая версия generic-адаптера.
+      (06/08/11) — compile-checked + ручной прогон; MCP-часть покрыта официальным рефери
+      (`src/protocol/mcp/tests`), своих vitest-тестов на профиль/канал пока нет. `mcp-client` —
+      демо-стенд, не публичный API и не клиентский рантайм пакета; `http` — предлагаемая версия
+      generic-адаптера.
 - [ ] v1 `batch`/`spec` — падают (6 тестов, pre-existing; проверено на чистом src 2026-11-18), не чинил.
 
 ## Главная ставка / риски
