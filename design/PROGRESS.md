@@ -135,7 +135,10 @@
 - [x] **src:** MCP-биндинг `mcp(composer)` (tools/list + tools/call); артефакты-примеры: `v2-catalog.{openapi,openrpc,mcp}.json`.
 - [x] **src:** MCP `initialize`-handshake (protocolVersion-негоциация, capabilities.tools, serverInfo)
       + `ping` + `notifications/initialized`. Реальный клиент теперь подключается.
+      **Legacy-ревизия 2025-06-18:** в 2026-07-28 handshake/ping удалены (stateless, `_meta` в каждом
+      запросе, `server/discover`). Modern-профиль — спайк 06 (`helpers/mcp`), src не тронут.
 - [ ] MCP — только tools-capability: resources/prompts/sampling/list_changed/пагинация — нет.
+      В ревизии 2026-07-28 sampling/roots/logging deprecated, list_changed → `subscriptions/listen`.
 - [x] AsyncAPI — реальный источник (2026-11-18): канал на stream-эндпоинт (`contract.event`),
       send=in, receive=event; адрес = Service.method, override — `contract.stream.channel`.
 - [ ] JSON Schema для не-нативных валидаторов (yup) — шов есть, конвертация не сделана.
@@ -159,7 +162,11 @@ Ticker/Counter), mock-кодеки (`codecs.ts`), механики спайко�
 переиспользуют базовые классы. Superseded-кластер удалён ранее (восстановим из git). Все 10 примеров
 compile-checked и прогнаны живьём.
 
-**В src (примеры 01–06, 09–10; 01–05 согласованы пользователем 2026-11-18):**
+**Пересортировка (2026-11-19, решение пользователя):** MCP-SSE поднят в очереди на **06** — следующий
+спайк в работе сразу за согласованными 01–05. Бывшие 06 stream → **07**, 07 capnweb → **08**;
+09/10/11 не двигались. **11 group-stream — под вопросом** (форма 3b выбрана, но перенос не одобрен).
+
+**В src (примеры 01–05, 07, 09–10; 01–05 согласованы пользователем 2026-11-18, подтверждено 2026-11-19):**
 - 01 rpc, 02 rest — базовые декларации (fn / get-post) + биндинги + транспорт, default json, docs.
 - 03 мультипротокол — один compose → rest/jsonrpc/mcp + agentTools (один реестр).
 - 04 форматы — **значение-уровневый шов + format-ручка generic-адаптера (перенесено в src)**:
@@ -170,7 +177,7 @@ compile-checked и прогнаны живьём.
   фреймы/notification/batch + format-ручка (default json и кастомный msgpack). HTTP-демо убрано
   (SvelteKit/Request не про сокеты, WS идёт через message). `helpers/message` — демо-LoopbackSocket.
   Прогнан: call→5, notification→0 фреймов, batch→массив, msgpack-фрейм→5.
-- 06 stream — **третий глагол в src** (перенос 2026-11-18): stream({in,event}) + compose.stream,
+- 07 stream — **третий глагол в src** (перенос 2026-11-18): stream({in,event}) + compose.stream,
   голые события, отмена + cleanup, нативные ошибки, DI. Прогнан: countdown, abort→AbortError,
   invalid-params.
 - 09 protocol-bindings — **Binding на уровне адаптера в src** (перенос 2026-11-18): проекции
@@ -183,16 +190,81 @@ compile-checked и прогнаны живьём.
   удалены. Прогнан: подписка→3 события+cleanup, cancel→0 фреймов, invalid→error-фрейм, hybrid.
 
 **Активные спайки (продвинутые, форма не одобрена, в src ещё нет):**
-- 07 capnweb + `helpers/capnweb` — capnweb-**клиент** `connect<S>` (pipelining, capabilities по ссылке);
+- 06 mcp-sse + `helpers/{mcp,http,mcp-client}` — **MCP Streamable HTTP ревизии 2026-07-28**
+  (переписан 2026-11-19, форма на согласование; целевая ревизия выбрана пользователем).
+  Прежняя форма спайка (сессии + GET-подписка + DELETE) **устарела по спеке**: ревизия убрала
+  протокольные сессии и `Mcp-Session-Id` (SEP-2567), `initialize`/`notifications/initialized`/`ping`
+  (SEP-2575), GET-эндпоинт и `resources/subscribe` (заменены `subscriptions/listen`), resumability
+  (`Last-Event-ID`, id событий) и серверные JSON-RPC-запросы (вместо них MRTR, SEP-2322).
+  **Форма поверхности (задал пользователь 2026-11-19): у пользователя только обёртка.**
+  `const mcpEndpoint = mcp(composer, {…})` + `export const POST = fromSvelteKit(mcpEndpoint)`;
+  в доменном коде — `mcpEndpoint.publish({ kind: 'tools-changed' })`. Одна фабрика вместо двух
+  (`mcpModern` + `mcpStreamableHttp` удалены как superseded) и **generic** адаптер вместо
+  MCP-специфичного транспорта. Блок [1] примера — **7 строк кода**; grep подтверждает: ни
+  `notifications/*`, ни `io.modelcontextprotocol/*`, ни имён заголовков, ни `_meta`/`resultType`/
+  `subscriptionId`, ни `signal`/`AsyncIterable`/генераторов.
+  **Проекция `reply` ОТОЗВАНА — четвёртая модель не нужна.** Поток едет в `body` существующего
+  http-шва: `TransportResponse.body` уже `unknown`, поэтому `AsyncIterable` проходит без изменения
+  типа, а SSE-фрейминг — работа адаптера. MCP отдаёт `{ http }`, как rest/jsonrpc. Зафиксированный
+  словарь проекций http/message/stream остаётся нетронутым.
+  **Дельта к src (аддитивна, старые биндинги и адаптеры не ломаются):**
+  | Куда | Что |
+  |---|---|
+  | `types.ts` | `TransportRequest += headers?, signal?` — оба необязательны → rest/jsonrpc/mcp/capnweb совместимы по типам |
+  | `transport/` | `fromSvelteKit(protocol, opts?) → handler` (каррирование, как `fromWs`); старая per-call форма сохранена перегрузкой → примеры 01–05/09 не ломаются. SSE-фрейминг, если `body` — AsyncIterable: keep-alive, `X-Accel-Buffering: no`, pull-backpressure, финальный ответ закрывает поток. `body == null` → тела нет (202/204) |
+  | `protocol/jsonrpc/mcp.ts` | modern-профиль + канал подписчиков (замена legacy 2025-06-18) |
+  | фасад `.` | `McpChange`, `McpEndpoint` (`publish`/`close`) |
+  Src не тронут: legacy `mcp()` (2025-06-18) продолжает обслуживать примеры 03/09.
+  **Канал вместо генератора (push, а не pull).** Пользователь не пишет async-генератор, `signal`
+  и cancellable-паузы — он зовёт `publish(change)` из домена. Очередь на подписку, fan-out,
+  регистрация/снятие и **ожидание по signal живут внутри библиотеки**, поэтому отмена prompt
+  без кооперации пользователя. Один подписчик = один drain-цикл (один слот wake корректен;
+  в прежнем session-спайке очередь будила только последнего читателя — второй голодал).
+  `close()` завершает все подписки gracefully (финальный ответ, затем закрытие).
+  События доменные (`{kind:'tools-changed'}`, `{kind:'resource-updated', uri}`), не wire-строки;
+  флаг `resources: true` вместо ключей фильтра спеки; capabilities честные (`tools:{}` всегда,
+  `resources:{}` только по флагу). Под капотом профиля: `_meta`/`io.modelcontextprotocol/*`,
+  `resultType`, `server/discover`, `tools/list`+`tools/call`, CacheableResult,
+  `subscriptions/listen` (ack первым, agreed-subset, MUST NOT-фильтр, `subscriptionId` = id
+  запроса, graceful-финал), таблица `WIRE`, POST-only/405, Origin/403, сверка заголовков +
+  base64-сентинел → 400/-32020, 202, -32022 + `data.supported`, -32602 на отсутствующий `_meta`,
+  404/-32601 на неизвестный метод, подсказка legacy-клиенту.
+  **Измерено (временные прогоны, удалены).**
+  - keep-alive не теряет кадры: 8 комментариев + ack + 2 события за 300ms тишины.
+  - Отмена async-генератора на `await` **отложена, не потеряна** (cleanup доезжает, когда
+    завершается текущий await). Прежний вывод «нужен signal-aware `wait` у пользователя»
+    **уточнён**: `reader.cancel()` висел потому, что САМ транспорт await'ил `it.return()`
+    в алгоритме cancel. Изолированный замер на некооперативном источнике:
+    `return iter.return()` → **51ms**, `void iter.return()` → **0ms**, cleanup выполнен
+    в обоих случаях (~51ms). Спека требует стоп работы и не слать сообщений, но не требует
+    блокировать cancel на чужом finally.
+  - Проверки `if (signal.aborted) return` в генераторе пользователя избыточны: профиль
+    проверяет signal сам — источник без проверок после abort сразу отдаёт `done`.
+  - В новой форме cancel в примере — **0ms**, пользовательского signal нет вовсе.
+  Прогнан (14 проверок): discover→2026-07-28/complete/serverInfo, tools/list→ttlMs+cacheScope,
+  tools/call→42 complete, notification→202 с пустым телом, listen→ack+3 tagged-события+
+  graceful-финал, узкий фильтр→resources/updated не доставлен, cancel→0ms,
+  header mismatch→400/-32020, bad version→400/-32022+supported, missing _meta→400/-32602,
+  unknown→404/-32601, GET/DELETE→405/405, bad origin→403, legacy initialize→404+подсказка.
+  Все 11 примеров прогнаны, src — 62/62 теста, `tsc --strict` по примерам — 0 ошибок.
+  Пример 06 разрезан на три части: [1] код пользователя (7 строк), [2] карта «под капотом»
+  с дельтой к src, [3] демо-клиент и проверки (стенд `helpers/mcp-client`, **не API пакета** —
+  клиентский рантайм chord остаётся отдельным слоем). `helpers/{mcp-modern,mcp-transport}`
+  удалены как superseded (восстановимы из git).
+  **Открыто:** MRTR (`input_required`/`inputRequests`/`inputResponses`) не реализован; request-scoped
+  `notifications/progress` на `tools/call` (нужен источник progress из обработчика); backpressure
+  канала — очередь на подписку пока не ограничена (пересечение со спайком 11: reliable/lossy);
+  полная сверка `Mcp-Param-*` с телом требует `x-mcp-header` из `inputSchema` (сейчас проверяется
+  только кодировка); `resources/list`/`resources/read` и prompts RPC не реализованы (флаг
+  `resources` заявляет capability и подписки, но не сами методы); MissingRequiredClientCapability
+  `-32021`; dual-era (legacy+modern на одном эндпоинте) — спека разрешает MAY, не делали;
+  `message`-проекция у modern-профиля не построена (WS/stdio MCP — отдельный шаг); перенос в src
+  = дельта выше + reuse `toError` семейства (в спайке маппер свой).
+- 08 capnweb + `helpers/capnweb` — capnweb-**клиент** `connect<S>` (pipelining, capabilities по ссылке);
   серверный биндинг уже в src. Прогнан: pipelining, capability-стаб, цепочка одним round trip.
-- 08 mcp-sse + `helpers/mcp-transport` — **MCP Streamable HTTP** (закрывает пробел 03: POST-only
-  недостаточно): сессии (`Mcp-Session-Id`), `POST → json | 202`, `GET → SSE` (server→client поток),
-  `DELETE → close`, server-push в сессию. Поверх mcp(composer).message (message-шов в src).
-  Пользователь вешает обработчик на GET/POST/DELETE. Прогнан: initialize→session, tools/call→42,
-  notification→202, GET SSE→event (list_changed), DELETE→204. Схождение stream-глагола +
-  SSE-адаптера + session-роутера.
 - 11 group-stream + `helpers/group-stream` — **group/broadcast-стрим, вариант 3b** (форма выбрана
-  пользователем 2026-11-18 после сравнения 1/2/3a/3b; перенос в src не одобрен). Декларация
+  пользователем 2026-11-18 после сравнения 1/2/3a/3b; **под вопросом** 2026-11-19, перенос в src
+  не одобрен). Декларация
   `stream({ in, event, group, backpressure })` с типизированными хэндлами `Board.$events.publish(room, e)`
   / `Board.$events.subscribe(room, signal)` (без magic strings, типы из схемы). Общий генератор на
   группу (дедуп по ключу, сигнатура `(input, signal)` прежняя) тапает subscribe-хэндл и деривирует
@@ -206,8 +278,10 @@ compile-checked и прогнаны живьём.
 
 - **Разблокировать заголовок v2:** stream — закрыт (глагол + проекция в src, 2026-11-18);
       клиентский рантайм — остался. Серверная часть транспортной ставки закрыта полностью.
-- **Правдивость заявлений:** MCP `initialize` — закрыт (handshake в src); авто-refcount capability-реестра
-      capnweb — нет (ручные `release`/`dispose` есть; сессия без dispose течёт).
+- **Правдивость заявлений:** MCP `initialize` — закрыт для legacy 2025-06-18 (handshake в src),
+      но целевая ревизия 2026-07-28 handshake убрала: modern-форма живёт в спайке 06, перенос не
+      одобрен. Авто-refcount capability-реестра capnweb — нет (ручные `release`/`dispose` есть;
+      сессия без dispose течёт).
 - **Тихие продакшен-риски:** DI через `paramNames(fn.toString())` молча ломается при минификации
       бандла потребителя (нужен unbuilt `.ts`/jiti или явные ключи inject); класс без конструктора —
       баг исправлен (`paramNames` ищет `constructor(`); ctx есть в `invoke(args, ctx)`, но func-обёртка
@@ -224,9 +298,10 @@ compile-checked и прогнаны живьём.
       `protocol/{jsonrpc,protocol,capnweb,events}.test`, `transport/transport.test`.
       Общий helper — `src/test-utils.ts` (envelope). vitest include `src/**/*.test.ts`; `tsconfig.build.json`
       исключает тесты из dts-emit. typecheck (`tsc --noEmit`) покрывает и тесты.
-- [x] Примеры `design/examples/` (01→10, общие классы `shared.ts`) — compile-checked против src, прогнаны живьём.
-- [ ] Продвинутые спайки `examples/helpers/{capnweb,mcp-transport}` (07/08) —
-      compile-checked + ручной прогон, vitest пока нет.
+- [x] Примеры `design/examples/` (01→11, общие классы `shared.ts`) — compile-checked против src, прогнаны живьём.
+- [ ] Продвинутые спайки `examples/helpers/{mcp,http,mcp-client,capnweb,group-stream}`
+      (06/08/11) — compile-checked + ручной прогон, vitest пока нет. `mcp-client` — демо-стенд,
+      не публичный API и не клиентский рантайм пакета; `http` — предлагаемая версия generic-адаптера.
 - [ ] v1 `batch`/`spec` — падают (6 тестов, pre-existing; проверено на чистом src 2026-11-18), не чинил.
 
 ## Главная ставка / риски

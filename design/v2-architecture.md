@@ -195,11 +195,18 @@ http / самоадресуемый message / поток stream), а не кон
 | `capnweb` | src | ✓ мост | ✓ нативная (batch→batch) | — | самоадресуемая: путь в батче |
 | `events` | src | — | — | ✓ нативная | самоадресуемая подписка `{method,params}` |
 | `{...rpc, ...events}` | src (композиция) | ✓ | ✓ | ✓ | композиция способностей spread'ом |
+| `mcp` (2026-07-28) | спайк 06 | ✓ нативная | — | — | самоадресуемая: `body.method`; ответ — значение или поток в `body` |
 
 - capnweb: проекции живут на `ServerSession` (`resolve/release/dispose` сохранены).
 - stream-модель в src (2026-11-18): глагол `core.stream` + `StreamBinding/StreamProtocol` +
   `events` + `fromWsStream`. Unary-генераторы (openrpc/mcpTools/agentTools) stream исключают,
   AsyncAPI строится из stream-контрактов (`contract.event`).
+- **MCP 2026-07-28 (спайк 06) обходится БЕЗ новой проекции.** Предлагавшаяся четвёртая модель
+  `reply` отозвана: поток едет в `body` существующего http-шва (`TransportResponse.body` уже
+  `unknown` → `AsyncIterable` проходит без изменения типа), а SSE-фрейминг делает generic-адаптер.
+  Дельта аддитивна: `TransportRequest += headers?, signal?` (необязательные → старые биндинги
+  совместимы), `fromSvelteKit(protocol) → handler` (каррирование; per-call форма сохранена
+  перегрузкой), `body == null` → тела нет. Словарь http/message/stream не меняется.
 
 ### Адаптеры × требуемая проекция
 
@@ -209,7 +216,7 @@ http / самоадресуемый message / поток stream), а не кон
 | `fromExpress` | src | `{ http }` | rest, jsonrpc, mcp, capnweb, hybrid |
 | `fromWs` | src | `{ message }` | jsonrpc, mcp, capnweb, hybrid; **rest — ошибка типов** |
 | `fromWsStream` | src | `{ stream }` | events, hybrid; jsonrpc/rest — ошибка типов |
-| `mcpStreamableHttp` | спайк 08 | `MessageBinding` напрямую | `mcp.message` (сессии + SSE — MCP-специфика) |
+| `fromSvelteKit` (спайк-версия) | спайк 06 | `{ http }` + `headers?`/`signal?` в запросе | mcp 2026-07-28: каррирование, SSE-фрейминг потокового `body`, keep-alive, отмена без ожидания cleanup |
 | `fromNode` / generic SSE | план | `{ http }` / `{ stream }` | по мере реализации |
 
 Кастомный транспорт берёт проекцию напрямую (`rpc.message.handle(value)`, `cap.stream.handle(...)`) —
@@ -258,9 +265,9 @@ tsdown это отдельный release-шаг, когда рантайм бу�
 
 ## Модули src (реализовано)
 
-Superseded-спайки удалены (перенесены в src). Примеры — `design/examples/` (прогрессия 01→10,
-общие классы `shared.ts`, индекс `README.md`): 01–06/09–10 на механиках src, 07/08 — спайки
-(capnweb-клиент / MCP-SSE) в `examples/helpers/`.
+Superseded-спайки удалены (перенесены в src). Примеры — `design/examples/` (прогрессия 01→11,
+общие классы `shared.ts`, индекс `README.md`): 01–05/07/09–10 на механиках src, 06/08/11 — спайки
+(MCP 2026-07-28 / capnweb-клиент / group-stream) в `examples/helpers/`.
 
 | Модуль (корень src/) | Содержимое |
 |---|---|
@@ -273,7 +280,7 @@ Superseded-спайки удалены (перенесены в src). Приме
 | `protocol/` | `jsonrpc/` — семейство с публичным index.ts: jsonrpc (провод + ErrorCode/RpcError/toError/toWire) + mcp (профиль) + `types.ts` (RPC-wire, ErrorObject); rest (сахар get/post/http + RestContract), capnweb, events (stream); `message.ts` — мост messageToHttp. Фабрики отдают проекции: rest → { http }, jsonrpc/mcp/capnweb → { message, http }, events → { stream } |
 | `transport/` | fromSvelteKit, fromExpress ({ http }), fromWs + Socket ({ message }), fromWsStream ({ stream }); format-ручка |
 | `index.ts` | фасад — реэкспорт слоёв |
-| **ещё нет:** `client/` | capnweb connect/RpcPromise (спайк 07), typed jsonrpc/rest клиент |
+| **ещё нет:** `client/` | capnweb connect/RpcPromise (спайк 08), typed jsonrpc/rest клиент |
 | **ещё нет:** stream-довески | backpressure, мультиплексирование подписок по id, middleware вокруг stream, generic SSE-адаптер |
 
 ## Инварианты (чем проверяем)

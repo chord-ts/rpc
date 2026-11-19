@@ -24,7 +24,7 @@ gRPC-web — по HTTP (protobuf). Ядро не знает ни протоко�
 
 ## Что уже есть (факт, не намерение)
 
-Слои реализованы в `src/` (корень). Примеры — [`examples/`](./examples/README.md) (прогрессия 01→07).
+Слои реализованы в `src/` (корень). Примеры — [`examples/`](./examples/README.md) (прогрессия 01→11).
 
 - **Ядро** `compose(...) → Core`: протокол-агностичный gasket `call/notify/endpoints` + `schemas`.
   `call(method, params, ctx) → Promise<unknown>` (значение) — то, что нужно любому протоколу.
@@ -39,7 +39,8 @@ gRPC-web — по HTTP (protobuf). Ядро не знает ни протоко�
   jsonrpc/mcp — `toError` (kind → код), rest — kind → статус; `ErrorObject = { code, message, data?, status? }`
   — wire-форма, поле `status` под transport-статус.
 
-Осталось: `stream` (третий глагол, SSE/WS), байтовые форматы, типизированный ctx — см. PROGRESS.
+Осталось: байтовые форматы, типизированный ctx, клиентский рантайм — см. PROGRESS.
+`stream` (третий глагол + проекция) в src с 2026-11-18; SSE-ответ на HTTP-запрос — спайк 06.
 
 ## Протоколы
 
@@ -154,7 +155,10 @@ fire-and-forget, request/stream, channel (двунаправленный пот�
 
 Глаголы — call / notify / stream (ROADMAP п. 3):
 
-- **HTTP** — call/notify; ответ один. Текущий `exec` это уже покрывает.
+- **HTTP** — call/notify; ответ один **или поток на запрос**. MCP 2026-07-28 (спайк 06) показал
+  второй случай: POST, ответ `application/json` либо `text/event-stream`, привязанный к запросу;
+  закрытие потока клиентом = отмена. Новой проекции не нужно: поток едет в `body` http-шва
+  (`TransportResponse.body` уже `unknown`), SSE-фрейминг делает generic-адаптер. Ядро не меняется.
 - **WebSocket** — полный дуплекс: call/notify + серверный push. Над тем же `dispatch`, но
   notification и stream — это уже не «request→response», а «frame → (не) frame».
 - **SSE** — сервер → клиент (прогресс, логи, нотификации). Под stream.
