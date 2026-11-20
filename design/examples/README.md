@@ -23,7 +23,7 @@ compile-checked против `src` и прогнаны живьём.
 | # | Файл | Уровень | Что показывает |
 |---|---|---|---|
 | 01 | [`01-rpc-basic.ts`](./01-rpc-basic.ts) | базовый | fn → compose → jsonrpc → транспорт, default json |
-| 02 | [`02-rest-basic.ts`](./02-rest-basic.ts) | базовый | get/post, resp-карта статусов, транзитивные docs |
+| 02 | [`02-rest-basic.ts`](./02-rest-basic.ts) | базовый | get/post, resp-карта статусов, docs-binding'и (openapi/swagger) на GET |
 | 03 | [`03-multiprotocol.ts`](./03-multiprotocol.ts) | расширенный | один compose → rest + jsonrpc + mcp + agentTools |
 | 04 | [`04-formats.ts`](./04-formats.ts) | расширенный | format-ручка: json → devalue/msgpack, formdata, раннее тело |
 | 05 | [`05-websocket.ts`](./05-websocket.ts) | продвинутый | WS через message-шов (src): фреймы, notification, batch, format-ручка |

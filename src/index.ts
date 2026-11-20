@@ -11,7 +11,7 @@ export { fn, stream, compose, paramNames } from './core';
 export { defaultSchemas, resolveSchemas, flatToolSchema, packToolArgs, wrapScalar, flatObject, stringSchema } from './schemas';
 export { json } from './format';
 export type { Format, WireFn, ApplyWire, JsonWire, JsonWireOf, FormatTag } from './format/types';
-export { openapi, openrpc, mcpTools, asyncapi } from './generate';
+export { openapi, openrpc, mcpTools, asyncapi, swagger, redoc } from './generate';
 export type { GenOptions, StreamMeta, Spec } from './generate';
 export { agentTools } from './tools';
 export type { AgentTool } from './tools/types';

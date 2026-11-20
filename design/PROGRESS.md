@@ -198,7 +198,9 @@ fixture-контракт апстрима подключены: **127 passed / 4
       провод + mcp-профиль), `rest`, `capnweb`; `shared` удалён (content-type инлайнится).
       REST-сахар `get/post/put/patch/del/http` + `RestContract` — в `protocol/rest`.
 - [x] **src:** REST — роутинг по шаблону, срезы `{path,query,body}`, `resp`-карта → статусы,
-      ошибка валидации → 422; docs-эндпоинты транзитивны (`/openapi.json`, `/docs`, `/redoc`).
+      ошибка валидации → 422. **rest — чистый роутинг** (2026-11-20): авто-docs убраны — они
+      предполагали корень (`url.pathname === '/docs'`), а binding может быть смонтирован на подроут
+      (`/v2/rest/[...path]`), где docs недостижимы. Docs — отдельные binding'и (см. generate).
 - [x] **src:** capnweb-биндинг `capnweb(composer)` + `capability`-маркер (`Symbol`, `{$cap:id}` на проводе);
       lifecycle — `release(capId)` / `dispose()` сессии. CAP-обёртка — в биндинге (wire-трансформация,
       не зависит от `validateOut`). Авто-refcount — позже.
@@ -242,6 +244,12 @@ fixture-контракт апстрима подключены: **127 passed / 4
 
 - [x] **src:** слой `generate/` — `openapi`/`openrpc`/`mcpTools`/`asyncapi` из одного реестра `endpoints()`;
       транзитивны протоколу (REST→OpenAPI, fn→OpenRPC/MCP, stream→AsyncAPI-гипотеза). Конвертер из `core.schemas`.
+- [x] **src: генераторы — binding'и + UI-вьюеры** (2026-11-20): генераторы возвращают `Spec<T> =
+      HttpProtocol & { document }` (`serveSpec`, CORS playground) — спеку отдают GET-эндпоинтом
+      (`fromSvelteKit(openapi(composer), event)`), документ доступен как `.document`. Добавлены
+      `swagger(composer, opts)` / `redoc(composer, opts)` — UI-binding'и поверх OpenAPI: документ вшит
+      inline (`spec:`), отдельный openapi-маунт и CORS не нужны, путь маунта выбирает пользователь.
+      Форма согласована: `swagger(core, opts)` как у остальных генераторов (не viewer по URL и не обёртка Spec).
 - [x] **src:** слой `tools/` — `agentTools(composer)` (отдельная функция, не метод ядра): готовые тулы
       для LangChain in-process (`schema`/`invoke`/`func`), общий `packToolArgs` с mcp-биндингом.
 - [x] **src:** слой `format/` — `json: Format<string>`; `Format<Raw>` generic по типу провода.
@@ -280,7 +288,8 @@ compile-checked и прогнаны живьём.
 09/10/11 не двигались. **11 group-stream — под вопросом** (форма 3b выбрана, но перенос не одобрен).
 
 **В src (примеры 01–05, 07, 09–10; 01–05 согласованы пользователем 2026-11-18, подтверждено 2026-11-19):**
-- 01 rpc, 02 rest — базовые декларации (fn / get-post) + биндинги + транспорт, default json, docs.
+- 01 rpc, 02 rest — базовые декларации (fn / get-post) + биндинги + транспорт, default json;
+  docs — отдельные GET-binding'и (openapi/swagger/redoc), не внутри rest.
 - 03 мультипротокол — один compose → rest/jsonrpc/mcp + agentTools (один реестр).
 - 04 форматы — **значение-уровневый шов + format-ручка generic-адаптера (перенесено в src)**:
   json → devalue/msgpack сменой кодека (протокол один, без матрицы протокол×формат), formdata
@@ -401,7 +410,8 @@ compile-checked и прогнаны живьём.
       LangChain его не несёт («от чьего имени агент»).
 - **Порядок:** дизайн-доки сведены со спайками, карта exports зафиксирована (v2-architecture.md),
       серверная вертикаль в src (проекции + адаптеры + stream, 2026-11-18). Осталось: client, затем release-шаг.
-- **Безопасность:** docs публичны по умолчанию, нет `securitySchemes`/auth-истории, MCP-аннотации —
+- **Безопасность:** docs — явные binding'и, которые пользователь монтирует сам (экспозиция под его
+      контролем, не «публичны по умолчанию»); нет `securitySchemes`/auth-истории, MCP-аннотации —
       подсказки не enforcement, capability без lifetime/scope.
 
 ## Тесты

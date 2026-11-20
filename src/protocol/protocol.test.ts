@@ -54,7 +54,7 @@ test('jsonrpc: call, notification (204), rpc.discover', async () => {
   expect((discover.body as any).result.openrpc).toBe('1.3.2');
 });
 
-test('rest: GET routing + slices, POST 201, validation 422, docs', async () => {
+test('rest: GET routing + slices, POST 201, validation 422 (pure routing, no docs)', async () => {
   const binding = rest(composer).http;
   const got = await binding.handle(req('GET', '/items/42?q=hi'));
   expect(got.status).toBe(200);
@@ -67,14 +67,9 @@ test('rest: GET routing + slices, POST 201, validation 422, docs', async () => {
   const invalid = await binding.handle(req('POST', '/items', { name: 123 }));
   expect(invalid.status).toBe(422);
 
-  // openapi.json — raw-escape (финальная json-строка, мимо кодека формата).
-  const spec = await binding.handle(req('GET', '/openapi.json'));
-  expect(spec.status).toBe(200);
-  expect(JSON.parse(spec.body as string).openapi).toBe('3.1.0');
-
+  // docs больше не живут внутри rest — отдельный binding (openapi/swagger/redoc).
   const docs = await binding.handle(req('GET', '/docs'));
-  expect(docs.status).toBe(200);
-  expect(docs.headers?.['content-type']).toContain('text/html');
+  expect(docs.status).toBe(404);
 });
 
 test('mcp: tools/list + tools/call (scalar unwrap)', async () => {

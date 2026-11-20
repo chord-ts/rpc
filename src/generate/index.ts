@@ -31,6 +31,21 @@ function serveSpec<T>(document: T): Spec<T> {
   };
 }
 
+// UI-вьюеры (swagger/redoc) —binding, который пользователь вешает на свой GET-роут. Документ вшит
+// inline (spec:), поэтому отдельный openapi-маунт и CORS не нужны. Путь маунта выбирает пользователь —
+// никакого предположения о корне (в отличие от старых авто-docs внутри rest).
+function serveHtml(body: string): HttpProtocol {
+  return {
+    http: {
+      async handle() {
+        return { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' }, body, raw: true };
+      },
+    },
+  };
+}
+// Inline-JSON в <script>: экранируем '<', чтобы описание схемы не разорвало тег (</script>).
+const inlineJson = (document: unknown) => JSON.stringify(document).replace(/</g, '\\u003c');
+
 /** Schema converter: from the adapter registered in compose (core.schemas), falling back to the
  * generic default; opts.jsonSchema is a point override. $schema is stripped when embedding. */
 function converter(opts: GenOptions, core: Core<any>): (s: AnySchema) => unknown {
@@ -121,6 +136,32 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
   }
 
   return serveSpec({ openapi: '3.1.0', info: infoOf(opts), paths });
+}
+
+// --- Swagger UI / ReDoc: UI-binding поверх OpenAPI-документа (inline spec) ---
+// Сигнатура (core, opts) как у остальных генераторов; документ генерируется тем же openapi().
+// Пользователь монтирует на свой GET: GET = fromSvelteKit(swagger(composer), event).
+export function swagger(core: Core<any>, opts: GenOptions = {}): HttpProtocol {
+  const document = openapi(core, opts).document;
+  return serveHtml(
+    `<!doctype html><html><head><meta charset="utf-8">` +
+      `<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head>` +
+      `<body><div id="swagger-ui"></div>` +
+      `<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>` +
+      `<script>SwaggerUIBundle({ spec: ${inlineJson(document)}, dom_id: '#swagger-ui' })</script>` +
+      `</body></html>`,
+  );
+}
+
+export function redoc(core: Core<any>, opts: GenOptions = {}): HttpProtocol {
+  const document = openapi(core, opts).document;
+  return serveHtml(
+    `<!doctype html><html><head><meta charset="utf-8"></head>` +
+      `<body><div id="redoc"></div>` +
+      `<script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>` +
+      `<script>Redoc.init(${inlineJson(document)}, {}, document.getElementById('redoc'))</script>` +
+      `</body></html>`,
+  );
 }
 
 // --- OpenRPC 1.3 (method-centric JSON-RPC) ---

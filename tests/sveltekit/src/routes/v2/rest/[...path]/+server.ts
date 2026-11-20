@@ -1,5 +1,6 @@
-// v2 REST-эндпоинт: catch-all, т.к. rest роутит по пути+глаголу. Пути объявлены под /v2/rest,
-// docs-эндпоинты смещены туда же. Импорт из опубликованного пакета (@chord/rpc, v2-имена).
+// v2 REST-эндпоинт: catch-all, т.к. rest роутит по пути+глаголу. Пути объявлены под /v2/rest.
+// rest — чистый роутинг; docs (openapi.json/docs/redoc) — отдельные GET-подроуты рядом,
+// их путь выбираем сами (никакого предположения о корне). Импорт из опубликованного пакета.
 import { compose, get, post, rest, fromSvelteKit } from '@chord/rpc';
 import { z } from 'zod';
 
@@ -22,10 +23,9 @@ class Catalog {
   createItem: typeof Catalog.$createItem.fn = async ({ name }) => ({ id: 'new', name });
 }
 
-const composer = compose({ Catalog });
-const restApi = rest(composer, {
-  docs: true,
-});
+// '_' префикс: SvelteKit разрешает только HTTP-хэндлеры/config/_-экспорты из +server.ts.
+export const _composer = compose({ Catalog });
+const restApi = rest(_composer);
 export type RestApi = typeof restApi;
 
 export const GET = (event: { request: Request }) => fromSvelteKit(restApi, event);

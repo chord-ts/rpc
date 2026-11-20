@@ -1,13 +1,12 @@
 // REST protocol: declaration sugar (get/post/…, FastAPI-style parts) + binding (routing, slices,
-// resp status map, transitive docs endpoints). fn stays in core; REST sugar lives here.
+// resp status map). fn stays in core; REST sugar lives here. Docs — отдельные binding'и (generate).
 // Format codecs only the HTTP body; status/headers/path are protocol+transport, not Format.
 
 import { fn } from '../core';
 import { CoreError, type Core, type MaybeArray, type Middleware, type ServiceMap } from '../core/types';
-import type { AnySchema, Binding, HttpProtocol, RestMeta, ServiceTag, TransportResponse } from '../types';
+import type { AnySchema, Binding, HttpProtocol, RestMeta, ServiceTag } from '../types';
 import type { Format, FormatTag, WireFn, JsonWire } from '../format/types';
 import { json } from '../format';
-import { openapi } from '../generate';
 
 // --- declaration sugar: parts instead of flat in ---
 
@@ -116,15 +115,13 @@ function compilePath(template: string): { regex: RegExp; params: string[] } {
 }
 
 /** REST: routes from endpoints().rest; params packed as slices { path, query, body } (composite `in`
- * validates each slice). Native errors → HTTP status (validation → 422). Docs are transitive
- * (FastAPI-style): GET /openapi.json, /docs (Swagger UI), /redoc generated from the registry, on by default. */
+ * validates each slice). Native errors → HTTP status (validation → 422). Pure routing — docs are
+ * separate bindings the user mounts on their own GET (openapi/swagger/redoc from generate), so the
+ * mount path is the user's choice and nothing assumes the binding sits at root. */
 export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
   core: Core<S>,
   opts?: {
     format?: Format<any, F>;
-    jsonSchema?: (s: AnySchema) => unknown;
-    info?: { title: string; version: string; description?: string };
-    docs?: boolean | { openapi?: string; swagger?: string; redoc?: string };
   },
 ): HttpProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
   const format = (opts?.format ?? json) as Format<any, F>;
@@ -136,54 +133,10 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
     routes.push({ ...meta, service: e.service, handler: e.method, regex, pathParams: params });
   }
 
-  const docs =
-    opts?.docs === false
-      ? undefined
-      : {
-          openapi: '/openapi.json',
-          swagger: '/docs',
-          redoc: '/redoc',
-          ...(typeof opts?.docs === 'object' ? opts.docs : {}),
-        };
-  let spec: string | undefined; // lazy, generated once
-  // docs — не-negotiated ответы: raw-escape, адаптер не прогоняет их через кодек формата.
-  const html = (body: string): TransportResponse => ({
-    status: 200,
-    headers: { 'content-type': 'text/html; charset=utf-8' },
-    body,
-    raw: true,
-  });
-
   // REST транспорт-адресуемый (method+path) — нативный контракт HTTP, проекция одна.
   const http: Binding = {
     async handle(req, ctx) {
       const url = new URL(req.url);
-
-      // Standard protocol endpoints — before method routing.
-      if (docs && req.method === 'GET') {
-        if (url.pathname === docs.openapi) {
-          spec ??= JSON.stringify(openapi(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }).document, null, 2);
-          return { status: 200, headers: { 'content-type': 'application/json' }, body: spec, raw: true };
-        }
-        if (url.pathname === docs.swagger) {
-          return html(
-            `<!doctype html><html><head><meta charset="utf-8">` +
-              `<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"></head>` +
-              `<body><div id="swagger-ui"></div>` +
-              `<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>` +
-              `<script>SwaggerUIBundle({ url: ${JSON.stringify(docs.openapi)}, dom_id: '#swagger-ui' })</script>` +
-              `</body></html>`,
-          );
-        }
-        if (url.pathname === docs.redoc) {
-          return html(
-            `<!doctype html><html><head><meta charset="utf-8"></head>` +
-              `<body><redoc spec-url=${JSON.stringify(docs.openapi)}></redoc>` +
-              `<script src="https://cdn.redoc.ly/redoc/latest/bundles/redoc.standalone.js"></script>` +
-              `</body></html>`,
-          );
-        }
-      }
 
       let route: RestRoute | undefined;
       let pathValues: Record<string, string> = {};

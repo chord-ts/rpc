@@ -53,11 +53,12 @@ class Session {
 
 // ZodAdapter на уровне compose: вендорный адаптер сам конвертирует zod-типы (void/date → any
 // через z.toJSONSchema unrepresentable:'any'). Генерация (rpc.discover, GET-спека) читает его.
-export const composer = compose({ Math, Clock, Greeter, Session }, {
+// '_' префикс: SvelteKit разрешает только HTTP-хэндлеры/config/_-экспорты из +server.ts.
+export const _composer = compose({ Math, Clock, Greeter, Session }, {
   schemas: new ZodAdapter(),
   inject: { user: (ctx: App.Locals) => ctx.user },
 });
-const rpcEndpoint = jsonrpc(composer);
+const rpcEndpoint = jsonrpc(_composer);
 export type ClientType = typeof rpcEndpoint;
 export const POST = (event: { request: Request; locals: App.Locals }) => fromSvelteKit(rpcEndpoint, event);
 

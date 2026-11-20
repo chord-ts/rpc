@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, stream, compose, openapi, openrpc, mcpTools, asyncapi } from '../index';
+import { fn, get, stream, compose, openapi, openrpc, mcpTools, asyncapi, swagger, redoc } from '../index';
 import { ZodAdapter } from '../schemas/zod';
 
 // REST-ресурс (сахар get). RPC-методы — отдельным классом (стили не смешиваются).
@@ -103,4 +103,21 @@ test('генератор — binding: OPTIONS preflight → 204 + CORS', async (
   const res = await openrpc(composer).http.handle({ method: 'OPTIONS', url: 'http://localhost/openrpc.json', body: undefined });
   expect(res.status).toBe(204);
   expect(res.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
+});
+
+test('swagger/redoc — UI-binding: inline spec, text/html, путь маунта не важен', async () => {
+  // binding не смотрит на url — пользователь вешает его на любой GET-роут (нет предположения о корне).
+  const sw = await swagger(composer).http.handle({ method: 'GET', url: 'http://localhost/v2/rest/docs', body: undefined });
+  expect(sw.status).toBe(200);
+  expect(sw.raw).toBe(true);
+  expect(sw.headers?.['content-type']).toContain('text/html');
+  expect(sw.body).toContain('SwaggerUIBundle');
+  expect(sw.body).toContain('"openapi":"3.1.0"'); // документ вшит inline, без отдельного URL/CORS
+  expect(sw.body).toContain('/items/{item_id}');
+
+  const rd = await redoc(composer).http.handle({ method: 'GET', url: 'http://localhost/anywhere/redoc', body: undefined });
+  expect(rd.status).toBe(200);
+  expect(rd.headers?.['content-type']).toContain('text/html');
+  expect(rd.body).toContain('Redoc.init');
+  expect(rd.body).toContain('"openapi":"3.1.0"');
 });
