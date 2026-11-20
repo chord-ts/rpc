@@ -2,9 +2,9 @@
 // protocol, transport and client. Text seam for now; binary formats (msgpack/cbor/ndjson) will
 // extend Format to a Uint8Array seam when added (each brings its own dependency).
 
-import type { Format } from './types';
+import type { Format, JsonWire } from './types';
 
-export const json: Format = {
+export const json: Format<string, JsonWire> = {
   contentType: 'application/json',
   unit: 'text',
   decode: (raw) => JSON.parse(raw),

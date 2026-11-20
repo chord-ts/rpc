@@ -44,11 +44,11 @@ async function readBody(request: FetchRequest, format: Format<any>, as: ReadMode
 }
 
 export async function fromSvelteKit(
-  protocol: HttpProtocol,
+  protocol: HttpProtocol & { format?: Format<any> },
   event: { request: FetchRequest; locals?: unknown },
   opts: { format?: Format<any>; as?: ReadMode; body?: unknown } = {},
 ): Promise<Response> {
-  const format = opts.format ?? json; // default json; пользователь втыкает свой кодек сюда
+  const format = opts.format ?? protocol.format ?? json; // эндпоинт — источник формата; opts — override
   let body: unknown;
   try {
     body = opts.body !== undefined ? opts.body : await readBody(event.request, format, opts.as ?? 'format');
@@ -83,12 +83,12 @@ export interface ExpressRes {
 }
 
 export async function fromExpress(
-  protocol: HttpProtocol,
+  protocol: HttpProtocol & { format?: Format<any> },
   req: ExpressReq,
   res: ExpressRes,
   opts: { format?: Format<any> } = {},
 ): Promise<void> {
-  const format = opts.format ?? json;
+  const format = opts.format ?? protocol.format ?? json;
   let body: unknown;
   try {
     const raw = req.body;
@@ -115,8 +115,8 @@ export interface Socket {
   onMessage(handler: (data: string | Uint8Array) => void | Promise<void>): void;
 }
 
-export function fromWs(protocol: MessageProtocol, socket: Socket, opts: { format?: Format<any> } = {}): void {
-  const format = opts.format ?? json;
+export function fromWs(protocol: MessageProtocol & { format?: Format<any> }, socket: Socket, opts: { format?: Format<any> } = {}): void {
+  const format = opts.format ?? protocol.format ?? json;
   socket.onMessage(async (data) => {
     const value = format.decode(data); // фрейм → значение
     const reply = await protocol.message.handle(value);
@@ -128,8 +128,8 @@ export function fromWs(protocol: MessageProtocol, socket: Socket, opts: { format
 // Одна активная подписка на сокет (мультиплексирование по id — следующий шаг). Ошибка стрима —
 // нативный throw → error-фрейм (wire ошибок — конвенция адаптера, протокол может задать свою).
 
-export function fromWsStream(protocol: StreamProtocol, socket: Socket, opts: { format?: Format<any> } = {}): void {
-  const format = opts.format ?? json;
+export function fromWsStream(protocol: StreamProtocol & { format?: Format<any> }, socket: Socket, opts: { format?: Format<any> } = {}): void {
+  const format = opts.format ?? protocol.format ?? json;
   let active: AsyncIterator<unknown> | undefined;
   socket.onMessage(async (data) => {
     const value = format.decode(data) as { cancel?: boolean } | null;

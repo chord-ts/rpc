@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "@chord-ts/rpc",
-  "version": "1.0.0-beta.32",
+  "version": "2.0.0-beta.1",
   "author": "Din Dmitriy @dmdin",
   "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
   "repository": {
@@ -22,10 +22,26 @@
   ],
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./schemas/zod": {
+      "types": "./dist/schemas/zod.d.ts",
+      "import": "./dist/schemas/zod.js"
+    },
+    "./v1": {
       "types": "./dist/v1/index.d.ts",
       "import": "./dist/v1/index.js"
     },
-    "./client": {
+    "./v1/client": {
       "types": "./dist/v1/client/index.d.ts",
       "import": "./dist/v1/client/index.js"
     },
@@ -46,7 +62,28 @@
       "import": "./dist/v1/specs/index.js"
     }
   },
-  "types": "./dist/v1/index.d.ts",
+  "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "client": ["dist/client/index.d.ts"],
+      "core": ["dist/core/index.d.ts"],
+      "schemas/zod": ["dist/schemas/zod.d.ts"],
+      "v1": ["dist/v1/index.d.ts"],
+      "v1/client": ["dist/v1/client/index.d.ts"],
+      "middlewares": ["dist/v1/middlewares/index.d.ts"],
+      "middlewares/*": ["dist/v1/middlewares/*.d.ts"],
+      "validators": ["dist/v1/validators/index.d.ts"],
+      "specs": ["dist/v1/specs/index.d.ts"]
+    }
+  },
+  "peerDependencies": {
+    "zod": "^4"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
+    }
+  },
   "publishConfig": {
     "access": "public"
   },
@@ -59,8 +96,8 @@
     "test:mcp:report": "MCP_CONFORMANCE_REPORT=1 vitest run src/protocol/mcp/tests",
     "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && tsdown && tsc -p tsconfig.build.json --emitDeclarationOnly --outDir dist/v1",
-    "build:dts": "tsc -p tsconfig.build.json --emitDeclarationOnly --outDir dist/v1",
+    "build": "tsc --noEmit && tsdown",
+    "build:dts": "tsdown",
     "minify": "terser --compress --module -o ./dist/v1/client/index.js -- ./dist/v1/client/index.js && terser --compress --module -o ./dist/v1/specs/index.js -- ./dist/v1/specs/index.js",
     "patch": "pnpm run build && pnpm version patch --no-git-tag-version"
   },

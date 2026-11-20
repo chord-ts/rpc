@@ -33,9 +33,10 @@ compile-checked против `src` и прогнаны живьём.
 | 09 | [`09-protocol-bindings.ts`](./09-protocol-bindings.ts) | продвинутый | Binding на уровне адаптера (src): проекции, мост скрыт |
 | 10 | [`10-stream-projection.ts`](./10-stream-projection.ts) | продвинутый | аддитивность проекций (src): stream-модель без правок старого кода |
 | 11 | [`11-group-stream.ts`](./11-group-stream.ts) | продвинутый | group/broadcast-стрим (спайк): CRDT-доска, fan-out, refcount, backpressure |
+| 12 | [`12-client.ts`](./12-client.ts) | продвинутый | типизированный клиент (src/client): jsonrpc/rest конструкторы, формат-гард, wire-типы возврата |
 
-Базовые (01–02), расширенные (03–04) и продвинутые 05/07/09/10 работают на механиках из `src`
-(проекции протоколов + fromSvelteKit/fromExpress/fromWs/fromWsStream, stream-глагол).
+Базовые (01–02), расширенные (03–04) и продвинутые 05/07/09/10/12 работают на механиках из `src`
+(проекции протоколов + fromSvelteKit/fromExpress/fromWs/fromWsStream, stream-глагол, клиент).
 Продвинутые 06/08/11 добавляют спайки из `helpers/` (MCP-SSE, capnweb-клиент, group-stream).
 **06** — MCP Streamable HTTP **ревизии 2026-07-28** (спайк, форма на согласование). Ревизия
 сделала MCP stateless и убрала сессии (`Mcp-Session-Id`), GET-эндпоинт, `initialize`/`ping`

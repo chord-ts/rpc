@@ -3,8 +3,10 @@
 // the generated OpenRPC document. mcp (sibling) is a JSON-RPC profile — it imports this model.
 // Public surface of the family: ./index.ts.
 
-import { CoreError, type Core, type CoreErrorKind } from '../../core/types';
-import type { AnySchema, MessageBinding, MessageProtocol } from '../../types';
+import { CoreError, type Core, type CoreErrorKind, type ServiceMap } from '../../core/types';
+import type { AnySchema, MessageBinding, MessageProtocol, ServiceTag } from '../../types';
+import type { Format, FormatTag, WireFn, JsonWire } from '../../format/types';
+import { json } from '../../format';
 import type { ErrorObject, RPCBody, RPCId, RPCResponse } from './types';
 import { openrpc } from '../../generate';
 import { messageToHttp } from '../message';
@@ -57,10 +59,11 @@ export function toWire(id: RPCId, value: unknown, error?: ErrorObject): RPCRespo
  * seam is MessageBinding; the http projection is the built-in messageToHttp bridge. Format lives
  * in the transport adapter; the envelope (normalize/batch/toWire) and rpc.discover stay here.
  * Parse errors (raw decode) belong to the adapter. */
-export function jsonrpc(
-  core: Core<any>,
-  opts?: { jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string; description?: string } },
-): MessageProtocol {
+export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
+  core: Core<S>,
+  opts?: { format?: Format<any, F>; jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string; description?: string } },
+): MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
+  const format = (opts?.format ?? json) as Format<any, F>;
   let discovery: object | undefined; // lazy, generated once
   const message: MessageBinding = {
     async handle(value, ctx): Promise<unknown | null> {
@@ -90,5 +93,5 @@ export function jsonrpc(
       return out[0] ?? null;
     },
   };
-  return { message, http: messageToHttp(message) };
+  return { message, http: messageToHttp(message), format } as MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> };
 }

@@ -3,8 +3,10 @@
 // Format codecs only the HTTP body; status/headers/path are protocol+transport, not Format.
 
 import { fn } from '../core';
-import { CoreError, type Core, type MaybeArray, type Middleware } from '../core/types';
-import type { AnySchema, Binding, HttpProtocol, RestMeta, TransportResponse } from '../types';
+import { CoreError, type Core, type MaybeArray, type Middleware, type ServiceMap } from '../core/types';
+import type { AnySchema, Binding, HttpProtocol, RestMeta, ServiceTag, TransportResponse } from '../types';
+import type { Format, FormatTag, WireFn, JsonWire } from '../format/types';
+import { json } from '../format';
 import { openapi } from '../generate';
 
 // --- declaration sugar: parts instead of flat in ---
@@ -116,14 +118,16 @@ function compilePath(template: string): { regex: RegExp; params: string[] } {
 /** REST: routes from endpoints().rest; params packed as slices { path, query, body } (composite `in`
  * validates each slice). Native errors → HTTP status (validation → 422). Docs are transitive
  * (FastAPI-style): GET /openapi.json, /docs (Swagger UI), /redoc generated from the registry, on by default. */
-export function rest(
-  core: Core<any>,
+export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
+  core: Core<S>,
   opts?: {
+    format?: Format<any, F>;
     jsonSchema?: (s: AnySchema) => unknown;
     info?: { title: string; version: string; description?: string };
     docs?: boolean | { openapi?: string; swagger?: string; redoc?: string };
   },
-): HttpProtocol {
+): HttpProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
+  const format = (opts?.format ?? json) as Format<any, F>;
   const routes: RestRoute[] = [];
   for (const e of core.endpoints()) {
     const meta = e.contract?.rest as RestMeta | undefined;
@@ -215,5 +219,5 @@ export function rest(
       }
     },
   };
-  return { http };
+  return { http, format } as HttpProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> };
 }

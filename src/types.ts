@@ -87,3 +87,11 @@ export interface StreamBinding {
 export interface StreamProtocol {
   stream: StreamBinding;
 }
+
+// --- Client typing phantom ---
+// A protocol binding carries its service map so the client can extract typed methods from the
+// binding type (client<typeof api> / protocol.client<typeof api>). Type-only: no runtime field.
+// S is unconstrained here (bottom layer); factories constrain it to ServiceMap at the use site.
+export interface ServiceTag<S> {
+  readonly __services?: S;
+}

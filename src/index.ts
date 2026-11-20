@@ -7,7 +7,7 @@ export * from './core/types';
 export { fn, stream, compose, paramNames } from './core';
 export { defaultSchemas, flatToolSchema, packToolArgs } from './schemas';
 export { json } from './format';
-export type { Format } from './format/types';
+export type { Format, WireFn, ApplyWire, JsonWire, JsonWireOf, FormatTag } from './format/types';
 export { openapi, openrpc, mcpTools, asyncapi } from './generate';
 export type { GenOptions, StreamMeta } from './generate';
 export { agentTools } from './tools';
