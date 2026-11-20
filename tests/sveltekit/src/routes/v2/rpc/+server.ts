@@ -1,15 +1,62 @@
 // v2 RPC-эндпоинт: импорт из опубликованного пакета (@chord/rpc → dist через exports-карту).
 // Корень реэкспортит v1+v2; compose/fn/jsonrpc — v2-имена без суффикса версии.
-import { compose, fn, jsonrpc, fromSvelteKit } from '@chord/rpc';
+import { compose, fn, jsonrpc, fromSvelteKit, RpcError } from '@chord/rpc';
 import { z } from 'zod';
 
 class Math {
   constructor() {}
   static $add = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
   add: typeof Math.$add.fn = async (x) => x.a + x.b;
+
+  // Бизнес-ошибка: нативный RpcError со своим кодом и data долетает до клиента как есть.
+  static $div = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
+  div: typeof Math.$div.fn = async (x) => {
+    if (x.b === 0) throw new RpcError(-32000, 'Division by zero', { a: x.a, b: x.b });
+    return x.a / x.b;
+  };
+
+  // Обычный Error обработчика мапится протоколом в InternalError (-32603).
+  static $sqrt = fn({ in: z.object({ x: z.number() }), out: z.number() });
+  sqrt: typeof Math.$sqrt.fn = async ({ x }) => {
+    if (x < 0) throw new Error(`Negative input: ${x}`);
+    return x ** 0.5;
+  };
 }
 
-const composer = compose({ Math });
-const rpcEndpoint = jsonrpc(composer);
-export type ClientType = typeof rpcEndpoint
-export const POST = (event: { request: Request }) => fromSvelteKit(rpcEndpoint, event);
+class Clock {
+  constructor() {}
+  static $now = fn({ in: z.void(), out: z.date() });
+  now: typeof Clock.$now.fn = async () => new Date();
+}
+
+// Simple-эндпоинты: публичные методы без $method — без валидации, params идут напрямую.
+// Один параметр — одиночный вход; несколько — позиционный массив (клиент шлёт args массивом).
+class Greeter {
+  async echo(text: string) {
+    return text;
+  }
+  async greet(greeting: string, name: string) {
+    return `${greeting}, ${name}!`;
+  }
+}
+
+// DI: имя параметра конструктора — ключ зависимости; inject берёт её из ctx (locals SvelteKit).
+class Session {
+  user: string;
+  constructor(user: string) {
+    this.user = user;
+  }
+  static $whoami = fn({ in: z.void(), out: z.string() });
+  whoami: typeof Session.$whoami.fn = async () => this.user;
+}
+
+const composer = compose({ Math, Clock, Greeter, Session }, {
+  inject: { user: (ctx: App.Locals) => ctx.user },
+});
+// rpc.discover: zod 4 по умолчанию не представляет void/date в JSON Schema —
+// смягчаем их до any штатной ручкой jsonSchema (иначе генератор OpenRPC бросает).
+const rpcEndpoint = jsonrpc(composer, {
+  jsonSchema: (s) => z.toJSONSchema(s as any, { unrepresentable: 'any' }),
+});
+export type ClientType = typeof rpcEndpoint;
+export const POST = (event: { request: Request; locals: App.Locals }) => fromSvelteKit(rpcEndpoint, event);

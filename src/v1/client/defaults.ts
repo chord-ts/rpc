@@ -10,14 +10,40 @@ import type {
 
 
 export const defaultTransport: Transport = async<T, K>({ route, body, format }: { route: string, body: T, format: Format }, opt?: object): Promise<K> => {
-  return await fetch(route, { 
-    headers: { 'Content-Type': 'application/json' },
-    method: 'POST', body: format.stringify(body), ...(opt as object) 
-  })
-    .then(r => format.parse(r))
-    .catch((e) => {
-      return { error: e } as spec.FailedResponse;
-    }) as K;
+  let res: Response;
+  try {
+    res = await fetch(route, {
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', body: format.stringify(body), ...(opt as object)
+    });
+  } catch (e) {
+    // Сетевой сбой (до ответа): нативная ошибка fetch.
+    return { error: { code: spec.ErrorCode.ServerError, message: e instanceof Error ? e.message : String(e), data: e } } as spec.FailedResponse as K;
+  }
+
+  // Редирект: переходим на финальный URL. fetch следует редиректу сам (follow), res.redirected/res.url
+  // дают цель; в браузере переход через location.assign, в Node (SSR) location нет — отдаём ошибкой.
+  if (res.redirected || (res.status >= 300 && res.status < 400)) {
+    if (typeof location !== 'undefined' && typeof location.assign === 'function') location.assign(res.url);
+    return { error: { code: res.status, message: `Redirected to ${res.url}`, data: { status: res.status, location: res.url, redirected: true } } } as spec.FailedResponse as K;
+  }
+
+  // HTTP-ошибка (500 и др.): не парсим JSON — это страница ошибки, не JSON-RPC ответ. Сырое тело,
+  // в лог — заголовки и trim-предпросмотр (без тегов, усечённый), упаковка в ошибку со статусом.
+  if (!res.ok) {
+    const text = await res.text();
+    const headers = Object.fromEntries(res.headers.entries());
+    const preview = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${route}\nheaders: ${JSON.stringify(headers)}\npreview: ${preview}`);
+    return { error: { code: res.status, message: res.statusText || `HTTP ${res.status}`, data: { status: res.status, headers, body: text } } } as spec.FailedResponse as K;
+  }
+
+  // Успех: JSON-RPC ответ (в т.ч. error в теле с HTTP 200).
+  try {
+    return await format.parse(res) as K;
+  } catch (e) {
+    return { error: { code: spec.ErrorCode.ParseError, message: 'Invalid JSON response', data: { status: res.status, cause: e instanceof Error ? e.message : String(e) } } } as spec.FailedResponse as K;
+  }
 };
 
 export const defaultCache: Cache.Storage = (config) => {

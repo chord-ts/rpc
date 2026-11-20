@@ -4,7 +4,7 @@
   const v1 = [
     'abortTest', 'authTest', 'autoInit', 'baseTest', 'cacheTest', 'classTest',
     'devalueTest', 'leakTest', 'middlewareTest', 'redirectTest', 'schemaTest',
-    'serverCacheTest', 'serverCtxTest',
+    'serverCacheTest', 'serverCtxTest', 'statusTest',
   ];
   const v2 = ['rpc', 'rest'];
 
