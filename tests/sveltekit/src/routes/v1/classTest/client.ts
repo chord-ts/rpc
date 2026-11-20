@@ -1,0 +1,6 @@
+import { client } from '@chord/rpc';
+import type {Client} from './+server'
+
+const rpc = client<Client>({endpoint: '/v1/classTest'})
+export const {Logger: logger, Service: service} = rpc
+console.log('get rpc', logger.debug, service.hello)

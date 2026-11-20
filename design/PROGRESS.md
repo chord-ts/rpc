@@ -34,10 +34,12 @@
   `toRPC`, `rpc`, `depends`, `val`, `client`, `RPC`.
 - **tests/sveltekit — воспроизведение npm-публикации:** алиас `@chord/rpc: link:../..` резолвит
   старые пути через реальную exports-карту в dist (проверено импортом: root отдаёт Composer/rpc +
-  compose/fn/jsonrpc/rest, client — client + jsonrpc/rest). v1-роуты импортируют из `@chord/rpc`
-  (старые пути), v2-роуты (`v2rpc`, `v2rest` catch-all + OpenAPI через load) — оттуда же, typecheck
-  чистые. zod только 4 (`zodToJsonSchema`→`z.toJSONSchema`). Pre-existing v1-ошибки svelte-check
-  (implicit any, `Returned` не top-level, Locals) — baseline тестового кода, не регрессии.
+  compose/fn/jsonrpc/rest, client — client + jsonrpc/rest). Роуты сгруппированы по папкам:
+  `routes/v1/*` (13 старых сценариев) и `routes/v2/*` (rpc + rest catch-all + OpenAPI через load);
+  импорт из `@chord/rpc` (старые пути, без суффиксов), пути endpoint/редиректов обновлены под
+  префиксы. v2-роуты typecheck чистые. zod только 4 (`zodToJsonSchema`→`z.toJSONSchema`).
+  Pre-existing v1-ошибки svelte-check (implicit any, `Returned` не top-level, Locals) — baseline
+  тестового кода, не регрессии.
 - **Гейты:** 71/71 unit (62 слоя + 9 клиент), typecheck чистый, **publint All good**, **attw
   node10/node16-ESM/bundler 🟢** по всем сабпатам (node16-CJS ⚠️ — ESM-only по дизайму, engines node>=20).
   Пример 12 compile-checked + живой прогон. Superseded-спайки 13/14 + helpers/{client,format-types,format-guard}
