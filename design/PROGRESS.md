@@ -5,6 +5,39 @@
 > намерениям. Два трека: **src** — фактический рантайм; **спайк** — compile-checked примеры в
 > `design/` (проверены `tsc --strict` и живым прогоном, но в src не перенесены, форма не одобрена).
 
+## Релиз 2.0.0-beta.1 — клиент + формат на эндпоинте (2026-11-20)
+
+Клиентский рантайм перенесён в src, формат поднят на эндпоинт, release-конфиг собран. Версия
+`2.0.0-beta.1`. Публикация — за пользователем: `pnpm publish --tag beta --no-git-checks`.
+
+- **Клиент (`src/client`, сабпат `./client`):** протокол-специфичные конструкторы `jsonrpc`/`rest`
+  (имена зеркалят серверные, модуль другой). Дженерик — **тип серверного биндинга**:
+  `jsonrpc<typeof api>({ endpoint, format })` / `({ socket, format })`; `rest<typeof restApi>({ endpoint, doc, format })`.
+  Init задаёт транспорт формой (`endpoint`→fetch, `socket`→ws); отдельных `client`/`fromFetch`/`fromWs` нет.
+  Конструктор выводит сервисы+формат из типа биндинга, защищает протокол (`B extends MessageProtocol`/`HttpProtocol`)
+  и формат (init.format против формата эндпоинта), wire-трансформирует возвраты. Ошибки нативные
+  (`RpcError` / `Error+status`). notify/batch/stream/abort — следующие итерации.
+- **Формат на эндпоинте:** `jsonrpc(composer, { format })` / `rest(composer, { format })` несут формат
+  значением (`api.format`) и типом (`FormatTag<F>`); адаптеры читают его оттуда (`opts.format` — override
+  для совместимости). Формат фиксирован per-endpoint (продакшен-эндпоинты одноформатные, вокруг json);
+  per-call негоциация не используется. jsonrpc/rest — pluggable формат, mcp/capnweb — встроенный (позже).
+- **Wire-типы (`src/format`):** `Format<Raw, F extends WireFn>`, `JsonWire` (Date→string рекурсивно),
+  `ApplyWire`. Возврат клиента типизирован по формату эндпоинта: `Clock.now()` — string через json,
+  Date через devalue. Бренд `WireFn.__brand` обязателен (без него фантомы структурно совместимы).
+- **Release-конфиг:** exports — v2 корень `.` + листья `./client`/`./core`/`./schemas/zod`, v1 в `./v1`
+  (+ `./v1/client`), старые сабпаты `./middlewares`/`./validators`/`./specs` сохранены на v1.
+  `typesVersions` для legacy TS-резолва. zod — optional peer. tsdown `dts: true` (dts под js-чанки,
+  attw internal resolution починен); v1 изолирован в `dist/v1`. `@deprecated` на v1: `Composer`,
+  `toRPC`, `rpc`, `depends`, `val`, `client`, `RPC`.
+- **Гейты:** 71/71 unit (62 слоя + 9 клиент), typecheck чистый, **publint All good**, **attw
+  node10/node16-ESM/bundler 🟢** по всем сабпатам (node16-CJS ⚠️ — ESM-only по дизайму, engines node>=20).
+  Пример 12 compile-checked + живой прогон. Superseded-спайки 13/14 + helpers/{client,format-types,format-guard}
+  удалены (знания в src/client + примере 12).
+- **Известное:** vitest threads-pool teardown-краш (Node 24 / vitest 1.6) — `pnpm test` надёжнее с
+  `pool: 'forks'`; тесты функционально зелёные (single-fork exit 0). DI `paramNames(fn.toString())`
+  ломается при минификации бандла потребителя (нужны явные ключи inject); клиентские имена методов —
+  динамические proxy-строки, property mangling ломает адресацию (держать выключенным).
+
 ## TODO — продолжение (точка входа 2026-11-20)
 
 Снято 2026-11-19. Детали — в записи спайка 06 и в разделе «Тесты» ниже; устройство
@@ -75,12 +108,12 @@ fixture-контракт апстрима подключены: **127 passed / 4
 
 ## 1. Версии и миграция (v1 deprecated → v2)
 
-- [x] Рантайм физически вынесен в `src/v1`, сборка в `dist/v1` (корень `.` пока на v1).
-- [ ] `@deprecated` на публичных v1-экспортах — отложено до готовности v2.
-- [ ] `exports` для v2 и фасада `./v1`, прогон `publint`/`attw`.
+- [x] Рантайм физически вынесен в `src/v1`, сборка в `dist/v1`.
+- [x] `@deprecated` на публичных v1-экспортах (`Composer`/`toRPC`/`rpc`/`depends`/`val`/`client`/`RPC`).
+- [x] `exports` для v2 и фасада `./v1`, прогон `publint`/`attw` (2026-11-20, см. раздел релиза).
 - [x] Карта экспорта и имена зафиксированы в [`v2-architecture.md`](./v2-architecture.md): корневой
       фасад `.` + листья (`schemas/{zod,valibot,yup}`, `client`, `core`); `compose`/`http`/`del`.
-- [ ] Переключение корня `.` на v2 + v2-entries в tsdown + `dist`-раскладка (release-шаг).
+- [x] Переключение корня `.` на v2 + v2-entries в tsdown + `dist`-раскладка (release-шаг, 2026-11-20).
 
 ## 2. Регистрация (schema-first, без декораторов)
 
@@ -191,7 +224,8 @@ fixture-контракт апстрима подключены: **127 passed / 4
       jsonrpc/rest/mcp над значениями (формат убран из биндингов, конверт toWire/toError сохранён).
 - [ ] Форматы: реальные бинарные кодеки MessagePack/CBOR/NDJSON (`Format<Uint8Array>`, unit bytes)
       + devalue — пока mock-кодеки в спайке `v2-value.*`. Байтовый спайк `v2-bytes.*` удалён (superseded).
-- [ ] Клиентский рантайм: типизированный JSON-RPC/REST-клиент над проводом (capnweb `connect` — частный случай).
+- [x] Клиентский рантайм: `src/client` (2026-11-20), конструкторы `jsonrpc`/`rest` из `./client`,
+      дженерик = тип серверного биндинга, формат-гард + wire-типы (см. раздел релиза). capnweb `connect` — позже.
 
 ## 6. Генерация артефактов
 
@@ -421,15 +455,15 @@ compile-checked и прогнаны живьём.
 ## Главная ставка / риски
 
 - Ставка не изменилась: одна схема → типы + рантайм-валидация + JSON Schema → OpenRPC/OpenAPI/MCP/тулы.
-  Фундамент (регистрация + валидация + call/notify/stream) готов; генерация, протоколы-проекции
-  и транспорт **в src**; клиент — не начат.
-- Главный риск выпуска — v1-фасад (`@deprecated`, `exports`, `publint`/`attw`).
-- Самые большие незакрытые куски — клиентский рантайм (вторая половина заголовка п.3);
-  авто-refcount capnweb, MCP resources/prompts/sampling, минификация DI и ctx func-тулов (тихие риски);
+  Фундамент (регистрация + валидация + call/notify/stream) готов; генерация, протоколы-проекции,
+  транспорт и **клиент в src** (2026-11-20). Release-конфиг собран, гейты зелёные (см. раздел релиза).
+- v1-фасад закрыт: `@deprecated`, `exports`, `publint`/`attw` — сделано (2026-11-20).
+- Самые большие незакрытые куски — MCP modern-профиль (перенос спайка 06) + resources/prompts/sampling;
+  авто-refcount capnweb, минификация DI и ctx func-тулов (тихие риски); клиентские notify/batch/stream;
   stream-довески: backpressure, мультиплексирование подписок, middleware вокруг stream, generic SSE.
 
 ## Не проверял
 
-- `publint`/`attw` и полный `pnpm build` (tsdown/terser) — не гонял; только `tsc --noEmit` и vitest.
 - Реальный MCP-handshake живым клиентом, WS/SSE вживую, браузерный рендер docs.
-- Влияние минификации на DI (`paramNames`).
+- Влияние минификации на DI (`paramNames`) и на клиентские proxy-имена методов (property mangling).
+- `pnpm build`/`publint`/`attw` прогнаны 2026-11-20 (зелёные); terser-минификация v1 — не гонялась.

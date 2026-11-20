@@ -21,7 +21,8 @@ import type * as JSONRPC from '../specs';
 import { ZodAdapter } from '../validators';
 
 /* The `Composer` class is a TypeScript class that provides a framework for composing and executing
-methods with middleware support. */
+methods with middleware support.
+@deprecated Устарело в v2: используйте `compose({ Service })` из '@chord-ts/rpc'. v1 доступен через '@chord-ts/rpc/v1'. */
 export class Composer<T extends { [k: string]: object }> {
   private config: ComposerConfig;
   private models: T;
@@ -497,6 +498,7 @@ function getMetadata(_target: object, _key: PropKey): MethodMetadata {
  *  MyService: toRPC(service)
  * })
  * ```
+ * @deprecated Устарело в v2: schema-first регистрация `fn({ in, out })` со статикой `$method` + `compose`. v1 — '@chord-ts/rpc/v1'.
  */
 export function toRPC<T extends object>(instance: T): T {
   const proto = Reflect.getPrototypeOf(instance)!;
