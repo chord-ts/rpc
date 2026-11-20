@@ -3,7 +3,7 @@
 
   const v1 = [
     'abortTest', 'authTest', 'autoInit', 'baseTest', 'cacheTest', 'classTest',
-    'devalueTest', 'leakTest', 'middlewareTest', 'redirectTest', 'schemaTest',
+    'devalueTest', 'leakTest', 'middlewareTest', 'schemaTest',
     'serverCacheTest', 'serverCtxTest', 'statusTest',
   ];
   const v2 = ['rpc', 'rest'];
