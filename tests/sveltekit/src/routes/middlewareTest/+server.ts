@@ -1,8 +1,7 @@
 import {json} from '@sveltejs/kit'
 
-import { Composer, rpc, } from '../../../../../src/';
-import { SchemaGenerator } from '../../../../../src/schema';
-import { sveltekitMiddleware } from '../../../../../src/middlewares';
+import { Composer, rpc, } from '@chord/rpc';
+import { sveltekitMiddleware } from '@chord/rpc/middlewares';
 
 class Service {
   

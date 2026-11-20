@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
 
 const mySchema = z
   .object({
@@ -8,5 +7,5 @@ const mySchema = z
   })
   .describe("My neat object schema");
 
-export const jsonSchema = zodToJsonSchema(mySchema, "mySchema");
+export const jsonSchema = z.toJSONSchema(mySchema);
 

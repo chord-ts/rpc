@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RPC, Builder, client } from '../../../../../src/client';
+  import { RPC, Builder, client } from '@chord/rpc/client';
   
   // import { client } from '@chord-ts/rpc/client';
   import { onMount } from 'svelte';

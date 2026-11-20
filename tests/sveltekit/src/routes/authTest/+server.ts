@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 
-import { Composer, Middleware, rpc, val, buildError, ErrorCode, toRPC } from '../../../../../src';
-import { sveltekitMiddleware } from '../../../../../src/middlewares';
+import { Composer, Middleware, rpc, val, buildError, ErrorCode, toRPC } from '@chord/rpc';
+import { sveltekitMiddleware } from '@chord/rpc/middlewares';
 
 class Service {
 	@rpc()

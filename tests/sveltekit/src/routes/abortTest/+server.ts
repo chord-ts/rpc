@@ -1,7 +1,7 @@
 import {json} from '@sveltejs/kit'
 
-import { Composer, toRPC } from '../../../../../src/';
-import { sveltekitMiddleware } from '../../../../../src/middlewares';
+import { Composer, toRPC } from '@chord/rpc';
+import { sveltekitMiddleware } from '@chord/rpc/middlewares';
 
 class Service {
   async hello(name: string) {

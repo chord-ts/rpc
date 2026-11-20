@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
 	import { invalidate } from '$app/navigation';
-  import {client} from '../../../../../../rpc/src/client'
+  import {client} from '@chord/rpc/client'
 	import type { Client } from './+server';
 
   export let data;

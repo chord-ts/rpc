@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { client, type Returned } from '../../../../../src/';
+	import { client, type Returned } from '@chord/rpc';
 	import type { Client } from './+server';
 
 	const rpc = client<Client>({ endpoint: '/middlewareTest' });

@@ -25,6 +25,10 @@ import type {
   RpcBinding, RestBinding, WireClient, OpenApiDoc,
 } from './types';
 
+// v1-клиент (deprecated) реэкспортируется alongside v2-конструкторов: client/RPC/Builder (v1)
+// и jsonrpc/rest (v2) не пересекаются. Старый путь ./client сохранён, v2 без суффикса версии.
+export * from '../v1/client';
+
 // --- internal: JSON-RPC profile (envelope + unwrap) ---
 function jsonRpcProfile(): JsonRpcProfile {
   let id = 0;

@@ -1,4 +1,4 @@
-import { client } from '../../../../../src/';
+import { client } from '@chord/rpc';
 import type {Client} from './+server'
 
 const rpc = client<Client>({endpoint: '/classTest'})

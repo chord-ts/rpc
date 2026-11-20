@@ -1,7 +1,7 @@
 import {json} from '@sveltejs/kit'
 
-import { Composer, toRPC, rpc } from '../../../../../src/';
-import { cacheMiddleware, sveltekitMiddleware } from '../../../../../src/middlewares';
+import { Composer, toRPC, rpc } from '@chord/rpc';
+import { cacheMiddleware, sveltekitMiddleware } from '@chord/rpc/middlewares';
 
 class Service {
   @rpc()

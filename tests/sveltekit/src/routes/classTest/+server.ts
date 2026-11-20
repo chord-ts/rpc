@@ -1,8 +1,8 @@
 import {json} from '@sveltejs/kit'
 import { Logger, type ILogObj } from "tslog";
 
-import { Composer, toRPC } from '../../../../../src/';
-import { sveltekitMiddleware } from '../../../../../src/middlewares';
+import { Composer, toRPC } from '@chord/rpc';
+import { sveltekitMiddleware } from '@chord/rpc/middlewares';
 const logger = new Logger<ILogObj>({ name: "server", type: "pretty", });
 
 class Service {

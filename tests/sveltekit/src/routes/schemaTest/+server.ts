@@ -1,7 +1,7 @@
 import {json} from '@sveltejs/kit'
 
-import { Composer, rpc, val} from '../../../../../src/';
-import { sveltekitMiddleware } from '../../../../../src/middlewares';
+import { Composer, rpc, val} from '@chord/rpc';
+import { sveltekitMiddleware } from '@chord/rpc/middlewares';
 import {z} from 'zod'
 
 

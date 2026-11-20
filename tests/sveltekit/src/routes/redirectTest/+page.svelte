@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {client} from '../../../../../../rpc/src/client'
+  import {client} from '@chord/rpc/client'
 	import type { Client } from './+server';
 
   export let data;

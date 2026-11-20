@@ -24,11 +24,20 @@
 - **Wire-типы (`src/format`):** `Format<Raw, F extends WireFn>`, `JsonWire` (Date→string рекурсивно),
   `ApplyWire`. Возврат клиента типизирован по формату эндпоинта: `Clock.now()` — string через json,
   Date через devalue. Бренд `WireFn.__brand` обязателен (без него фантомы структурно совместимы).
-- **Release-конфиг:** exports — v2 корень `.` + листья `./client`/`./core`/`./schemas/zod`, v1 в `./v1`
-  (+ `./v1/client`), старые сабпаты `./middlewares`/`./validators`/`./specs` сохранены на v1.
+- **Release-конфиг (финально — объединённый реэкспорт, без суффиксов версии):** корень `.` = v1+v2
+  (`src/index.ts`: `export * from './v1'` + v2-слои), `./client` = v1-клиент + v2-конструкторы
+  (`src/client`: `export * from '../v1/client'` + jsonrpc/rest), `./middlewares`/`./validators`/`./specs`
+  → v1. Никаких `./v1`/`./v2` сабпатов — старые пути сохранены, v2 добавлен реэкспортом (имена не
+  пересекаются; коллизии `Middleware`/`Format`/`ErrorCode` — явный v2-реэкспорт перебивает star).
   `typesVersions` для legacy TS-резолва. zod — optional peer. tsdown `dts: true` (dts под js-чанки,
   attw internal resolution починен); v1 изолирован в `dist/v1`. `@deprecated` на v1: `Composer`,
   `toRPC`, `rpc`, `depends`, `val`, `client`, `RPC`.
+- **tests/sveltekit — воспроизведение npm-публикации:** алиас `@chord/rpc: link:../..` резолвит
+  старые пути через реальную exports-карту в dist (проверено импортом: root отдаёт Composer/rpc +
+  compose/fn/jsonrpc/rest, client — client + jsonrpc/rest). v1-роуты импортируют из `@chord/rpc`
+  (старые пути), v2-роуты (`v2rpc`, `v2rest` catch-all + OpenAPI через load) — оттуда же, typecheck
+  чистые. zod только 4 (`zodToJsonSchema`→`z.toJSONSchema`). Pre-existing v1-ошибки svelte-check
+  (implicit any, `Returned` не top-level, Locals) — baseline тестового кода, не регрессии.
 - **Гейты:** 71/71 unit (62 слоя + 9 клиент), typecheck чистый, **publint All good**, **attw
   node10/node16-ESM/bundler 🟢** по всем сабпатам (node16-CJS ⚠️ — ESM-only по дизайму, engines node>=20).
   Пример 12 compile-checked + живой прогон. Superseded-спайки 13/14 + helpers/{client,format-types,format-guard}

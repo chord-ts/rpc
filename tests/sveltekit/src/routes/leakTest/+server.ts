@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { Composer, rpc, depends } from '../../../../../src/';
-import {sveltekitMiddleware} from '../../../../../src/middlewares';
+import { Composer, rpc, depends } from '@chord/rpc';
+import {sveltekitMiddleware} from '@chord/rpc/middlewares';
 
 // THIS IS CONTROLLER
 
