@@ -44,11 +44,11 @@ async function readBody(request: FetchRequest, format: Format<any>, as: ReadMode
 }
 
 export async function fromSvelteKit(
-  protocol: HttpProtocol & { format?: Format<any> },
+  binding: HttpProtocol & { format?: Format<any> },
   event: { request: FetchRequest; locals?: unknown },
   opts: { format?: Format<any>; as?: ReadMode; body?: unknown } = {},
 ): Promise<Response> {
-  const format = opts.format ?? protocol.format ?? json; // эндпоинт — источник формата; opts — override
+  const format = opts.format ?? binding.format ?? json; // эндпоинт — источник формата; opts — override
   let body: unknown;
   try {
     body = opts.body !== undefined ? opts.body : await readBody(event.request, format, opts.as ?? 'format');
@@ -56,7 +56,7 @@ export async function fromSvelteKit(
     // Parse-error — граница адаптера (протокол-агностично).
     return new Response(JSON.stringify({ detail: 'Parse error' }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
-  const res = await protocol.http.handle({ method: event.request.method, url: event.request.url, body }, event.locals);
+  const res = await binding.http.handle({ method: event.request.method, url: event.request.url, body }, event.locals);
   return respond(res, format);
 }
 
@@ -83,12 +83,12 @@ export interface ExpressRes {
 }
 
 export async function fromExpress(
-  protocol: HttpProtocol & { format?: Format<any> },
+  binding: HttpProtocol & { format?: Format<any> },
   req: ExpressReq,
   res: ExpressRes,
   opts: { format?: Format<any> } = {},
 ): Promise<void> {
-  const format = opts.format ?? protocol.format ?? json;
+  const format = opts.format ?? binding.format ?? json;
   let body: unknown;
   try {
     const raw = req.body;
@@ -101,7 +101,7 @@ export async function fromExpress(
     res.status(400).set('content-type', 'application/json').send(JSON.stringify({ detail: 'Parse error' }));
     return;
   }
-  const r = await protocol.http.handle({ method: req.method, url: `http://localhost${req.url}`, body }, req.ctx);
+  const r = await binding.http.handle({ method: req.method, url: `http://localhost${req.url}`, body }, req.ctx);
   res.status(r.status);
   for (const [k, v] of Object.entries({ 'content-type': format.contentType, ...r.headers })) res.set(k, v);
   res.send(r.status === 204 ? null : r.raw ? (r.body as string | Uint8Array) : format.encode(r.body));
@@ -115,11 +115,11 @@ export interface Socket {
   onMessage(handler: (data: string | Uint8Array) => void | Promise<void>): void;
 }
 
-export function fromWs(protocol: MessageProtocol & { format?: Format<any> }, socket: Socket, opts: { format?: Format<any> } = {}): void {
-  const format = opts.format ?? protocol.format ?? json;
+export function fromWs(binding: MessageProtocol & { format?: Format<any> }, socket: Socket, opts: { format?: Format<any> } = {}): void {
+  const format = opts.format ?? binding.format ?? json;
   socket.onMessage(async (data) => {
     const value = format.decode(data); // фрейм → значение
-    const reply = await protocol.message.handle(value);
+    const reply = await binding.message.handle(value);
     if (reply != null) socket.send(format.encode(reply)); // значение → фрейм; null → не слать
   });
 }
@@ -128,8 +128,8 @@ export function fromWs(protocol: MessageProtocol & { format?: Format<any> }, soc
 // Одна активная подписка на сокет (мультиплексирование по id — следующий шаг). Ошибка стрима —
 // нативный throw → error-фрейм (wire ошибок — конвенция адаптера, протокол может задать свою).
 
-export function fromWsStream(protocol: StreamProtocol & { format?: Format<any> }, socket: Socket, opts: { format?: Format<any> } = {}): void {
-  const format = opts.format ?? protocol.format ?? json;
+export function fromWsStream(binding: StreamProtocol & { format?: Format<any> }, socket: Socket, opts: { format?: Format<any> } = {}): void {
+  const format = opts.format ?? binding.format ?? json;
   let active: AsyncIterator<unknown> | undefined;
   socket.onMessage(async (data) => {
     const value = format.decode(data) as { cancel?: boolean } | null;
@@ -140,7 +140,7 @@ export function fromWsStream(protocol: StreamProtocol & { format?: Format<any> }
       return;
     }
     const prev = active;
-    const it = protocol.stream.handle(value)[Symbol.asyncIterator]();
+    const it = binding.stream.handle(value)[Symbol.asyncIterator]();
     active = it; // синхронно: cancel-фрейм сразу за подпиской уже видит итератор
     await prev?.return?.(); // новая подписка вытесняет старую
     try {
