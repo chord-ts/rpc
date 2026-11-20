@@ -10,7 +10,6 @@ class Math {
 }
 
 const composer = compose({ Math });
-export const api = jsonrpc(composer);
-export type Api = typeof api;
-
-export const POST = (event: { request: Request }) => fromSvelteKit(api, event);
+const rpcEndpoint = jsonrpc(composer);
+export type ClientType = typeof rpcEndpoint
+export const POST = (event: { request: Request }) => fromSvelteKit(rpcEndpoint, event);

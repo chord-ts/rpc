@@ -2,9 +2,9 @@
   // v2-клиент из опубликованного пакета: дженерик — тип серверного биндинга.
   import { jsonrpc } from '@chord/rpc/client';
   import { onMount } from 'svelte';
-  import type { Api } from './+server';
+  import type { ClientType } from './+server';
 
-  const rpc = jsonrpc<Api>({ endpoint: '/v2/rpc' });
+  const rpc = jsonrpc<ClientType>({ endpoint: '/v2/rpc' });
 
   let result = '';
   let error = '';

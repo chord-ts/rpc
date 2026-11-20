@@ -36,6 +36,6 @@ export type Client = typeof composer.clientType;
 
 export async function POST(event) {
   // event.locals.username = event.cookies.get('username')
-  // return json(await composer.exec(event));
-  throw redirect(303, '/v1/redirectTest/in')
+  return json(await composer.exec(event));
+  // throw redirect(303, '/v1/redirectTest/in')
 }
