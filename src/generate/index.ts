@@ -3,19 +3,38 @@
 // (core.endpoints()), neutral fields (desc/summary/tags/deprecated) shared. Imports types + schemas
 // (default adapter fallback); does NOT import protocol/transport — reusable standalone (CLI/export).
 
-import type { AnySchema, RestMeta } from '../types';
+import type { AnySchema, RestMeta, HttpProtocol } from '../types';
+import { PLAYGROUND_CORS } from '../types';
 import type { Core } from '../core/types';
-import { defaultSchemas } from '../schemas';
+import { resolveSchemas } from '../schemas';
 
 export interface GenOptions {
   jsonSchema?: (s: AnySchema) => unknown;
   info?: { title: string; version: string; description?: string };
 }
 
+/** Генератор возвращает binding: спеку можно отдать GET-эндпоинтом через fromSvelteKit(openrpc(…)),
+ * а сам документ доступен как .document (для rpc.discover, rest-docs, mcp tools/list, CLI/экспорта). */
+export interface Spec<T = object> extends HttpProtocol {
+  document: T;
+}
+function serveSpec<T>(document: T): Spec<T> {
+  const body = JSON.stringify(document, null, 2);
+  return {
+    document,
+    http: {
+      async handle(req) {
+        if (req.method === 'OPTIONS') return { status: 204, headers: PLAYGROUND_CORS, body: null };
+        return { status: 200, headers: { 'content-type': 'application/json', ...PLAYGROUND_CORS }, body, raw: true };
+      },
+    },
+  };
+}
+
 /** Schema converter: from the adapter registered in compose (core.schemas), falling back to the
  * generic default; opts.jsonSchema is a point override. $schema is stripped when embedding. */
 function converter(opts: GenOptions, core: Core<any>): (s: AnySchema) => unknown {
-  const toJson = opts.jsonSchema ?? core.schemas?.jsonSchema ?? defaultSchemas.jsonSchema;
+  const toJson = resolveSchemas(core, opts.jsonSchema).jsonSchema;
   return (s) => {
     const out = toJson(s);
     if (out && typeof out === 'object' && '$schema' in out) {
@@ -46,7 +65,7 @@ export interface StreamMeta {
 // Transitive to REST: only endpoints with rest metadata. Parts map directly:
 // path → parameters in:path (no schema → {type:string}, names from template),
 // query → parameters in:query, body → requestBody. Nothing guessed.
-export function openapi(core: Core<any>, opts: GenOptions = {}): object {
+export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
   const toJson = converter(opts, core);
   const paths: Record<string, Record<string, unknown>> = {};
 
@@ -101,13 +120,13 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): object {
     paths[meta.endpoint] = { ...paths[meta.endpoint], [meta.method.toLowerCase()]: operation };
   }
 
-  return { openapi: '3.1.0', info: infoOf(opts), paths };
+  return serveSpec({ openapi: '3.1.0', info: infoOf(opts), paths });
 }
 
 // --- OpenRPC 1.3 (method-centric JSON-RPC) ---
 // Transitive to JSON-RPC: unary fn declarations (no rest, no stream — stream описывает AsyncAPI).
 // params is a single 'params' descriptor (our call takes one value, not a positional array).
-export function openrpc(core: Core<any>, opts: GenOptions = {}): object {
+export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
   const toJson = converter(opts, core);
   const methods = core
     .endpoints()
@@ -128,7 +147,7 @@ export function openrpc(core: Core<any>, opts: GenOptions = {}): object {
         ],
       };
     });
-  return { openrpc: '1.3.2', info: infoOf(opts), methods };
+  return serveSpec({ openrpc: '1.3.2', info: infoOf(opts), methods });
 }
 
 // --- MCP tools/list ---
@@ -147,7 +166,7 @@ function hintsFor(method: string): Record<string, boolean> {
   };
 }
 
-export function mcpTools(core: Core<any>, opts: GenOptions = {}): { tools: unknown[] } {
+export function mcpTools(core: Core<any>, opts: GenOptions = {}): Spec<{ tools: unknown[] }> {
   const toJson = converter(opts, core);
   const tools = core
     .endpoints()
@@ -193,13 +212,13 @@ export function mcpTools(core: Core<any>, opts: GenOptions = {}): { tools: unkno
         annotations: rest ? hintsFor(rest.method) : undefined,
       };
     });
-  return { tools };
+  return serveSpec({ tools });
 }
 
 // --- AsyncAPI 3.0 ---
 // Transitive to stream: a channel per stream endpoint (contract.event); send = params (in),
 // receive = event. Channel address = Service.method, override — contract.stream.channel.
-export function asyncapi(core: Core<any>, opts: GenOptions = {}): object {
+export function asyncapi(core: Core<any>, opts: GenOptions = {}): Spec {
   const toJson = converter(opts, core);
   const channels: Record<string, unknown> = {};
   const operations: Record<string, unknown> = {};
@@ -226,5 +245,5 @@ export function asyncapi(core: Core<any>, opts: GenOptions = {}): object {
     };
   }
 
-  return { asyncapi: '3.0.0', info: infoOf(opts), channels, operations };
+  return serveSpec({ asyncapi: '3.0.0', info: infoOf(opts), channels, operations });
 }

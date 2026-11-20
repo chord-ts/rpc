@@ -6,12 +6,12 @@ import type { AgentTool } from './types';
 import type { AnySchema } from '../types';
 import type { Core } from '../core/types';
 import { mcpTools, type GenOptions } from '../generate';
-import { defaultSchemas, flatToolSchema, packToolArgs } from '../schemas';
+import { resolveSchemas, flatToolSchema, packToolArgs } from '../schemas';
 
 export function agentTools(core: Core<any>, opts: GenOptions = {}): AgentTool[] {
-  const schemas = core.schemas ?? defaultSchemas;
-  const toJson = opts.jsonSchema ?? schemas.jsonSchema;
-  const descriptors = mcpTools(core, opts).tools as Array<Omit<AgentTool, 'schema' | 'invoke' | 'func'>>;
+  const schemas = resolveSchemas(core, opts.jsonSchema);
+  const toJson = schemas.jsonSchema;
+  const descriptors = mcpTools(core, opts).document.tools as Array<Omit<AgentTool, 'schema' | 'invoke' | 'func'>>;
   // Unary only: stream-эндпоинты не тулы (mcpTools их тоже исключает — индексы сходятся).
   const endpoints = core.endpoints().filter((e) => e.contract && !e.contract.event);
 

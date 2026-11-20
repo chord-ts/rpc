@@ -75,7 +75,7 @@ const loopback = (POST: (e: { request: Request }) => Promise<Response>) => (inpu
   jsonrpc<typeof restApi>({ endpoint: 'http://localhost/rpc', fetch: loopback(POST) });
 
   // [5] REST × fetch. Манифест = OpenAPI (тот же артефакт, что /openapi.json; доставка через load или импорт).
-  const rpcRest = rest<typeof restApi>({ endpoint: 'http://localhost', doc: openapi(restComposer) as any, fetch: loopback(REST) });
+  const rpcRest = rest<typeof restApi>({ endpoint: 'http://localhost', doc: openapi(restComposer).document as any, fetch: loopback(REST) });
   console.log('12 rest getItem →', await rpcRest.Catalog.getItem({ item_id: '42', q: 'foo' }));
   console.log('12 rest createItem →', await rpcRest.Catalog.createItem({ name: 'widget' })); // 201
   try {

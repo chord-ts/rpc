@@ -25,7 +25,7 @@ class Math {
 const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
 
 test('openapi: REST endpoint → path/query parameters + resp status', () => {
-  const doc = openapi(composer, { info: { title: 'Catalog', version: '1.0.0' } }) as any;
+  const doc = openapi(composer, { info: { title: 'Catalog', version: '1.0.0' } }).document as any;
   expect(doc.openapi).toBe('3.1.0');
   const get = doc.paths['/items/{item_id}'].get;
   expect(get.description).toBe('Получить предмет');
@@ -38,14 +38,14 @@ test('openapi: REST endpoint → path/query parameters + resp status', () => {
 });
 
 test('openrpc: only fn methods (REST filtered out)', () => {
-  const doc = openrpc(composer) as any;
+  const doc = openrpc(composer).document as any;
   const names = doc.methods.map((m: any) => m.name);
   expect(names).toContain('Math.count');
   expect(names).not.toContain('Catalog.getItem');
 });
 
 test('mcpTools: all endpoints, REST flattened + auto-path, fn scalar wrapped', () => {
-  const { tools } = mcpTools(composer) as any;
+  const { tools } = mcpTools(composer).document as any;
   const getItem = tools.find((t: any) => t.name === 'Catalog.getItem');
   expect(Object.keys(getItem.inputSchema.properties)).toEqual(expect.arrayContaining(['item_id', 'q']));
   expect(getItem.inputSchema.required).toContain('item_id');
@@ -57,7 +57,7 @@ test('mcpTools: all endpoints, REST flattened + auto-path, fn scalar wrapped', (
 
 test('generate works without registered adapter (generic fallback)', () => {
   const bare = compose({ Catalog }, { inject: {} });
-  const doc = openapi(bare) as any;
+  const doc = openapi(bare).document as any;
   // defaultSchemas reads zod ~standard.jsonSchema natively
   expect(doc.paths['/items/{item_id}'].get.responses['200'].content['application/json'].schema).toMatchObject({ type: 'object' });
 });
@@ -72,7 +72,7 @@ class Ticker {
 
 test('asyncapi: канал на stream-эндпоинт (send=in, receive=event); unary-генераторы stream не берут', () => {
   const c = compose({ Catalog, Math, Ticker }, { inject: {}, schemas: new ZodAdapter() });
-  const doc = asyncapi(c) as any;
+  const doc = asyncapi(c).document as any;
   expect(doc.asyncapi).toBe('3.0.0');
   const ch = doc.channels['Ticker.countdown'];
   expect(ch.address).toBe('Ticker.countdown');
@@ -83,8 +83,24 @@ test('asyncapi: канал на stream-эндпоинт (send=in, receive=event)
   // только stream-эндпоинты: unary в AsyncAPI не попадают
   expect(Object.keys(doc.channels)).toEqual(['Ticker.countdown']);
 
-  const rpc = openrpc(c) as any;
+  const rpc = openrpc(c).document as any;
   expect(rpc.methods.map((m: any) => m.name)).not.toContain('Ticker.countdown');
-  const { tools } = mcpTools(c) as any;
+  const { tools } = mcpTools(c).document as any;
   expect(tools.map((t: any) => t.name)).not.toContain('Ticker.countdown');
+});
+
+test('генератор — binding: http отдаёт документ (raw JSON) + CORS playground, .document доступен', async () => {
+  const spec = openrpc(composer);
+  const res = await spec.http.handle({ method: 'GET', url: 'http://localhost/openrpc.json', body: undefined });
+  expect(res.status).toBe(200);
+  expect(res.raw).toBe(true);
+  expect(res.headers?.['content-type']).toBe('application/json');
+  expect(res.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
+  expect(JSON.parse(res.body as string)).toEqual(spec.document);
+});
+
+test('генератор — binding: OPTIONS preflight → 204 + CORS', async () => {
+  const res = await openrpc(composer).http.handle({ method: 'OPTIONS', url: 'http://localhost/openrpc.json', body: undefined });
+  expect(res.status).toBe(204);
+  expect(res.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
 });

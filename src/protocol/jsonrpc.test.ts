@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, ErrorCode, RpcError, type Middleware } from '../index';
+import { fn, compose, jsonrpc, ErrorCode, RpcError, type Middleware } from '../index';
 import { envelope } from '../test-utils';
 
 class Calc {
@@ -155,4 +155,15 @@ test('middleware ctx mutation is visible to injected dependencies', async () => 
   const exec = envelope({ NeedsCtx }, { inject: { req: (ctx: ReqCtx) => ctx }, use: enrich });
   const res = await exec({ method: 'NeedsCtx.who', id: 1 });
   expect(res).toEqual({ jsonrpc: '2.0', id: 1, result: 'alice' });
+});
+
+test('http projection: CORS playground на ответе + OPTIONS preflight', async () => {
+  const api = jsonrpc(compose({ Calc }, { inject: {} }));
+  const res = await api.http.handle({ method: 'POST', url: 'http://localhost/rpc', body: { jsonrpc: '2.0', method: 'Calc.add', params: { a: 1, b: 2 }, id: 1 } });
+  expect(res.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
+  expect((res.body as any).result).toBe(3);
+
+  const pre = await api.http.handle({ method: 'OPTIONS', url: 'http://localhost/rpc', body: undefined });
+  expect(pre.status).toBe(204);
+  expect(pre.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
 });

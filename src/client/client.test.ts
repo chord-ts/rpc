@@ -87,7 +87,7 @@ describe('client jsonrpc format guard + wire types', () => {
 describe('client rest', () => {
   const restApi = bindRest(restComposer);
   const REST = (e: { request: Request }) => fromSvelteKit(restApi, e);
-  const doc = openapi(restComposer) as any;
+  const doc = openapi(restComposer).document as any;
   const rpc = rest<typeof restApi>({ endpoint: 'http://localhost', doc, fetch: loopback(REST) });
 
   it('GET path+query from flat input', async () => {

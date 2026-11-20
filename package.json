@@ -29,6 +29,14 @@
       "types": "./dist/client/index.d.ts",
       "import": "./dist/client/index.js"
     },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./schemas/zod": {
+      "types": "./dist/schemas/zod.d.ts",
+      "import": "./dist/schemas/zod.js"
+    },
     "./middlewares": {
       "types": "./dist/v1/middlewares/index.d.ts",
       "import": "./dist/v1/middlewares/index.js"
@@ -50,6 +58,8 @@
   "typesVersions": {
     "*": {
       "client": ["dist/client/index.d.ts"],
+      "core": ["dist/core/index.d.ts"],
+      "schemas/zod": ["dist/schemas/zod.d.ts"],
       "middlewares": ["dist/v1/middlewares/index.d.ts"],
       "middlewares/*": ["dist/v1/middlewares/*.d.ts"],
       "validators": ["dist/v1/validators/index.d.ts"],

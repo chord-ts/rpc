@@ -23,10 +23,11 @@ class Catalog {
 }
 
 const composer = compose({ Catalog });
-export const restApi = rest(composer, {
-  docs: { openapi: '/v2/rest/openapi.json', swagger: '/v2/rest/docs', redoc: '/v2/rest/redoc' },
+const restApi = rest(composer, {
+  docs: true,
 });
 export type RestApi = typeof restApi;
 
 export const GET = (event: { request: Request }) => fromSvelteKit(restApi, event);
 export const POST = (event: { request: Request }) => fromSvelteKit(restApi, event);
+

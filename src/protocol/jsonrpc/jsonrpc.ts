@@ -4,7 +4,8 @@
 // Public surface of the family: ./index.ts.
 
 import { CoreError, type Core, type CoreErrorKind, type ServiceMap } from '../../core/types';
-import type { AnySchema, MessageBinding, MessageProtocol, ServiceTag } from '../../types';
+import type { AnySchema, Binding, MessageBinding, MessageProtocol, ServiceTag } from '../../types';
+import { PLAYGROUND_CORS } from '../../types';
 import type { Format, FormatTag, WireFn, JsonWire } from '../../format/types';
 import { json } from '../../format';
 import type { ErrorObject, RPCBody, RPCId, RPCResponse } from './types';
@@ -81,7 +82,7 @@ export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
         try {
           v =
             c.method === 'rpc.discover'
-              ? (discovery ??= openrpc(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }))
+              ? (discovery ??= openrpc(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }).document)
               : await core.call(c.method, c.params, { ctx: { ...baseCtx } }); // per-call copy: no ctx leak across batch
         } catch (e) {
           error = toError(e);
@@ -93,5 +94,14 @@ export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
       return out[0] ?? null;
     },
   };
-  return { message, http: messageToHttp(message), format } as MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> };
+  // CORS: playground читает ответ RPC кросс-доменно (rpc.discover, тест запросов); OPTIONS preflight.
+  const http = messageToHttp(message);
+  const httpCors: Binding = {
+    async handle(req, ctx) {
+      if (req.method === 'OPTIONS') return { status: 204, headers: PLAYGROUND_CORS, body: null };
+      const res = await http.handle(req, ctx);
+      return { ...res, headers: { ...res.headers, ...PLAYGROUND_CORS } };
+    },
+  };
+  return { message, http: httpCors, format } as MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> };
 }

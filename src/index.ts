@@ -8,11 +8,11 @@ export * from './types';
 export * from './core/types';
 export type { Middleware } from './core/types'; // v2 поверх v1 Middleware (явный экспорт перебивает star)
 export { fn, stream, compose, paramNames } from './core';
-export { defaultSchemas, flatToolSchema, packToolArgs } from './schemas';
+export { defaultSchemas, resolveSchemas, flatToolSchema, packToolArgs, wrapScalar, flatObject, stringSchema } from './schemas';
 export { json } from './format';
 export type { Format, WireFn, ApplyWire, JsonWire, JsonWireOf, FormatTag } from './format/types';
 export { openapi, openrpc, mcpTools, asyncapi } from './generate';
-export type { GenOptions, StreamMeta } from './generate';
+export type { GenOptions, StreamMeta, Spec } from './generate';
 export { agentTools } from './tools';
 export type { AgentTool } from './tools/types';
 export * from './protocol';

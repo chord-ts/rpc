@@ -47,7 +47,7 @@ export function mcp(
       if (body.method === 'ping') return result(id, {});
 
       if (body.method === 'tools/list') {
-        return result(id, mcpTools(core, { jsonSchema: toJson }));
+        return result(id, mcpTools(core, { jsonSchema: toJson }).document);
       }
 
       if (body.method === 'tools/call') {

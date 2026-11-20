@@ -1,6 +1,7 @@
 // v2 RPC-эндпоинт: импорт из опубликованного пакета (@chord/rpc → dist через exports-карту).
 // Корень реэкспортит v1+v2; compose/fn/jsonrpc — v2-имена без суффикса версии.
 import { compose, fn, jsonrpc, fromSvelteKit, RpcError } from '@chord/rpc';
+import { ZodAdapter } from '@chord/rpc/schemas/zod';
 import { z } from 'zod';
 
 class Math {
@@ -50,13 +51,13 @@ class Session {
   whoami: typeof Session.$whoami.fn = async () => this.user;
 }
 
-const composer = compose({ Math, Clock, Greeter, Session }, {
+// ZodAdapter на уровне compose: вендорный адаптер сам конвертирует zod-типы (void/date → any
+// через z.toJSONSchema unrepresentable:'any'). Генерация (rpc.discover, GET-спека) читает его.
+export const composer = compose({ Math, Clock, Greeter, Session }, {
+  schemas: new ZodAdapter(),
   inject: { user: (ctx: App.Locals) => ctx.user },
 });
-// rpc.discover: zod 4 по умолчанию не представляет void/date в JSON Schema —
-// смягчаем их до any штатной ручкой jsonSchema (иначе генератор OpenRPC бросает).
-const rpcEndpoint = jsonrpc(composer, {
-  jsonSchema: (s) => z.toJSONSchema(s as any, { unrepresentable: 'any' }),
-});
+const rpcEndpoint = jsonrpc(composer);
 export type ClientType = typeof rpcEndpoint;
 export const POST = (event: { request: Request; locals: App.Locals }) => fromSvelteKit(rpcEndpoint, event);
+

@@ -24,7 +24,7 @@
 // пишет async-генератор, signal и cancellable-паузы; ожидание живёт внутри канала, который
 // умеет прерываться по signal. Отмена поэтому prompt без всякой кооперации пользователя.
 
-import { CoreError, ErrorCode, RpcError, defaultSchemas, mcpTools, packToolArgs } from '../../../src';
+import { CoreError, ErrorCode, RpcError, resolveSchemas, mcpTools, packToolArgs } from '../../../src';
 import type { AnySchema, Binding, Core, ErrorObject, HttpProtocol, RPCId, RPCRequest, TransportResponse } from '../../../src';
 import type { HttpRequest } from './http';
 
@@ -110,7 +110,8 @@ type Params = Record<string, unknown> & {
 export function mcp(core: Core<any>, opts: McpOptions = {}): McpEndpoint {
   const supported = opts.supportedVersions ?? [MCP_VERSION];
   const serverInfo = opts.info ?? { name: 'chord-mcp', version: '1.0.0' };
-  const toJson = opts.jsonSchema ?? core.schemas?.jsonSchema ?? defaultSchemas.jsonSchema;
+  const schemas = resolveSchemas(core, opts.jsonSchema);
+  const toJson = schemas.jsonSchema;
   const ttlMs = opts.ttlMs ?? 60_000;
   const cacheScope = opts.cacheScope ?? 'public';
   const allowOrigin = opts.origin ?? ((origin, url) => origin === new URL(url).origin);
@@ -278,8 +279,8 @@ export function mcp(core: Core<any>, opts: McpOptions = {}): McpEndpoint {
       if (msg.method === 'tools/list') {
         // mcpTools строит схемы из реестра; resources/prompts тулами не являются, а имена
         // берём из mcp.name. Фильтрованный view ядра — чтобы не править src-шный генератор.
-        const toolsCore = { ...core, endpoints: () => toolEndpoints() };
-        const listed = mcpTools(toolsCore as Core<any>, { jsonSchema: toJson }).tools as { name: string }[];
+        const toolsCore = { ...core, schemas, endpoints: () => toolEndpoints() };
+        const listed = mcpTools(toolsCore as Core<any>).document.tools as { name: string }[];
         const names = new Map(toolEndpoints().map((e) => [registryName(e), toolName(e)]));
         return ok(id, { tools: listed.map((t) => ({ ...t, name: names.get(t.name) ?? t.name })), ttlMs, cacheScope });
       }

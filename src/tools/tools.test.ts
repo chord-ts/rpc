@@ -27,12 +27,12 @@ test('agentTools: fn scalar tool — invoke/func/schema', async () => {
   expect(count.description).toBe('Инкремент');
   expect(await count.invoke({ value: 41 })).toBe(42);
   expect(await count.func({ value: 41 })).toBe('42');
-  expect(count.schema['~standard'].validate({ value: 5 })).toEqual({ value: { value: 5 } });
+  expect(await count.schema['~standard'].validate({ value: 5 })).toEqual({ value: { value: 5 } });
 });
 
 test('agentTools: REST tool — flat vendor schema with auto-path, invoke ok', async () => {
   const getItem = tools.find((t) => t.name === 'Catalog.getItem')!;
-  expect(getItem.schema['~standard'].validate({ item_id: '7', q: 'x' })).toEqual({ value: { item_id: '7', q: 'x' } });
+  expect(await getItem.schema['~standard'].validate({ item_id: '7', q: 'x' })).toEqual({ value: { item_id: '7', q: 'x' } });
   expect(await getItem.invoke({ item_id: '7' })).toEqual({ id: 'x' });
 });
 

@@ -20,15 +20,11 @@ export interface AnySchema<Output = unknown> {
 export type InferOutput<S extends AnySchema> = S extends AnySchema<infer O> ? O : never;
 
 // --- Vendor schema adapter (registered once in compose; read by generate/tools/protocol) ---
-/** Operations over the validation library, resolved under the hood by one vendor adapter. */
+/** Минимальный интерфейс адаптера: конвертация схемы в JSON Schema — единственное, что нужно
+ * генерации спеков (openapi/openrpc/mcpTools/asyncapi). Плоские схемы тулов строятся generic
+ * ~standard-билдерами (schemas), вендорных методов в интерфейсе нет. */
 export interface SchemaAdapter {
   jsonSchema(schema: AnySchema): unknown;
-  isObject(schema: AnySchema): boolean;
-  /** Flat object schema from REST parts + named extra fields (auto-path). */
-  flatObject(parts: AnySchema[], extra: Record<string, AnySchema>): AnySchema;
-  /** Scalar → { value: T } (MCP/LangChain require an object schema). */
-  wrapScalar(schema: AnySchema): AnySchema;
-  string(): AnySchema;
 }
 
 /** REST metadata (shared with generate — generate is below protocol, so the contract stays here).
@@ -59,6 +55,14 @@ export interface TransportResponse {
 export interface Binding {
   handle(req: TransportRequest, ctx?: unknown): Promise<TransportResponse>;
 }
+
+/** CORS для OpenRPC Playground: binding'и спеки и RPC разрешают playground-origin читать ответ
+ * кросс-доменно (playground ходит в эндпоинт из браузера). Общий источник для serveSpec и jsonrpc. */
+export const PLAYGROUND_CORS: Record<string, string> = {
+  'Access-Control-Allow-Origin': 'https://playground.open-rpc.org',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
 
 // --- Interaction models (transport vocabulary, not per-protocol contracts) ---
 // A binding is a transport interaction model: transport-addressed (http), self-addressed

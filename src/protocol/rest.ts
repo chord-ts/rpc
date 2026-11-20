@@ -162,7 +162,7 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
       // Standard protocol endpoints — before method routing.
       if (docs && req.method === 'GET') {
         if (url.pathname === docs.openapi) {
-          spec ??= JSON.stringify(openapi(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }), null, 2);
+          spec ??= JSON.stringify(openapi(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }).document, null, 2);
           return { status: 200, headers: { 'content-type': 'application/json' }, body: spec, raw: true };
         }
         if (url.pathname === docs.swagger) {

@@ -1,36 +1,40 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { defaultSchemas, flatToolSchema, packToolArgs, type AnySchema } from '../index';
+import { compose, defaultSchemas, resolveSchemas, flatToolSchema, packToolArgs, wrapScalar, flatObject, stringSchema, type AnySchema } from '../index';
 import { ZodAdapter } from './zod';
 
 const adapter = new ZodAdapter();
 const toJson = (s: AnySchema) => adapter.jsonSchema(s);
 
-test('ZodAdapter: jsonSchema + isObject', () => {
+test('ZodAdapter: jsonSchema (минимальный интерфейс)', () => {
   const obj = z.object({ a: z.string() });
-  expect(adapter.isObject(obj)).toBe(true);
-  expect(adapter.isObject(z.number())).toBe(false);
+  expect((adapter.jsonSchema(obj) as any).type).toBe('object');
+  expect((adapter.jsonSchema(z.number()) as any).type).toBe('number');
   expect(toJson(obj)).toMatchObject({ type: 'object', properties: { a: { type: 'string' } } });
 });
 
-test('flatToolSchema: fn object → in as-is, fn scalar → { value }', () => {
+test('ZodAdapter: void/date (unrepresentable:any) не бросает; generic default бросает', () => {
+  expect(() => adapter.jsonSchema(z.void())).not.toThrow();
+  expect(() => adapter.jsonSchema(z.date())).not.toThrow();
+  expect(() => defaultSchemas.jsonSchema(z.void())).toThrow();
+});
+
+test('flatToolSchema: fn object → in as-is, fn scalar → { value }', async () => {
   const objIn = z.object({ a: z.string() });
   expect(flatToolSchema({ in: objIn }, adapter)).toBe(objIn);
 
   const scalar = flatToolSchema({ in: z.number() }, adapter);
-  expect(scalar['~standard'].validate({ value: 42 })).toEqual({ value: { value: 42 } });
+  expect(await scalar['~standard'].validate({ value: 42 })).toEqual({ value: { value: 42 } });
 });
 
-test('flatToolSchema: REST merges parts + auto-path from template', () => {
+test('flatToolSchema: REST merges parts + auto-path from template (generic)', async () => {
   const contract = {
     in: z.unknown(),
     rest: { endpoint: '/items/{item_id}' },
     query: z.object({ q: z.string().optional() }),
   };
   const schema = flatToolSchema(contract, adapter);
-  expect(schema['~standard'].validate({ item_id: '7', q: 'x' })).toEqual({ value: { item_id: '7', q: 'x' } });
-  // auto-path field is a required string
-  expect(toJson(schema)).toMatchObject({ required: ['item_id'] });
+  expect(await schema['~standard'].validate({ item_id: '7', q: 'x' })).toEqual({ value: { item_id: '7', q: 'x' } });
 });
 
 test('packToolArgs: REST → slices, fn scalar → unwrap, fn object → as-is', () => {
@@ -44,13 +48,21 @@ test('packToolArgs: REST → slices, fn scalar → unwrap, fn object → as-is',
   expect(packToolArgs(obj, { a: 1 }, toJson)).toEqual({ a: 1 });
 });
 
-test('defaultSchemas: generic flatObject merges stripping parts, wrapScalar', async () => {
-  const flat = defaultSchemas.flatObject([z.object({ a: z.string() }), z.object({ b: z.number() })], {
-    id: defaultSchemas.string(),
+test('generic билдеры: flatObject merges stripping parts, wrapScalar, stringSchema', async () => {
+  const flat = flatObject([z.object({ a: z.string() }), z.object({ b: z.number() })], {
+    id: stringSchema(),
   });
   const r = await flat['~standard'].validate({ a: 'x', b: 2, id: '7', extra: true });
   expect(r).toEqual({ value: { a: 'x', b: 2, id: '7' } });
 
-  const wrapped = defaultSchemas.wrapScalar(z.number());
+  const wrapped = wrapScalar(z.number());
   expect(await wrapped['~standard'].validate({ value: 5 })).toEqual({ value: { value: 5 } });
+});
+
+test('resolveSchemas: зарегистрированный адаптер + точечный override, fallback на default', () => {
+  const core = compose({}, { inject: {}, schemas: adapter });
+  expect(resolveSchemas(core)).toBe(adapter);
+  const override = () => ({ type: 'string' });
+  expect(resolveSchemas(core, override).jsonSchema).toBe(override);
+  expect(resolveSchemas(compose({}, { inject: {} })).jsonSchema).toBe(defaultSchemas.jsonSchema);
 });

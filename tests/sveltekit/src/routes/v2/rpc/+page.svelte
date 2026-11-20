@@ -16,6 +16,7 @@
   let echo = '';
   let greet = '';
   let discover = '';
+  let getSpec = '';
   let now = '';
   let whoami = '';
 
@@ -59,6 +60,9 @@
     const doc = await (rpc as any).rpc.discover();
     discover = `OpenRPC ${doc.openrpc} · ${doc.methods.map((m: { name: string }) => m.name).join(', ')}`;
 
+    // GET-эндпоинт отдаёт ту же OpenRPC-спеку напрямую (без JSON-RPC конверта).
+    getSpec = await (await fetch('/v2/rpc/spec')).text();
+
     const d = await rpc.Clock.now(undefined);
     now = `${typeof d} → ${d}`;
 
@@ -90,7 +94,13 @@
 
 <section>
   <h2>Discovery</h2>
-  <p>rpc.discover: {discover}</p>
+  <p>rpc.discover (POST): {discover}</p>
+</section>
+
+<section>
+  <h2>GET OpenRPC спека</h2>
+  <p><a href="/v2/rpc/spec" target="_blank">GET /v2/rpc/spec</a> — тот же документ напрямую, без JSON-RPC конверта · <a href="/v2/rpc/openrpc">OpenRPC explorer →</a></p>
+  <pre class="spec">{getSpec}</pre>
 </section>
 
 <section>
@@ -102,3 +112,15 @@
   <h2>Контекст из locals (DI)</h2>
   <p>Session.whoami = {whoami} — зависимость user приходит из hooks.server.ts</p>
 </section>
+
+<style>
+  .spec {
+    background: #f4f4f4;
+    padding: 1rem;
+    border-radius: 4px;
+    max-height: 24rem;
+    overflow: auto;
+    font-size: 0.8rem;
+    white-space: pre;
+  }
+</style>
