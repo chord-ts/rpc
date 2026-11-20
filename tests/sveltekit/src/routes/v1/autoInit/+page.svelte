@@ -4,8 +4,7 @@
   // import { client } from '@chord-ts/rpc/client';
   import { onMount } from 'svelte';
   import type { Client } from './+server';
-  import { writable } from 'svelte/store';
-  import { updated } from '$app/stores';
+
 
   const rpc = client<Client>({endpoint: '/v1/autoInit'})
 
