@@ -15,6 +15,15 @@ class Clock {
   static $now = fn({ in: z.void(), out: z.date() });
   now: typeof Clock.$now.fn = async () => new Date('2026-01-01T00:00:00Z');
 }
+class Lists {
+  constructor() {}
+  static $sumAll = fn({ in: z.array(z.number()), out: z.number() });
+  sumAll: typeof Lists.$sumAll.fn = async (nums) => nums.reduce((a, b) => a + b, 0);
+  static $repeat = fn({ in: z.tuple([z.string(), z.number()]), out: z.string() });
+  repeat: typeof Lists.$repeat.fn = async (text, times) => text.repeat(times);
+  static $upper = fn({ in: z.string(), out: z.string() });
+  upper: typeof Lists.$upper.fn = async (s) => s.toUpperCase();
+}
 class Catalog {
   constructor() {}
   static $getItem = get('/items/{item_id}', { query: z.object({ q: z.string().optional() }), resp: { 200: z.object({ id: z.string(), name: z.string() }) } });
@@ -38,7 +47,7 @@ const devalue: Format<string, DevalueWire> = {
   }),
 };
 
-const rpcComposer = compose({ Math, Clock });
+const rpcComposer = compose({ Math, Clock, Lists });
 const restComposer = compose({ Catalog });
 const loopback = (POST: (e: { request: Request }) => Promise<Response>) => (input: RequestInfo | URL, init?: RequestInit) =>
   POST({ request: new Request(input, init) });
@@ -59,6 +68,24 @@ describe('client jsonrpc', () => {
 
   it('unknown method → RpcError -32601', async () => {
     await expect((rpc as any).Math.nope()).rejects.toMatchObject({ code: -32601 });
+  });
+});
+
+describe('client jsonrpc positional wire contract', () => {
+  const api = bindJsonrpc(rpcComposer);
+  const POST = (e: { request: Request }) => fromSvelteKit(api, e);
+  const rpc = jsonrpc<typeof api>({ endpoint: 'http://localhost/rpc', fetch: loopback(POST) });
+
+  it('array-as-value: single array arg wrapped [[…]] → handler receives the array', async () => {
+    expect(await rpc.Lists.sumAll([1, 2, 3])).toBe(6);
+  });
+
+  it('tuple: several args → positional [a, b]', async () => {
+    expect(await rpc.Lists.repeat('ab', 3)).toBe('ababab');
+  });
+
+  it('scalar: bare value tolerated by the server', async () => {
+    expect(await rpc.Lists.upper('hello')).toBe('HELLO');
   });
 });
 

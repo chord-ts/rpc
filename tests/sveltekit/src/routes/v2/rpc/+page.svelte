@@ -8,6 +8,7 @@
   const rpc = jsonrpc<ClientType>({ endpoint: '/v2/rpc' });
 
   let add = '';
+  let sumAll = '';
   let validation = '';
   let notFound = '';
   let div = '';
@@ -15,6 +16,13 @@
   let internal = '';
   let echo = '';
   let greet = '';
+  let upper = '';
+  let double = '';
+  let not = '';
+  let repeat = '';
+  let pad = '';
+  let scalarParams = '';
+  let multiParams = '';
   let discover = '';
   let getSpec = '';
   let now = '';
@@ -28,6 +36,7 @@
 
   onMount(async () => {
     add = String(await rpc.Math.add({ a: 2, b: 3 }));
+    sumAll = String(await rpc.Math.sumAll([1, 2, 3]));
 
     try {
       await rpc.Math.add({ a: 'x', b: 3 } as any);
@@ -57,8 +66,16 @@
     echo = await rpc.Greeter.echo('ping');
     greet = await rpc.Greeter.greet('Hello', 'World');
 
+    upper = await rpc.Scalars.upper('hello');
+    double = String(await rpc.Scalars.double(21));
+    not = String(await rpc.Scalars.not(true));
+    repeat = await rpc.Scalars.repeat('ab', 3);
+    pad = await rpc.Scalars.pad('7', 3, '0');
+
     const doc = await (rpc as any).rpc.discover();
     discover = `OpenRPC ${doc.openrpc} · ${doc.methods.map((m: { name: string }) => m.name).join(', ')}`;
+    scalarParams = JSON.stringify(doc.methods.find((m: { name: string }) => m.name === 'Scalars.upper').params);
+    multiParams = JSON.stringify(doc.methods.find((m: { name: string }) => m.name === 'Scalars.pad').params);
 
     // GET-эндпоинт отдаёт ту же OpenRPC-спеку напрямую (без JSON-RPC конверта).
     getSpec = await (await fetch('/v2/rpc/spec')).text();
@@ -75,6 +92,7 @@
 <section>
   <h2>Типизированный вызов</h2>
   <p>Math.add({'{ a: 2, b: 3 }'}) = {add}</p>
+  <p>Math.sumAll([1, 2, 3]) = {sumAll} — массив как одно значение, провод [[…]]</p>
 </section>
 
 <section>
@@ -93,13 +111,24 @@
 </section>
 
 <section>
+  <h2>Скалярные схемы (zod)</h2>
+  <p>Scalars.upper('hello') = {upper}</p>
+  <p>Scalars.double(21) = {double}</p>
+  <p>Scalars.not(true) = {not}</p>
+  <p>Scalars.repeat('ab', 3) = {repeat} (by-position аргументы)</p>
+  <p>Scalars.pad('7', 3, '0') = {pad} (третий аргумент optional)</p>
+  <p>OpenRPC params скалярного входа — один позиционный дескриптор arg0 (провод [value]): {scalarParams}</p>
+  <p>OpenRPC params tuple-входа: {multiParams}</p>
+</section>
+
+<section>
   <h2>Discovery</h2>
   <p>rpc.discover (POST): {discover}</p>
 </section>
 
 <section>
   <h2>GET OpenRPC спека</h2>
-  <p><a href="/v2/rpc/spec" target="_blank">GET /v2/rpc/spec</a> — тот же документ напрямую, без JSON-RPC конверта · <a href="/v2/rpc/openrpc">OpenRPC explorer →</a></p>
+  <p><a href="/v2/rpc/spec" target="_blank">GET /v2/rpc/spec</a> — тот же документ напрямую, без JSON-RPC конверта · <a href="/v2/rpc/openrpc">clef — OpenRPC explorer + Try it →</a></p>
   <pre class="spec">{getSpec}</pre>
 </section>
 

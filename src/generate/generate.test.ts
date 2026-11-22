@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, stream, compose, openapi, openrpc, mcpTools, asyncapi, swagger, redoc } from '../index';
+import { fn, get, stream, compose, openapi, openrpc, mcpTools, asyncapi, swagger, redoc, clef } from '../index';
 import { ZodAdapter } from '../schemas/zod';
 
 // REST-ресурс (сахар get). RPC-методы — отдельным классом (стили не смешиваются).
@@ -20,6 +20,16 @@ class Math {
   constructor() {}
   static $count = fn({ in: z.number(), out: z.number(), desc: 'Инкремент' });
   count: typeof Math.$count.fn = async (n) => n + 1;
+  static $add = fn({ in: z.object({ a: z.number(), b: z.number().optional() }), out: z.number() });
+  add: typeof Math.$add.fn = async ({ a, b }) => a + (b ?? 0);
+  static $ping = fn({ in: z.void(), out: z.string() });
+  ping: typeof Math.$ping.fn = async () => 'pong';
+  static $repeat = fn({ in: z.tuple([z.string(), z.number()]), out: z.string() });
+  repeat: typeof Math.$repeat.fn = async (text, times) => text.repeat(times);
+  static $pad = fn({ in: z.tuple([z.string(), z.number(), z.string().optional()]), out: z.string() });
+  pad: typeof Math.$pad.fn = async (text, width, fill) => text.padStart(width, fill ?? ' ');
+  static $sumAll = fn({ in: z.array(z.number()), out: z.number() });
+  sumAll: typeof Math.$sumAll.fn = async (nums) => nums.reduce((a, b) => a + b, 0);
 }
 
 const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
@@ -33,6 +43,7 @@ test('openapi: REST endpoint → path/query parameters + resp status', () => {
   expect(params.find((p: any) => p.name === 'item_id')).toMatchObject({ in: 'path', required: true });
   expect(params.find((p: any) => p.name === 'q')).toMatchObject({ in: 'query', required: false });
   expect(get.responses['200'].content['application/json'].schema).toMatchObject({ type: 'object' });
+  expect(get.tags).toEqual(['items']); // явные tags перебивают дефолт-тег из имени класса
   // fn-метод без rest в OpenAPI не попадает
   expect(doc.paths['/items']).toBeUndefined();
 });
@@ -42,6 +53,40 @@ test('openrpc: only fn methods (REST filtered out)', () => {
   const names = doc.methods.map((m: any) => m.name);
   expect(names).toContain('Math.count');
   expect(names).not.toContain('Catalog.getItem');
+  // дефолт-тег из имени класса — группировка в clef
+  expect(doc.methods.find((m: any) => m.name === 'Math.count').tags).toEqual([{ name: 'Math' }]);
+});
+
+test('openrpc: params — object by-name, tuple by-position, void → [], скаляр → один params', () => {
+  const doc = openrpc(composer).document as any;
+  const method = (name: string) => doc.methods.find((m: any) => m.name === name);
+  // object-вход раскладывается на дескрипторы по полям: clef шлёт {a, b} — ровно то, что ждёт сервер
+  expect(method('Math.add').params).toEqual([
+    { name: 'a', required: true, schema: { type: 'number' } },
+    { name: 'b', required: false, schema: { type: 'number' } },
+  ]);
+  expect(method('Math.add').paramStructure).toBe('by-name');
+  expect(method('Math.ping').params).toEqual([]); // void → params omitted
+  // скаляр — вырожденный tuple из одного аргумента: позиционный дескриптор arg0, провод [value]
+  expect(method('Math.count').params).toEqual([{ name: 'arg0', required: true, schema: { type: 'number' } }]);
+  expect(method('Math.count').paramStructure).toBe('by-position');
+  // tuple → позиционный дескриптор на элемент (JSON-RPC by-position): порядок = порядок аргументов,
+  // required по minItems — optional-хвост после обязательных (требование OpenRPC к порядку params)
+  expect(method('Math.repeat').params).toEqual([
+    { name: 'arg0', required: true, schema: { type: 'string' } },
+    { name: 'arg1', required: true, schema: { type: 'number' } },
+  ]);
+  expect(method('Math.repeat').paramStructure).toBe('by-position');
+  expect(method('Math.pad').params).toEqual([
+    { name: 'arg0', required: true, schema: { type: 'string' } },
+    { name: 'arg1', required: true, schema: { type: 'number' } },
+    { name: 'arg2', required: false, schema: { type: 'string' } },
+  ]);
+  // обычный массив — одиночное значение-массив: один позиционный дескриптор arg0, провод [[…]]
+  expect(method('Math.sumAll').params).toEqual([
+    { name: 'arg0', required: true, schema: { type: 'array', items: { type: 'number' } } },
+  ]);
+  expect(method('Math.sumAll').paramStructure).toBe('by-position');
 });
 
 test('mcpTools: all endpoints, REST flattened + auto-path, fn scalar wrapped', () => {
@@ -89,20 +134,13 @@ test('asyncapi: канал на stream-эндпоинт (send=in, receive=event)
   expect(tools.map((t: any) => t.name)).not.toContain('Ticker.countdown');
 });
 
-test('генератор — binding: http отдаёт документ (raw JSON) + CORS playground, .document доступен', async () => {
+test('генератор — binding: http отдаёт документ (raw JSON), .document доступен', async () => {
   const spec = openrpc(composer);
   const res = await spec.http.handle({ method: 'GET', url: 'http://localhost/openrpc.json', body: undefined });
   expect(res.status).toBe(200);
   expect(res.raw).toBe(true);
   expect(res.headers?.['content-type']).toBe('application/json');
-  expect(res.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
   expect(JSON.parse(res.body as string)).toEqual(spec.document);
-});
-
-test('генератор — binding: OPTIONS preflight → 204 + CORS', async () => {
-  const res = await openrpc(composer).http.handle({ method: 'OPTIONS', url: 'http://localhost/openrpc.json', body: undefined });
-  expect(res.status).toBe(204);
-  expect(res.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
 });
 
 test('swagger/redoc — UI-binding: inline spec, text/html, путь маунта не важен', async () => {
@@ -120,4 +158,21 @@ test('swagger/redoc — UI-binding: inline spec, text/html, путь маунт�
   expect(rd.headers?.['content-type']).toContain('text/html');
   expect(rd.body).toContain('Redoc.init');
   expect(rd.body).toContain('"openapi":"3.1.0"');
+});
+
+test('clef — UI-binding: inline OpenRPC-spec + endpoint/transports для Try it', async () => {
+  const res = await clef(composer, { endpoint: '/rpc', transports: ['http'] }).http.handle({ method: 'GET', url: 'http://localhost/v2/rpc/openrpc', body: undefined });
+  expect(res.status).toBe(200);
+  expect(res.raw).toBe(true);
+  expect(res.headers?.['content-type']).toContain('text/html');
+  expect(res.body).toContain('clef.mount');
+  expect(res.body).toContain('"openrpc":"1.3.2"'); // документ вшит inline, без fetch/CORS
+  expect(res.body).toContain('Math.count');
+  expect(res.body).toContain('"endpoint":"/rpc"');
+  expect(res.body).toContain('"transports":["http"]');
+
+  // без opts — только spec: undefined-поля не сериализуются
+  const bare = await clef(composer).http.handle({ method: 'GET', url: 'http://localhost/docs', body: undefined });
+  expect(bare.body).not.toContain('"endpoint"');
+  expect(bare.body).not.toContain('"transports"');
 });

@@ -1,10 +1,10 @@
 // Generation layer (ROADMAP п.6). Generators are transitive to the protocol: rest declarations →
 // OpenAPI; fn declarations → OpenRPC + MCP tools/list; stream metadata → AsyncAPI. One registry
-// (core.endpoints()), neutral fields (desc/summary/tags/deprecated) shared. Imports types + schemas
+// (core.endpoints()), neutral fields (desc/summary/tags/deprecated) shared; tags default to the
+// service (class) name. Imports types + schemas
 // (default adapter fallback); does NOT import protocol/transport — reusable standalone (CLI/export).
 
 import type { AnySchema, RestMeta, HttpProtocol } from '../types';
-import { PLAYGROUND_CORS } from '../types';
 import type { Core } from '../core/types';
 import { resolveSchemas } from '../schemas';
 
@@ -23,9 +23,8 @@ function serveSpec<T>(document: T): Spec<T> {
   return {
     document,
     http: {
-      async handle(req) {
-        if (req.method === 'OPTIONS') return { status: 204, headers: PLAYGROUND_CORS, body: null };
-        return { status: 200, headers: { 'content-type': 'application/json', ...PLAYGROUND_CORS }, body, raw: true };
+      async handle() {
+        return { status: 200, headers: { 'content-type': 'application/json' }, body, raw: true };
       },
     },
   };
@@ -123,7 +122,7 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
       operationId: `${e.service}.${e.method}`,
       summary: c.summary,
       description: c.desc,
-      tags: c.tags,
+      tags: c.tags ?? [e.service], // дефолт-тег = имя класса: группировка в swagger/clef
       deprecated: c.deprecated,
       parameters,
       responses,
@@ -166,7 +165,37 @@ export function redoc(core: Core<any>, opts: GenOptions = {}): HttpProtocol {
 
 // --- OpenRPC 1.3 (method-centric JSON-RPC) ---
 // Transitive to JSON-RPC: unary fn declarations (no rest, no stream — stream описывает AsyncAPI).
-// params is a single 'params' descriptor (our call takes one value, not a positional array).
+// params из input-схемы: object → дескриптор на каждое property (by-name — JSON-RPC params это
+// карта имён); tuple (array с prefixItems) → позиционный дескриптор на элемент (by-position:
+// params — сам массив, порядок дескрипторов = порядок аргументов; имена синтетические arg0/arg1,
+// required по minItems); скаляр и обычный массив → один позиционный дескриптор arg0 (провод
+// [value] / [[…]] — массив-как-значение обёрнут, JSON-RPC §4.2 требует Structured params);
+// пустая схема (void/any) → params нет.
+type TupleObj = JsonObj & { type?: string; prefixItems?: unknown[]; minItems?: number };
+function paramsOf(schema: unknown): unknown[] {
+  const s = (schema ?? {}) as TupleObj;
+  if (s.type === 'object') {
+    return Object.entries(s.properties ?? {}).map(([name, prop]) => ({
+      name,
+      required: (s.required ?? []).includes(name),
+      schema: prop,
+    }));
+  }
+  if (s.type === 'array' && s.prefixItems) {
+    const min = s.minItems ?? s.prefixItems.length;
+    return s.prefixItems.map((item, i) => ({ name: `arg${i}`, required: i < min, schema: item }));
+  }
+  if (Object.keys(s).length === 0) return [];
+  return [{ name: 'arg0', required: true, schema }];
+}
+
+// paramStructure (OpenRPC): формат params, который ждёт сервер. object → by-name карта,
+// скаляр/tuple/массив → by-position массив; void не выражается — дефолт 'either'.
+function structureOf(s: TupleObj | undefined): 'by-name' | 'by-position' | undefined {
+  if (!s || Object.keys(s).length === 0) return undefined;
+  return s.type === 'object' ? 'by-name' : 'by-position';
+}
+
 export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
   const toJson = converter(opts, core);
   const methods = core
@@ -174,12 +203,14 @@ export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
     .filter((e) => !e.contract?.rest && !e.contract?.event)
     .map((e) => {
       const c = (e.contract ?? {}) as Record<string, unknown>;
+      const inJson = e.contract ? (toJson(e.contract.in) as TupleObj) : undefined;
       return {
         name: `${e.service}.${e.method}`,
         summary: c.summary,
         description: c.desc,
-        tags: c.tags ? (c.tags as string[]).map((name) => ({ name })) : undefined,
-        params: e.contract ? [{ name: 'params', required: true, schema: toJson(e.contract.in) }] : [],
+        tags: (c.tags ? (c.tags as string[]) : [e.service]).map((name) => ({ name })),
+        params: inJson ? paramsOf(inJson) : [],
+        paramStructure: structureOf(inJson),
         result: { name: 'result', schema: e.contract?.out ? toJson(e.contract.out) : {} },
         errors: [
           { code: -32601, message: 'Method not found' },
@@ -189,6 +220,24 @@ export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
       };
     });
   return serveSpec({ openrpc: '1.3.2', info: infoOf(opts), methods });
+}
+
+// --- clef: UI-binding поверх OpenRPC-документа (inline spec) — explorer + Try it-консоль.
+// Тот же паттерн, что swagger/redoc: документ вшит, CDN один файл, путь маунта выбирает пользователь.
+// endpoint — адрес JSON-RPC-binding'а для Try it; transports сужает выбор транспорта в консоли.
+export function clef(
+  core: Core<any>,
+  opts: GenOptions & { endpoint?: string; transports?: ('http' | 'websocket')[] } = {},
+): HttpProtocol {
+  const document = openrpc(core, opts).document;
+  const mount = { spec: document, endpoint: opts.endpoint, transports: opts.transports };
+  return serveHtml(
+    `<!doctype html><html><head><meta charset="utf-8"></head>` +
+      `<body style="margin:0"><div id="clef" style="height:100vh"></div>` +
+      `<script src="https://cdn.jsdelivr.net/npm/@chord-ts/clef"></script>` +
+      `<script>clef.mount('#clef', ${inlineJson(mount)})</script>` +
+      `</body></html>`,
+  );
 }
 
 // --- MCP tools/list ---

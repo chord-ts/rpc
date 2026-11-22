@@ -29,6 +29,8 @@ class Math {
   constructor() {}
   static $count = fn({ in: z.number(), out: z.number() });
   count: typeof Math.$count.fn = async (n) => n + 1;
+  static $sumAll = fn({ in: z.array(z.number()), out: z.number() });
+  sumAll: typeof Math.$sumAll.fn = async (nums) => nums.reduce((a, b) => a + b, 0);
 }
 
 const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
@@ -45,6 +47,14 @@ test('jsonrpc: call, notification (204), rpc.discover', async () => {
   const binding = jsonrpc(composer).http;
   const call = await binding.handle(rpcBody('Math.count', 5, 1));
   expect(call.body).toEqual({ jsonrpc: '2.0', id: 1, result: 6 });
+
+  // стандартная by-position форма скаляра [value] — как шлют clef и OpenRPC-клиенты
+  const positional = await binding.handle(rpcBody('Math.count', [5], 3));
+  expect(positional.body).toEqual({ jsonrpc: '2.0', id: 3, result: 6 });
+
+  // массив-как-значение — [[…]] (клиент оборачивает одиночный array-аргумент)
+  const arr = await binding.handle(rpcBody('Math.sumAll', [[1, 2, 3]], 4));
+  expect(arr.body).toEqual({ jsonrpc: '2.0', id: 4, result: 6 });
 
   const notify = await binding.handle(rpcBody('Math.count', 5));
   expect(notify.status).toBe(204);

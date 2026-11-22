@@ -41,8 +41,11 @@ export type Contract = {
 
 export type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;
 
+// Tuple (фиксированная длина) → позиционные аргументы обработчика (провод [a, b]);
+// обычный массив — одиночное значение-массив (провод [[…]]); объект/скаляр — одиночный вход.
+type HandlerArgs<I> = I extends unknown[] ? (number extends I['length'] ? [I] : I) : [I];
 export type Fn<C extends Contract> = C & {
-  fn: (input: InferOutput<C['in']>) => Promise<Out<C>>;
+  fn: (...args: HandlerArgs<InferOutput<C['in']>>) => Promise<Out<C>>;
 };
 
 // --- schema-first stream declaration + `stream` ---

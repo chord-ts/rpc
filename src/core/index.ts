@@ -162,12 +162,27 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     }
 
     if (desc.contract) {
-      const parsedIn = await desc.contract.in['~standard'].validate(params);
+      let parsedIn = await desc.contract.in['~standard'].validate(params);
+      // Проводной контракт (JSON-RPC §4.2, params MUST be Structured): позиционные аргументы —
+      // [a, b], массив-как-значение — [[…]], скаляр — [value] или голый (chord-клиент).
+      // Голый массив params — всегда позиционные аргументы; невалидный одиночный массив
+      // распаковываем в значение (если обе формы невалидны — ошибка от прямой).
+      let positional = Array.isArray(params);
+      if ('issues' in parsedIn && Array.isArray(params) && params.length === 1) {
+        const unwrapped = await desc.contract.in['~standard'].validate(params[0]);
+        if (!('issues' in unwrapped)) {
+          parsedIn = unwrapped;
+          positional = false;
+        }
+      }
       if ('issues' in parsedIn) {
         throw new CoreError('invalid-params', 'Validation error', parsedIn.issues);
       }
 
-      const value = await handler(parsedIn.value);
+      const value =
+        positional && Array.isArray(parsedIn.value)
+          ? await handler(...parsedIn.value)
+          : await handler(parsedIn.value);
 
       // out всегда задаёт тип возврата; рантайм-проверка — только по флагу validateOut.
       if (desc.contract.out && validateOut) {
@@ -182,8 +197,9 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     }
 
     // Simple endpoint (no schema): pass params straight to the handler.
+    // Одиночный array-аргумент клиент шлёт как [[…]] — распаковываем (голый […] тоже работает).
     return handler.length <= 1
-      ? handler(params)
+      ? handler(Array.isArray(params) && params.length === 1 && Array.isArray(params[0]) ? params[0] : params)
       : Array.isArray(params)
         ? handler(...params)
         : handler(params);

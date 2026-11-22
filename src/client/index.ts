@@ -142,8 +142,10 @@ function proxy(call: CallFn): any {
         if (prop === 'then' || typeof prop === 'symbol') return undefined;
         return build([...path, String(prop)]);
       },
-      // One argument — single input (object/scalar); several — positional array (simple endpoints).
-      apply: (_, __, args) => call(path.join('.'), args.length === 1 ? args[0] : args),
+      // Проводной контракт: позиционные аргументы — [a, b]; массив-как-значение — [[…]]
+      // (одиночный array-аргумент оборачивается); объект/скаляр — как есть.
+      apply: (_, __, args) =>
+        call(path.join('.'), args.length === 1 ? (Array.isArray(args[0]) ? [args[0]] : args[0]) : args),
     });
   return build([]);
 }

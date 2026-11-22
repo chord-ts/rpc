@@ -51,6 +51,46 @@
 
 ## TODO — продолжение (точка входа 2026-11-20)
 
+**На подумать — первым делом в следующий раз (2026-11-21, clef Try it) — ЗАКРЫТО 2026-11-23, см. ниже:** скалярные `fn`
+(`in: z.number()` и т.п.) в Try it не исполняются: `openrpc()` отдаёт один 'params'-дескриптор,
+clef шлёт by-name карту `{params: value}`, а сервер ждёт голый скаляр → -32602. Стандартными
+JSON-RPC params (by-name объект / by-position массив) скаляр не выражается. Варианты:
+clef трактует одиночный 'params'-дескриптор как всё значение params (правка + релиз clef);
+или скаляр оборачивается на сервере по образцу MCP `{ value }` (меняет wire); или оставить
+как есть (доки рендерятся, исполнение — нет). Контекст: object-вход уже расложен per-property
+(by-name), void/any → `params: []` — это работает и проверено; скаляр — осознанно отложен.
+Рядом: simple-эндпоинты без `$method` (Greeter) не имеют схемы — параметры не документируются,
+Try it шлёт пустой вызов.
+
+**Обновление 2026-11-23 — трейдофф закрыт полностью: скаляр, tuple, массив-как-значение.**
+Сверено по первоисточникам (JSON-RPC 2.0 §4.2, OpenRPC spec + meta-schema 1.14.6): `params`
+MUST be Structured (Object/Array), by-position массив легален, голый скаляр — нет. Итоговый
+проводной контракт (решение пользователя: «клиент гарантирует позиционные [a, b], массив [[…]]»):
+
+- **object** → by-name карта, дескриптор per property, `paramStructure: 'by-name'` (без изменений).
+- **tuple** (`z.tuple`, фиксированная длина) → позиционные аргументы: тип `Fn` раскрывает
+  в `(...args)` обработчика, провод `[a, b]`, дескриптор на элемент (`arg0/arg1`, `required`
+  по `minItems`, optional-хвост после обязательных — требование порядка OpenRPC), `'by-position'`.
+- **обычный массив** (`z.array`) → **одиночное значение-массив**, не variadic: обработчик
+  `(nums: number[])`, провод `[[…]]` (клиентский proxy оборачивает одиночный array-аргумент),
+  дескриптор `arg0` с array-схемой, `'by-position'`. Голый массив `params` = позиционные
+  аргументы (универсальное правило by-position) — для массива-значения каноническая форма `[[…]]`.
+- **скаляр** → вырожденный tuple из одного аргумента: провод `[value]` (стандарт) или голый
+  скаляр (текущий chord-клиент, сервер толерантен), дескриптор `arg0`, `'by-position'`.
+  Имя `'params'` у дескриптора исчезло полностью.
+- **void/any** → `params: []` (без изменений).
+
+Механика сервера (`core.invoke`, без знания схемы — слои не нарушены): голый массив params →
+spread в аргументы; невалидный одиночный массив распаковывается в значение (`[value]`/`[[…]]`),
+если обе формы невалидны — ошибка от прямой. Simple-эндпоинты: то же распаковывание `[[…]]`.
+`packToolArgs` (MCP/agentTools) распаковывает `{value}` — не затронут. **clef править не нужно**:
+`paramsByName` (src/core/examples.ts) уже читает `paramStructure` и шлёт массив для by-position
+(проверено по исходникам соседнего репозитория и CDN-бандлу). Демо: `Scalars` (скаляры + tuple
+с optional-хвостом) и `Math.sumAll` в tests/sveltekit v2/rpc. Проверено живьём: спека, wire-вызовы
+(обе формы скаляра, `[[1,2,3]]`→6), страница в браузере (sumAll=6 через типизированный клиент),
+**clef Try it исполняет скаляр (upper→HELLO) и массив (sumAll [[0]]→0)**; 84/84 v2 unit-теста,
+build/typecheck чистые, svelte-check v2 clean (53 v1 baseline).
+
 Снято 2026-11-19. Детали — в записи спайка 06 и в разделе «Тесты» ниже; устройство
 conformance-инфраструктуры — `src/protocol/mcp/tests/README.md`.
 
@@ -245,11 +285,23 @@ fixture-контракт апстрима подключены: **127 passed / 4
 - [x] **src:** слой `generate/` — `openapi`/`openrpc`/`mcpTools`/`asyncapi` из одного реестра `endpoints()`;
       транзитивны протоколу (REST→OpenAPI, fn→OpenRPC/MCP, stream→AsyncAPI-гипотеза). Конвертер из `core.schemas`.
 - [x] **src: генераторы — binding'и + UI-вьюеры** (2026-11-20): генераторы возвращают `Spec<T> =
-      HttpProtocol & { document }` (`serveSpec`, CORS playground) — спеку отдают GET-эндпоинтом
+      HttpProtocol & { document }` (`serveSpec`) — спеку отдают GET-эндпоинтом
       (`fromSvelteKit(openapi(composer), event)`), документ доступен как `.document`. Добавлены
       `swagger(composer, opts)` / `redoc(composer, opts)` — UI-binding'и поверх OpenAPI: документ вшит
       inline (`spec:`), отдельный openapi-маунт и CORS не нужны, путь маунта выбирает пользователь.
       Форма согласована: `swagger(core, opts)` как у остальных генераторов (не viewer по URL и не обёртка Spec).
+- [x] **src: clef-вьюер вместо OpenRPC Playground** (2026-11-21): `clef(composer, { endpoint, transports })` —
+      UI-binding поверх OpenRPC (`@chord-ts/clef` опубликован, CDN один файл): explorer + Try it-консоль,
+      спека inline, `endpoint` — адрес JSON-RPC-binding'а для запросов из консоли. Hosted
+      playground.open-rpc.org выпилен: clef живёт на странице пользователя — `PLAYGROUND_CORS` удалён
+      из types/serveSpec/jsonrpc (CORS и OPTIONS-preflight больше не нужны). sveltekit-тест:
+      `/v2/rpc/openrpc` — GET-binding `clef(...)` вместо iframe-страницы.
+- [x] **src: OpenRPC params by-name + авто-теги** (2026-11-21, выбор пользователя): `openrpc()` раскладывает
+      object-вход на дескриптор per property (by-name: clef шлёт карту имён — ровно то, что ждёт сервер;
+      прежний один 'params'-дескриптор давал `{params: value}` → -32602 в Try it). Пустая схема (void/any)
+      → `params: []`; скаляр → один 'params'-дескриптор (Try it скаляры не исполняет: стандартными
+      by-name/by-position params скаляр не выражается). Дефолт-тег = имя класса в openapi/openrpc
+      (явные `tags` перебивают) — группировка методов в clef/swagger.
 - [x] **src:** слой `tools/` — `agentTools(composer)` (отдельная функция, не метод ядра): готовые тулы
       для LangChain in-process (`schema`/`invoke`/`func`), общий `packToolArgs` с mcp-биндингом.
 - [x] **src:** слой `format/` — `json: Format<string>`; `Format<Raw>` generic по типу провода.

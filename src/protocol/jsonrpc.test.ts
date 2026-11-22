@@ -157,13 +157,9 @@ test('middleware ctx mutation is visible to injected dependencies', async () => 
   expect(res).toEqual({ jsonrpc: '2.0', id: 1, result: 'alice' });
 });
 
-test('http projection: CORS playground на ответе + OPTIONS preflight', async () => {
+test('http projection: POST → JSON-RPC ответ без конверта транспорта', async () => {
   const api = jsonrpc(compose({ Calc }, { inject: {} }));
   const res = await api.http.handle({ method: 'POST', url: 'http://localhost/rpc', body: { jsonrpc: '2.0', method: 'Calc.add', params: { a: 1, b: 2 }, id: 1 } });
-  expect(res.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
+  expect(res.status).toBe(200);
   expect((res.body as any).result).toBe(3);
-
-  const pre = await api.http.handle({ method: 'OPTIONS', url: 'http://localhost/rpc', body: undefined });
-  expect(pre.status).toBe(204);
-  expect(pre.headers?.['Access-Control-Allow-Origin']).toBe('https://playground.open-rpc.org');
 });

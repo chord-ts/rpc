@@ -56,13 +56,6 @@ export interface Binding {
   handle(req: TransportRequest, ctx?: unknown): Promise<TransportResponse>;
 }
 
-/** CORS для OpenRPC Playground: binding'и спеки и RPC разрешают playground-origin читать ответ
- * кросс-доменно (playground ходит в эндпоинт из браузера). Общий источник для serveSpec и jsonrpc. */
-export const PLAYGROUND_CORS: Record<string, string> = {
-  'Access-Control-Allow-Origin': 'https://playground.open-rpc.org',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
 
 // --- Interaction models (transport vocabulary, not per-protocol contracts) ---
 // A binding is a transport interaction model: transport-addressed (http), self-addressed

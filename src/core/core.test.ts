@@ -43,6 +43,45 @@ test('handler errors propagate untouched (no wrapping in core)', async () => {
   await expect(composer.call('Native.boom', null)).rejects.not.toBeInstanceOf(CoreError);
 });
 
+// Скалярный вход: голый скаляр (chord-клиент) и стандартная by-position форма [value]
+// (JSON-RPC §4.2, clef/стандартные клиенты) — обе принимаются.
+test('scalar input: bare value and by-position [value] both accepted', async () => {
+  const composer = compose({ Native });
+  expect(await composer.call('Native.num', 7)).toBe(7);
+  expect(await composer.call('Native.num', [7])).toBe(7);
+  await expect(composer.call('Native.num', ['x'])).rejects.toMatchObject({ kind: 'invalid-params' });
+  await expect(composer.call('Native.num', 'x')).rejects.toMatchObject({ kind: 'invalid-params' });
+});
+
+// Array-вход — позиционные аргументы обработчика (by-position), валидация поэлементная.
+class Positional {
+  static $repeat = fn({ in: z.tuple([z.string(), z.number()]), out: z.string() });
+  repeat: typeof Positional.$repeat.fn = async (text, times) => text.repeat(times);
+
+  static $pad = fn({ in: z.tuple([z.string(), z.number(), z.string().optional()]), out: z.string() });
+  pad: typeof Positional.$pad.fn = async (text, width, fill) => text.padStart(width, fill ?? ' ');
+}
+
+test('tuple input: positional handler args, optional tail, per-element validation', async () => {
+  const composer = compose({ Positional });
+  expect(await composer.call('Positional.repeat', ['ab', 3])).toBe('ababab');
+  expect(await composer.call('Positional.pad', ['7', 3, '0'])).toBe('007');
+  expect(await composer.call('Positional.pad', ['7', 3])).toBe('  7');
+  await expect(composer.call('Positional.repeat', ['ab', 'x'])).rejects.toMatchObject({ kind: 'invalid-params' });
+});
+
+// Обычный массив — одиночное значение (не variadic): канонический провод [[…]],
+// обработчик получает массив целиком. Голый массив params — позиционные аргументы.
+class Lists {
+  static $sumAll = fn({ in: z.array(z.number()), out: z.number() });
+  sumAll: typeof Lists.$sumAll.fn = async (nums) => nums.reduce((a, b) => a + b, 0);
+}
+
+test('array input is a single value: canonical wire [[…]]', async () => {
+  const composer = compose({ Lists });
+  expect(await composer.call('Lists.sumAll', [[1, 2, 3]])).toBe(6);
+});
+
 test('paramNames: constructor located even after static fn fields', () => {
   class WithDeps {
     static $x = fn({ in: z.unknown() });
