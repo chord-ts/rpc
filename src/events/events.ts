@@ -2,8 +2,8 @@
 // Только stream-проекция: унарного HTTP-маппинга нет, и это честно видно в типах
 // (fromSvelteKit(events(core)) — ошибка типов). Потребляет третий глагол ядра (core.stream).
 
-import type { Core } from '../core/types';
-import type { StreamProtocol } from '../types';
+import type { Core } from '@/core/types';
+import type { StreamProtocol } from '@/types';
 
 export function events(core: Core<any>): StreamProtocol {
   return {

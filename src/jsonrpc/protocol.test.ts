@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, post, compose, jsonrpc, rest, mcp, type TransportRequest } from '../index';
+import { fn, get, post, compose, jsonrpc, rest, type TransportRequest } from '../index';
 import { ZodAdapter } from '../schemas/zod';
 
 class Catalog {
@@ -82,36 +82,6 @@ test('rest: GET routing + slices, POST 201, validation 422 (pure routing, no doc
   expect(docs.status).toBe(404);
 });
 
-test('mcp: tools/list + tools/call (scalar unwrap)', async () => {
-  const binding = mcp(composer).http;
-  const list = await binding.handle(rpcBody('tools/list', {}, 1));
-  const names = (list.body as any).result.tools.map((t: any) => t.name);
-  expect(names).toEqual(expect.arrayContaining(['Catalog.getItem', 'Math.count']));
-
-  const call = await binding.handle(rpcBody('tools/call', { name: 'Math.count', arguments: { value: 41 } }, 2));
-  expect((call.body as any).result.content[0].text).toBe('42');
-});
-
-test('mcp: initialize handshake + ping + notifications/initialized', async () => {
-  const binding = mcp(composer, { info: { title: 'Catalog', version: '2.0.0' } }).http;
-
-  const init = await binding.handle(rpcBody('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1' } }, 1));
-  const result = (init.body as any).result;
-  expect(result.protocolVersion).toBe('2025-06-18');
-  expect(result.capabilities.tools).toBeDefined();
-  expect(result.serverInfo).toEqual({ name: 'Catalog', version: '2.0.0' });
-
-  // Неизвестная версия → сервер предлагает свою поддерживаемую.
-  const fallback = await binding.handle(rpcBody('initialize', { protocolVersion: '1999-01-01' }, 2));
-  expect((fallback.body as any).result.protocolVersion).toBe('2025-06-18');
-
-  const ping = await binding.handle(rpcBody('ping', {}, 3));
-  expect((ping.body as any).result).toEqual({});
-
-  const initialized = await binding.handle(rpcBody('notifications/initialized', undefined));
-  expect(initialized.status).toBe(204);
-});
-
 test('jsonrpc: message-проекция — значения, notification → null', async () => {
   const { message } = jsonrpc(composer);
   const call = await message.handle({ jsonrpc: '2.0', method: 'Math.count', params: 5, id: 1 });
@@ -127,9 +97,3 @@ test('jsonrpc: batch из одних notification → null / 204 (спека: п
   expect(res.status).toBe(204);
 });
 
-test('mcp: message-проекция — tools/list значением', async () => {
-  const { message } = mcp(composer);
-  const list = (await message.handle({ jsonrpc: '2.0', method: 'tools/list', params: {}, id: 1 })) as any;
-  expect(list.result.tools.map((t: any) => t.name)).toEqual(expect.arrayContaining(['Math.count']));
-  expect(await message.handle({ jsonrpc: '2.0', method: 'notifications/initialized' })).toBeNull();
-});

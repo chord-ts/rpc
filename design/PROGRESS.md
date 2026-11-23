@@ -165,6 +165,15 @@ fixture-контракт апстрима подключены: **127 passed / 4
 - [x] Рантайм физически вынесен в `src/v1`, сборка в `dist/v1`.
 - [x] `@deprecated` на публичных v1-экспортах (`Composer`/`toRPC`/`rpc`/`depends`/`val`/`client`/`RPC`).
 - [x] `exports` для v2 и фасада `./v1`, прогон `publint`/`attw` (2026-11-20, см. раздел релиза).
+- [x] **Гранулярные сабпаты + top-level папки протоколов (2026-11-23):** `protocol/` удалена, каждый
+      протокол — top-level папка (impl + docs + index): `jsonrpc/`(openrpc/clef), `rest/`(openapi/swagger/redoc),
+      `capnweb/`, `events/`(asyncapi), `mcp/`(mcpTools + vercel/mcp-handler). Общие хелперы — `generate/core.ts`
+      (core generation-agnostic сохранён), `mcpTools` — `generate/mcp-tools.ts` (agentTools ниже protocol).
+      `messageToHttp` → `src/message.ts`. transport per-platform (`transport/{sveltekit,express,ws}`).
+      Сабпаты: `/jsonrpc /rest /mcp /capnweb /events /transport/* /mcp-handler /core /client /schemas/zod`;
+      `/generate` убран, **legacy `mcp()` (2025-06-18) удалён** (MCP только через mcp-handler). root-barrel
+      (v1+v2) сохранён. Внутренние импорты на `@/*`→`src/*` (tsconfig/vite/tsdown). Гейты: 104 теста,
+      tsc чистый, примеры живьём, publint All good, attw 🟢 (CJS ⚠️ ESM-only baseline).
 - [x] Карта экспорта и имена зафиксированы в [`v2-architecture.md`](./v2-architecture.md): корневой
       фасад `.` + листья (`schemas/{zod,valibot,yup}`, `client`, `core`); `compose`/`http`/`del`.
 - [x] Переключение корня `.` на v2 + v2-entries в tsdown + `dist`-раскладка (release-шаг, 2026-11-20).

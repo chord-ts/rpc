@@ -3,13 +3,13 @@
 // the generated OpenRPC document. mcp (sibling) is a JSON-RPC profile — it imports this model.
 // Public surface of the family: ./index.ts.
 
-import { CoreError, type Core, type CoreErrorKind, type ServiceMap } from '../../core/types';
-import type { AnySchema, MessageBinding, MessageProtocol, ServiceTag } from '../../types';
-import type { Format, FormatTag, WireFn, JsonWire } from '../../format/types';
-import { json } from '../../format';
+import { CoreError, type Core, type CoreErrorKind, type ServiceMap } from '@/core/types';
+import type { AnySchema, MessageBinding, MessageProtocol, ServiceTag } from '@/types';
+import type { Format, FormatTag, WireFn, JsonWire } from '@/format/types';
+import { json } from '@/format';
 import type { ErrorObject, RPCBody, RPCId, RPCResponse } from './types';
-import { openrpc } from '../../generate';
-import { messageToHttp } from '../message';
+import { openrpc } from './docs';
+import { messageToHttp } from '@/message';
 
 // --- JSON-RPC 2.0 error codes + typed protocol error ---
 export const ErrorCode = {

@@ -12,10 +12,16 @@ export { fn, stream, compose, paramNames } from './core';
 export { defaultSchemas, resolveSchemas, flatToolSchema, flatToolJson, withJsonSchema, packToolArgs, wrapScalar, flatObject, stringSchema } from './schemas';
 export { json } from './format';
 export type { Format, WireFn, ApplyWire, JsonWire, JsonWireOf, FormatTag } from './format/types';
-export { openapi, openrpc, mcpTools, asyncapi, swagger, redoc, clef } from './generate';
+// Генераторы co-located с протоколами (openapi/openrpc/clef/swagger/redoc/asyncapi — в папках протоколов).
 export type { GenOptions, StreamMeta, Spec } from './generate';
 export { agentTools } from './tools';
 export type { AgentTool } from './tools/types';
-export * from './protocol';
-export { ErrorCode } from './protocol'; // v2 поверх v1 ErrorCode (явный экспорт перебивает star)
+// Протоколы — top-level папки (impl + docs + index): jsonrpc/rest/capnweb/events/mcp.
+export * from './jsonrpc';
+export * from './rest';
+export * from './capnweb';
+export * from './events';
+export * from './mcp';
+export { messageToHttp } from './message';
+export { ErrorCode } from './jsonrpc'; // v2 поверх v1 ErrorCode (явный экспорт перебивает star)
 export { fromSvelteKit, fromExpress, fromWs, fromWsStream, type Socket } from './transport';

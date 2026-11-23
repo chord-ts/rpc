@@ -3,5 +3,5 @@
 // rpcResult) stay inside the family — mcp imports them from ./jsonrpc directly.
 
 export { jsonrpc, ErrorCode, RpcError } from './jsonrpc';
-export { mcp, type McpMeta } from './mcp';
+export { openrpc, clef } from './docs';
 export type { ErrorObject, RPCId, RPCRequest, RPCResponse, RPCBody } from './types';

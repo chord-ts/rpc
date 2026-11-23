@@ -5,7 +5,7 @@
 //   http — встроенный мост). Пользователь не пишет кастомный binding и не выбирает мост.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/09-protocol-bindings.ts
 
-import { compose, rest, jsonrpc, mcp, capnweb, fromSvelteKit, fromWs, json } from '../../src';
+import { compose, rest, jsonrpc, mcpTools, capnweb, fromSvelteKit, fromWs, json } from '../../src';
 import { ZodAdapter } from '../../src/schemas/zod';
 import { Catalog, Math } from './shared';
 import { LoopbackSocket } from './helpers/message';
@@ -15,7 +15,7 @@ const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapte
 // Протокол объявляется один раз — без знания о транспорте и без аннотаций контракта.
 const api = rest(composer);
 const rpc = jsonrpc(composer);
-const agent = mcp(composer);
+const agent = mcpTools(composer); // MCP tools-дескрипторы (doc-binding, http)
 const cap = capnweb(composer);
 
 const rpcReq = (body: unknown) => new Request('http://localhost/rpc', { method: 'POST', body: JSON.stringify(body) });
@@ -28,8 +28,8 @@ const rpcReq = (body: unknown) => new Request('http://localhost/rpc', { method: 
   const rpcRes = await fromSvelteKit(rpc, { request: rpcReq({ jsonrpc: '2.0', method: 'Math.add', params: { a: 2, b: 3 }, id: 1 }) });
   console.log('09 jsonrpc → HTTP →', await rpcRes.json()); // result: 5
 
-  const mcpRes = await fromSvelteKit(agent, { request: rpcReq({ jsonrpc: '2.0', method: 'tools/list', params: {}, id: 3 }) });
-  console.log('09 mcp → HTTP →', (await mcpRes.json()).result.tools.map((t: any) => t.name));
+  const mcpRes = await fromSvelteKit(agent, { request: rpcReq({}) });
+  console.log('09 mcp tools → HTTP →', (await mcpRes.json()).tools.map((t: any) => t.name));
 
   // WS-адаптер знает message: тот же rpc, без HTTP-заглушек и без ручного моста.
   const ws = new LoopbackSocket();

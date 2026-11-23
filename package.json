@@ -41,6 +41,38 @@
       "types": "./dist/mcp-handler/index.d.ts",
       "import": "./dist/mcp-handler/index.js"
     },
+    "./jsonrpc": {
+      "types": "./dist/jsonrpc.d.ts",
+      "import": "./dist/jsonrpc.js"
+    },
+    "./rest": {
+      "types": "./dist/rest.d.ts",
+      "import": "./dist/rest.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.js"
+    },
+    "./capnweb": {
+      "types": "./dist/capnweb.d.ts",
+      "import": "./dist/capnweb.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js"
+    },
+    "./transport/sveltekit": {
+      "types": "./dist/transport/sveltekit.d.ts",
+      "import": "./dist/transport/sveltekit.js"
+    },
+    "./transport/express": {
+      "types": "./dist/transport/express.d.ts",
+      "import": "./dist/transport/express.js"
+    },
+    "./transport/ws": {
+      "types": "./dist/transport/ws.d.ts",
+      "import": "./dist/transport/ws.js"
+    },
     "./middlewares": {
       "types": "./dist/v1/middlewares/index.d.ts",
       "import": "./dist/v1/middlewares/index.js"
@@ -72,6 +104,30 @@
       ],
       "mcp-handler": [
         "dist/mcp-handler/index.d.ts"
+      ],
+      "jsonrpc": [
+        "dist/jsonrpc.d.ts"
+      ],
+      "rest": [
+        "dist/rest.d.ts"
+      ],
+      "mcp": [
+        "dist/mcp.d.ts"
+      ],
+      "capnweb": [
+        "dist/capnweb.d.ts"
+      ],
+      "events": [
+        "dist/events.d.ts"
+      ],
+      "transport/sveltekit": [
+        "dist/transport/sveltekit.d.ts"
+      ],
+      "transport/express": [
+        "dist/transport/express.d.ts"
+      ],
+      "transport/ws": [
+        "dist/transport/ws.d.ts"
       ],
       "middlewares": [
         "dist/v1/middlewares/index.d.ts"

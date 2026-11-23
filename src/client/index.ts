@@ -18,7 +18,7 @@ import type { ServiceMap } from '../core/types';
 import type { Socket } from '../transport';
 import type { Format } from '../format/types';
 import { json } from '../format';
-import { RpcError } from '../protocol/jsonrpc';
+import { RpcError } from '@/jsonrpc';
 import type {
   HttpClientBinding, MessageClientBinding, JsonRpcProfile, CallFn,
   FetchClientInit, WsClientInit, ClientInit, BindingServices, BindingFormat,

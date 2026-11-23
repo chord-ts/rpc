@@ -3,7 +3,7 @@
 // the adapter stays protocol-agnostic. Self-addressed protocols (jsonrpc/mcp/capnweb) get HTTP
 // for free: value in → value out, status 200/204 from the presence of a reply.
 
-import type { Binding, MessageBinding } from '../types';
+import type { Binding, MessageBinding } from '@/types';
 
 export function messageToHttp(mb: MessageBinding): Binding {
   return {

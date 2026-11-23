@@ -2,11 +2,11 @@
 // resp status map). fn stays in core; REST sugar lives here. Docs — отдельные binding'и (generate).
 // Format codecs only the HTTP body; status/headers/path are protocol+transport, not Format.
 
-import { fn } from '../core';
-import { CoreError, type Core, type MaybeArray, type Middleware, type ServiceMap } from '../core/types';
-import type { AnySchema, Binding, HttpProtocol, RestMeta, ServiceTag } from '../types';
-import type { Format, FormatTag, WireFn, JsonWire } from '../format/types';
-import { json } from '../format';
+import { fn } from '@/core';
+import { CoreError, type Core, type MaybeArray, type Middleware, type ServiceMap } from '@/core/types';
+import type { AnySchema, Binding, HttpProtocol, RestMeta, ServiceTag } from '@/types';
+import type { Format, FormatTag, WireFn, JsonWire } from '@/format/types';
+import { json } from '@/format';
 
 // --- declaration sugar: parts instead of flat in ---
 

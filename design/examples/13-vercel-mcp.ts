@@ -24,7 +24,7 @@ import { z } from 'zod';
 import { createMcpHandler } from 'mcp-handler'; // транспорт/протокол — у пользователя
 import { compose } from '../../src';
 import { ZodAdapter } from '../../src/schemas/zod';
-import { fn, registerMcpTools } from '../../src/protocol/mcp/vercel'; // dep-free лист: fn с mcp.result из out + регистрация
+import { fn, registerMcpTools } from '../../src/mcp/vercel'; // dep-free лист: fn с mcp.result из out + регистрация
 
 const PNG_1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
 

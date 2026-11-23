@@ -7,10 +7,10 @@
 
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { compose } from '../../..';
-import { ZodAdapter } from '../../../schemas/zod';
-import { mcp } from '../../../../design/examples/helpers/mcp';
-import { fromSvelteKit } from '../../../../design/examples/helpers/http';
+import { compose } from '@/index';
+import { ZodAdapter } from '@/schemas/zod';
+import { mcp } from '../../../design/examples/helpers/mcp';
+import { fromSvelteKit } from '../../../design/examples/helpers/http';
 import { fixtureServices } from './fixtures';
 
 export interface McpTestServer {
