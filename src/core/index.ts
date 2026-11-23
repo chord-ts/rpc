@@ -39,7 +39,8 @@ export function stream<C extends StreamContract>(c: C): StreamFn<C> {
 // Dependency keys match constructor parameter names (parsing ctor.toString()).
 // Locate `constructor(` specifically — the first '(' may belong to a static fn() field
 // when the class has no explicit constructor (then there are no deps → []).
-// Known limit: minified bundles mangle parameter names — see DI-minification track.
+// Minified bundles mangle parameter names — depKeys() then falls back to the explicit
+// `static $constructor` annotation; compose guards and points to it on mismatch.
 export function paramNames(ctor: AnyCtor): string[] {
   const src: string = ctor.toString();
   const idx = src.indexOf('constructor(');
@@ -47,6 +48,14 @@ export function paramNames(ctor: AnyCtor): string[] {
   const start = idx + 'constructor('.length;
   const head = src.slice(start, src.indexOf(')', start));
   return head.match(/([^\s,]+)/g) ?? [];
+}
+
+// DI keys: explicit `static $constructor = ['user', ...]` wins over parameter-name parsing.
+// String literals survive minification, parameter names don't. The annotation is optional —
+// users write it only when the compose-time guard reports a mangled-name mismatch.
+function depKeys(ctor: AnyCtor): string[] {
+  const explicit = (ctor as { $constructor?: unknown }).$constructor;
+  return Array.isArray(explicit) ? (explicit as string[]) : paramNames(ctor);
 }
 
 // Endpoints come from `static $method = fn({...})` (schema-first) and from public
@@ -100,7 +109,7 @@ function warnMissingHandlers<S extends ServiceMap>(
   const dummy: any = new Proxy(function () {}, { get: () => dummy, apply: () => dummy });
   for (const [service, Ctor] of Object.entries(services)) {
     try {
-      const deps = paramNames(Ctor as AnyCtor).map((name) => inject[name]?.(dummy));
+      const deps = depKeys(Ctor as AnyCtor).map((name) => inject[name]?.(dummy));
       const instance = new (Ctor as AnyCtor)(...deps);
       for (const [key, desc] of routes) {
         if (desc.service !== service || !desc.contract) continue;
@@ -132,6 +141,24 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
   const composerMiddlewares: Middleware[] = Array.isArray(use) ? use : use ? [use] : [];
   const validateOut = options?.validateOut ?? false;
   const routes = buildRoutes(services);
+
+  // Fail fast at compose (not first request): a resolved dep key without an inject factory
+  // is almost always a minified bundle mangling constructor parameter names. The error
+  // points to the optional `static $constructor` annotation instead of an opaque TypeError.
+  for (const [service, Ctor] of Object.entries(services)) {
+    for (const name of depKeys(Ctor as AnyCtor)) {
+      if (typeof inject[name] !== 'function') {
+        const keys = Object.keys(inject);
+        throw new Error(
+          `[chord] ${service}: no inject factory for dependency "${name}" (from constructor parameter names). ` +
+            `Minifiers mangle parameter names — if this bundle is minified, add explicit keys to the class: ` +
+            `static $constructor = ['key1', 'key2'] (inject keys in constructor parameter order). ` +
+            `Available inject keys: ${keys.length ? keys.join(', ') : '(none)'}`,
+        );
+      }
+    }
+  }
+
   warnMissingHandlers(services, routes, inject);
   const registry: Endpoint[] = [...routes.values()].map((d) => ({
     service: d.service,
@@ -143,7 +170,7 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     const built: Record<string, unknown> = {};
     for (const key of Object.keys(services) as (keyof S)[]) {
       const Ctor = services[key] as AnyCtor;
-      const deps = paramNames(Ctor).map((name) => inject[name](ctx));
+      const deps = depKeys(Ctor).map((name) => inject[name](ctx));
       built[key as string] = new Ctor(...deps);
     }
     return built as Instantiated<S>;
@@ -153,7 +180,7 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
   // ошибки обработчика летят как есть (биндинги мапят их в свой провод).
   async function invoke(desc: MethodDesc, params: unknown, ctx: unknown): Promise<unknown> {
     const Ctor = services[desc.service] as AnyCtor;
-    const deps = paramNames(Ctor).map((name) => inject[name](ctx));
+    const deps = depKeys(Ctor).map((name) => inject[name](ctx));
     const instance = new Ctor(...deps);
     const handler = instance[desc.method];
 
@@ -179,10 +206,11 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
         throw new CoreError('invalid-params', 'Validation error', parsedIn.issues);
       }
 
+      // .call(instance): обработчик может быть методом прототипа (не стрелкой) — this = инстанс.
       const value =
         positional && Array.isArray(parsedIn.value)
-          ? await handler(...parsedIn.value)
-          : await handler(parsedIn.value);
+          ? await handler.call(instance, ...parsedIn.value)
+          : await handler.call(instance, parsedIn.value);
 
       // out всегда задаёт тип возврата; рантайм-проверка — только по флагу validateOut.
       if (desc.contract.out && validateOut) {
@@ -199,10 +227,10 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     // Simple endpoint (no schema): pass params straight to the handler.
     // Одиночный array-аргумент клиент шлёт как [[…]] — распаковываем (голый […] тоже работает).
     return handler.length <= 1
-      ? handler(Array.isArray(params) && params.length === 1 && Array.isArray(params[0]) ? params[0] : params)
+      ? handler.call(instance, Array.isArray(params) && params.length === 1 && Array.isArray(params[0]) ? params[0] : params)
       : Array.isArray(params)
-        ? handler(...params)
-        : handler(params);
+        ? handler.call(instance, ...params)
+        : handler.call(instance, params);
   }
 
   async function dispatch(call: Call, ctx: unknown): Promise<unknown> {
@@ -232,7 +260,7 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     }
     const Ctor = services[desc.service] as AnyCtor;
     const ctx = opts?.ctx ?? {};
-    const deps = paramNames(Ctor).map((name) => inject[name](ctx));
+    const deps = depKeys(Ctor).map((name) => inject[name](ctx));
     const instance = new Ctor(...deps);
     const handler = instance[desc.method];
     if (typeof handler !== 'function') {

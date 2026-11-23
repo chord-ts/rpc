@@ -266,6 +266,13 @@ export class Composer<T extends { [k: string]: object }> {
     if (fields.includes('request')) {
       ctx.body = await (event as { request: Request })['request'].json();
     }
+
+    // Already-parsed JSON-RPC body (in-process transport): a batch array or a bare request
+    // object without the `jsonrpc` envelope. Checked last — Express/fetch events also carry
+    // `.method` and must be handled by the branches above.
+    if (Array.isArray(event) || event.method) {
+      ctx.body = event;
+    }
     return ctx as unknown as Context;
   }
 

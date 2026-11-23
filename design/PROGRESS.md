@@ -45,9 +45,12 @@
   Пример 12 compile-checked + живой прогон. Superseded-спайки 13/14 + helpers/{client,format-types,format-guard}
   удалены (знания в src/client + примере 12).
 - **Известное:** vitest threads-pool teardown-краш (Node 24 / vitest 1.6) — `pnpm test` надёжнее с
-  `pool: 'forks'`; тесты функционально зелёные (single-fork exit 0). DI `paramNames(fn.toString())`
-  ломается при минификации бандла потребителя (нужны явные ключи inject); клиентские имена методов —
-  динамические proxy-строки, property mangling ломает адресацию (держать выключенным).
+  `pool: 'forks'`; тесты функционально зелёные (single-fork exit 0). **DI × минификация закрыт
+  (2026-11-23):** guard на compose (ключ без inject-фабрики → понятная ошибка сразу, не на первом
+  запросе) + опциональная `static $constructor = ['key', …]` — аннотация не требуется заранее,
+  предлагается в тексте ошибки; строковые литералы переживают минификацию. Прув настоящим terser
+  в `register.test.ts` (мангл параметра → guard; с аннотацией → инъекция работает). Клиентские имена
+  методов — динамические proxy-строки, property mangling ломает адресацию (держать выключенным).
 
 ## TODO — продолжение (точка входа 2026-11-20)
 
@@ -155,7 +158,7 @@ fixture-контракт апстрима подключены: **127 passed / 4
   чужой cleanup: `void it.return()` вместо `return it.return()` (замер 51ms → 0ms).
 - `@types/node` добавлен в devDeps; `tsconfig.build.json` exclude `src/**/tests/**` — dts-emit
   проверен, tests не публикуются.
-- v1 `batch`/`spec` — 6 pre-existing падений, не чинились.
+- v1 `batch`/`spec` — 6 падений починены 2026-11-23 (регрессия `initCtx`, см. «Тесты»).
 
 ## 1. Версии и миграция (v1 deprecated → v2)
 
@@ -228,7 +231,12 @@ fixture-контракт апстрима подключены: **127 passed / 4
 - [ ] Клиентская граница `batch(...)` с per-item значением/ошибкой — не начата (ждёт client).
 - [x] **src:** изоляция ctx в batch — per-call копия в `jsonrpc` (мутации не протекают).
 - [x] **src:** `paramNames` ищет `constructor(` (баг класса без конструктора исправлен); warning
-      при схеме без обработчика (`warnMissingHandlers`, probe-инстанс). Минификация DI — отдельно.
+      при схеме без обработчика (`warnMissingHandlers`, probe-инстанс). **Минификация DI закрыта
+      (2026-11-23):** `depKeys` = `static $constructor ?? paramNames`, compose-гард ключ×inject
+      с подсказкой аннотации в ошибке; вариант A (AngularJS `$inject`-прецедент), имя `$constructor`
+      и error-guided форма — решение пользователя. Попутно исправлен detached-this: `invoke` биндит
+      handler к инстансу (`.call`) — simple-методы прототипа с `this.ctx` работают (стрелки скрывали
+      баг). 87 v2 + 17 v1 = 104 теста, typecheck чистый, lint-дельта 0.
 - [ ] Типизированный `ctx` (`Composer<Ctx>` обещан в exec-доке; сейчас везде `unknown`/`any`).
 
 ## 5. Транспорт (call / notify / stream)
@@ -456,10 +464,11 @@ compile-checked и прогнаны живьём.
       но целевая ревизия 2026-07-28 handshake убрала: modern-форма живёт в спайке 06, перенос не
       одобрен. Авто-refcount capability-реестра capnweb — нет (ручные `release`/`dispose` есть;
       сессия без dispose течёт).
-- **Тихие продакшен-риски:** DI через `paramNames(fn.toString())` молча ломается при минификации
-      бандла потребителя (нужен unbuilt `.ts`/jiti или явные ключи inject); класс без конструктора —
-      баг исправлен (`paramNames` ищет `constructor(`); ctx есть в `invoke(args, ctx)`, но func-обёртка
-      LangChain его не несёт («от чьего имени агент»).
+- **Тихие продакшен-риски:** DI × минификация — **закрыт 2026-11-23** (compose-гард + опциональная
+      `static $constructor`, error-guided; registration по именам свойств минификацию переживает —
+      проверено по коду, `Ctor.name` в v2 не читается); класс без конструктора — баг исправлен
+      (`paramNames` ищет `constructor(`); ctx есть в `invoke(args, ctx)`, но func-обёртка
+      LangChain его не несёт («от чьего имени агент») — открытый риск.
 - **Порядок:** дизайн-доки сведены со спайками, карта exports зафиксирована (v2-architecture.md),
       серверная вертикаль в src (проекции + адаптеры + stream, 2026-11-18). Осталось: client, затем release-шаг.
 - **Безопасность:** docs — явные binding'и, которые пользователь монтирует сам (экспозиция под его
@@ -523,7 +532,13 @@ compile-checked и прогнаны живьём.
       (`src/protocol/mcp/tests`), своих vitest-тестов на профиль/канал пока нет. `mcp-client` —
       демо-стенд, не публичный API и не клиентский рантайм пакета; `http` — предлагаемая версия
       generic-адаптера.
-- [ ] v1 `batch`/`spec` — падают (6 тестов, pre-existing; проверено на чистом src 2026-11-18), не чинил.
+- [x] **v1 `batch`/`spec` починены (2026-11-23, 17/17 v1):** корень — регрессия адаптер-сплита
+      (`52929ff`): парсинг уехал в `initCtx` до middleware, и авто-парсер не узнавал уже
+      распарсенное тело — голый `{method, params}` и массив batch (in-process транспорт).
+      В старом exec тело доставал глобальный middleware (`ctx.body = e` в тест-хелпере).
+      Фикс аддитивный: `initCtx` в конце распознаёт `Array.isArray(event) || event.method`
+      (после Express/fetch/SvelteKit-веток — у тех тоже есть `.method`). Продакшен-конверты
+      (полный `jsonrpc`-объект, Request, Express, SvelteKit) не затронуты; v2 84/84, typecheck чистый.
 
 ## Главная ставка / риски
 
@@ -532,7 +547,7 @@ compile-checked и прогнаны живьём.
   транспорт и **клиент в src** (2026-11-20). Release-конфиг собран, гейты зелёные (см. раздел релиза).
 - v1-фасад закрыт: `@deprecated`, `exports`, `publint`/`attw` — сделано (2026-11-20).
 - Самые большие незакрытые куски — MCP modern-профиль (перенос спайка 06) + resources/prompts/sampling;
-  авто-refcount capnweb, минификация DI и ctx func-тулов (тихие риски); клиентские notify/batch/stream;
+  авто-refcount capnweb и ctx func-тулов (тихие риски; минификация DI закрыта 2026-11-23); клиентские notify/batch/stream;
   stream-довески: backpressure, мультиплексирование подписок, middleware вокруг stream, generic SSE.
 
 ## Не проверял
