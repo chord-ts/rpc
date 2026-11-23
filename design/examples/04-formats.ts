@@ -3,7 +3,10 @@
 // formdata — read-режим; раннее извлечение тела — нативный message-шов (значение на руках).
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/04-formats.ts
 
-import { compose, jsonrpc, rest, fromSvelteKit, json, type Format } from '../../src';
+import { compose, jsonrpc, fromSvelteKit } from '../../src';
+import { rest } from '../../src/rest';
+import { json } from '../../src/format';
+import type { Format } from '../../src/format/types';
 import { Catalog, Echo, Math } from './shared';
 import { devalueMock, msgpackMock } from './codecs';
 

@@ -3,7 +3,8 @@
 // вешает на свои GET-роуты: путь маунта выбирает он, ничего не предполагает корень.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/02-rest-basic.ts
 
-import { compose, rest, openapi, swagger, fromSvelteKit } from '../../src';
+import { compose, fromSvelteKit } from '../../src';
+import { rest, openapi, swagger } from '../../src/rest';
 import { Catalog } from './shared';
 
 const composer = compose({ Catalog });

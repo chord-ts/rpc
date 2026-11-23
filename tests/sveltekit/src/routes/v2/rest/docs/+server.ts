@@ -1,5 +1,6 @@
 // Swagger UI как отдельный GET-binding: документ вшит inline, отдельный openapi-маунт/CORS не нужны.
-import { swagger, fromSvelteKit } from '@chord/rpc';
+import { fromSvelteKit } from '@chord/rpc';
+import { swagger } from '@chord/rpc/rest';
 import { _composer } from '../[...path]/+server';
 
 export const GET = (event: { request: Request }) =>

@@ -1,7 +1,6 @@
 // v2 RPC-эндпоинт: импорт из опубликованного пакета (@chord/rpc → dist через exports-карту).
 // Корень реэкспортит v1+v2; compose/fn/jsonrpc — v2-имена без суффикса версии.
-import { compose, fn, jsonrpc, fromSvelteKit, RpcError } from '@chord/rpc';
-import { ZodAdapter } from '@chord/rpc/schemas/zod';
+import { compose, fn, jsonrpc, RpcError, fromSvelteKit, ZodAdapter } from '@chord/rpc';
 import { z } from 'zod';
 
 class Math {

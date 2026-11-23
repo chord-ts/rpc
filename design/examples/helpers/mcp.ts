@@ -24,7 +24,9 @@
 // пишет async-генератор, signal и cancellable-паузы; ожидание живёт внутри канала, который
 // умеет прерываться по signal. Отмена поэтому prompt без всякой кооперации пользователя.
 
-import { CoreError, ErrorCode, RpcError, resolveSchemas, mcpTools, packToolArgs } from '../../../src';
+import { CoreError, ErrorCode, RpcError } from '../../../src';
+import { resolveSchemas, packToolArgs } from '../../../src/schemas';
+import { mcpTools } from '../../../src/mcp';
 import type { AnySchema, Binding, Core, ErrorObject, HttpProtocol, RPCId, RPCRequest, TransportResponse } from '../../../src';
 import type { HttpRequest } from './http';
 

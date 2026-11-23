@@ -1,7 +1,7 @@
 // Mock-кодеки Format для демонстрации подмены формата (default json → custom).
 // Реальные devalue/msgpack/cbor — drop-in Format тем же контрактом (unit text/bytes).
 
-import type { Format } from '../../src';
+import type { Format } from '../../src/format/types';
 
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();

@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, stream, compose, agentTools } from '../index';
+import { fn, stream, compose } from '../index';
+import { get } from '@/rest';
+import { agentTools } from '@/tools';
 import { ZodAdapter } from '../schemas/zod';
 
 class Math {

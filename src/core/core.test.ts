@@ -1,6 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { fn, get, compose, paramNames, CoreError, type Middleware } from '../index';
+import { fn, compose, paramNames, CoreError, type Middleware } from '../index';
+import { get } from '@/rest';
 import { envelope } from '../test-utils';
 
 // Класс без явного конструктора: первая скобка в toString — из fn(, не из constructor.

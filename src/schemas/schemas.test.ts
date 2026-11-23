@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { compose, defaultSchemas, resolveSchemas, flatToolSchema, packToolArgs, wrapScalar, flatObject, stringSchema, type AnySchema } from '../index';
+import { compose, type AnySchema } from '../index';
+import { defaultSchemas, resolveSchemas, flatToolSchema, packToolArgs, wrapScalar, flatObject, stringSchema } from '@/schemas';
 import { ZodAdapter } from './zod';
 
 const adapter = new ZodAdapter();

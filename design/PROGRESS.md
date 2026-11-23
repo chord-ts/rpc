@@ -171,9 +171,14 @@ fixture-контракт апстрима подключены: **127 passed / 4
       (core generation-agnostic сохранён), `mcpTools` — `generate/mcp-tools.ts` (agentTools ниже protocol).
       `messageToHttp` → `src/message.ts`. transport per-platform (`transport/{sveltekit,express,ws}`).
       Сабпаты: `/jsonrpc /rest /mcp /capnweb /events /transport/* /mcp-handler /core /client /schemas/zod`;
-      `/generate` убран, **legacy `mcp()` (2025-06-18) удалён** (MCP только через mcp-handler). root-barrel
-      (v1+v2) сохранён. Внутренние импорты на `@/*`→`src/*` (tsconfig/vite/tsdown). Гейты: 104 теста,
-      tsc чистый, примеры живьём, publint All good, attw 🟢 (CJS ⚠️ ESM-only baseline).
+      `/generate` убран, **legacy `mcp()` (2025-06-18) удалён** (MCP только через mcp-handler).
+      **Root кураторён (2026-11-23):** v1 полностью + необходимый v2 — core (compose/fn/stream/paramNames)
+      + jsonrpc (jsonrpc/ErrorCode/RpcError + wire-типы) + transport (fromSvelteKit/fromExpress/fromWs/
+      fromWsStream) + ZodAdapter + общие типы. format убран из root (дефолтный json); rest-сахар/генераторы/
+      capnweb/events/mcpTools/agentTools/schemas-хелперы — только сабпаты. root-чанк ~0.9 kB.
+      Внутренние импорты на `@/*`→`src/*` (tsconfig/vite/tsdown). Тесты/примеры/sveltekit-роуты переведены
+      на сабпаты. Гейты: 104 теста, tsc чистый, примеры живьём, svelte-check v2 чистый (v1 baseline 53),
+      publint All good, attw 🟢 (CJS ⚠️ ESM-only baseline).
 - [x] Карта экспорта и имена зафиксированы в [`v2-architecture.md`](./v2-architecture.md): корневой
       фасад `.` + листья (`schemas/{zod,valibot,yup}`, `client`, `core`); `compose`/`http`/`del`.
 - [x] Переключение корня `.` на v2 + v2-entries в tsdown + `dist`-раскладка (release-шаг, 2026-11-20).

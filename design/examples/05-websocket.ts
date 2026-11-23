@@ -6,7 +6,8 @@
 // Переиспользует Math из 01.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/05-websocket.ts
 
-import { compose, jsonrpc, fromWs, json } from '../../src';
+import { compose, jsonrpc, fromWs } from '../../src';
+import { json } from '../../src/format';
 import { Math } from './shared';
 import { LoopbackSocket } from './helpers/message';
 import { msgpackMock } from './codecs';

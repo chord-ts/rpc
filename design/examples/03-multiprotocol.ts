@@ -2,7 +2,10 @@
 // агентские тулы in-process (LangChain) из того же реестра. REST и fn — разные классы.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/03-multiprotocol.ts
 
-import { compose, rest, jsonrpc, mcpTools, fromSvelteKit, agentTools } from '../../src';
+import { compose, jsonrpc, fromSvelteKit } from '../../src';
+import { rest } from '../../src/rest';
+import { mcpTools } from '../../src/mcp';
+import { agentTools } from '../../src/tools';
 import { ZodAdapter } from '../../src/schemas/zod';
 import { Catalog, Math } from './shared';
 

@@ -1,6 +1,8 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, stream, compose, rest, jsonrpc, events, fromSvelteKit, fromExpress, fromWs, fromWsStream } from '../index';
+import { fn, stream, compose, jsonrpc, fromSvelteKit, fromExpress, fromWs, fromWsStream } from '../index';
+import { get, rest } from '@/rest';
+import { events } from '@/events';
 import { ZodAdapter } from '../schemas/zod';
 
 class Catalog {

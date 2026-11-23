@@ -1,6 +1,10 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, get, stream, compose, openapi, openrpc, mcpTools, asyncapi, swagger, redoc, clef } from '../index';
+import { fn, stream, compose } from '../index';
+import { get, openapi, swagger, redoc } from '@/rest';
+import { openrpc, clef } from '@/jsonrpc';
+import { asyncapi } from '@/events';
+import { mcpTools } from '@/mcp';
 import { ZodAdapter } from '../schemas/zod';
 
 // REST-ресурс (сахар get). RPC-методы — отдельным классом (стили не смешиваются).

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { compose, fn, get, post, jsonrpc as bindJsonrpc, rest as bindRest, openapi, fromSvelteKit, fromWs as serveWs, RpcError } from '../index';
+import { compose, fn, jsonrpc as bindJsonrpc, fromSvelteKit, fromWs as serveWs, RpcError } from '../index';
+import { get, post, rest as bindRest, openapi } from '@/rest';
 import type { Format, WireFn } from '../format/types';
 import { jsonrpc, rest } from './index';
 

@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { stream, compose, events, fromSvelteKit } from '../index';
+import { stream, compose, fromSvelteKit } from '../index';
+import { events } from '@/events';
 
 class Ticker {
   static $countdown = stream({ in: z.object({ from: z.number() }), event: z.object({ n: z.number() }) });

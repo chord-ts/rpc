@@ -17,7 +17,7 @@
 // Фрейминг, заголовки транспорта и жизненный цикл потока — здесь. Семантика MCP (405/403/
 // сверка заголовков/коды) — в профиле helpers/mcp, который отдаёт готовый http-биндинг.
 
-import { json } from '../../../src';
+import { json } from '../../../src/format';
 import type { Format } from '../../../src/format/types';
 import type { HttpProtocol, TransportRequest, TransportResponse } from '../../../src';
 
