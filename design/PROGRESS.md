@@ -191,7 +191,22 @@ fixture-контракт апстрима подключены: **127 passed / 4
       `Call` без vestigial `id`. Фасад реэкспортит типы слоёв — публичная поверхность не изменилась.
 - [x] **src:** REST-декларации `get/post/…(path, { path?, query?, body?, resp })` в `protocol/rest` —
       части вместо плоского `in`, авто-path из шаблона, `resp` — карта статусов (FastAPI `responses`).
-- [x] **src:** нейтральные поля (`desc`/`summary`/`tags`/`deprecated`) в `RestContract`, читают генераторы.
+- [x] **src:** нейтральные поля (`desc`/`summary`/`tags`/`deprecated`) типизированы на `Contract`
+      (2026-11-23 — `fn` подсказывает их, автокомплит; прежде открытый карман без подсказок),
+      читают генераторы. **`deprecated` починен в OpenRPC** (2026-11-23): эмитится опционально
+      (`...(c.deprecated ? {deprecated:true} : {})`), прежде терялся (OpenAPI эмитил). Сверено с
+      meta-schema 1.14.6: `methodObject` — name/description/summary/tags/paramStructure/params/result/
+      errors/links/examples/deprecated/externalDocs/servers/x-, **title НЕТ** (additionalProperties:false →
+      title на методе невалиден; title — MCP/JSON Schema, место в mcp-кармане). Не покрыты fn-метой:
+      externalDocs/examples/links/servers (расширения, по необходимости). Тест в generate.test.ts,
+      описания добавлены в примеры (shared.ts Math + tests/sveltekit v2/rpc). **Карман `mcp` тоже
+      типизирован (2026-11-23):** `McpMeta` переехал в types.ts (нижний слой, как RestMeta — Contract/core
+      и generate читают его), расширен (name/title/desc/annotations/icons/_meta) + index signature
+      для openness (fixtures mcp.resource/prompt не ломаются); `Contract.mcp?: McpMeta` → fn подсказывает
+      поля. Единый источник types, явный экспорт в фасаде перебивает duplicate star (types+protocol).
+      Маппер result→content остаётся в MCP-мосте (спайк 13, строгая типизация из Out требует fn I/O-сигнатуры).
+      Прув `@ts-expect-error` (mcp.title: number отклоняется), mcp-декорация в shared.ts Math.$add.
+      106 тестов, typecheck чистый, lint-дельта 0; dist пересобран, dev перезапущен ([::1]:5173).
 - [ ] `z.tuple([...])` — позиционные вызовы (открытый вопрос).
 
 ## 3. Единый источник валидации (schema-agnostic)
@@ -455,6 +470,54 @@ compile-checked и прогнаны живьём.
   (fan-out), накопление снапшота, отмена одного→другой продолжает (refcount), отдельная комната,
   reliable-overflow→disconnect. Транспорт подписки — тот же stream-шов (fromWsStream/SSE не меняются).
   Открыто: мультиплексирование calls+подписок по id на одном сокете, типизированный клиент.
+- 13 vercel-mcp + `helpers/vercel-mcp` — **мост chord → `mcp-handler`** (бывш. `@vercel/mcp-adapter`,
+  v2.4.0; peer `@modelcontextprotocol/server` ^2, оба добавлены в devDeps 2026-11-23). Пользователь
+  пишет одну обёртку `vercelMcp(composer, { info, instructions, ctx })` → web-standard
+  `(Request)=>Response` (SvelteKit/Next/Hono/Nitro). Мост переиспользует `mcpTools`/`packToolArgs`/
+  `resolveSchemas`/`core.call` из src; `fromJsonSchema` (SDK) оборачивает JSON Schema в
+  StandardSchemaWithJSON для `registerTool` — **schema-agnostic** (не только zod). DI per-request:
+  обработчик тула получает `ctx.http.req` → фабрика `opts.ctx(req)` → chord ctx. **Ключевая находка:
+  mcp-handler v2 нативно реализует ревизию 2026-07-28** (stateless, server/discover, resultType,
+  CacheableResult, subscriptions/listen, **MRTR inputRequired/inputResponse** — те 12 conformance-
+  сценариев, что спайк 06 не закрыл) + legacy 2025 fallback + withMcpAuth. Прогнан живьём
+  (`npx tsx`): discover→2026-07-28, tools/list→Math.add/count из реестра, tools/call 41→42.
+  Compile-check с настройками проекта чистый. **Стратегическая развилка (на обсуждение):** мост
+  делает ручной профиль+канал спайка 06 потенциально superseded — официальный адаптер уже несёт
+  протокол ревизии; chord остаётся реестром/DI/валидацией/генерацией, MCP-провод отдаётся
+  стандартному инструменту. **Шов возврата согласован (2026-11-23):** (1) явный MCP-only
+  пост-обработчик `mcp.result` на декларации (без эвристики passthrough); (2) строгая типизация —
+  `value` из `out`, возврат проверяется против `McpToolResult` (chord-native зеркало CallToolResult,
+  dep-free; ядро не импортит SDK); (3) `McpMeta` расширена (name/title/desc/annotations/icons/_meta/
+  result), нейтральная мета fn (desc/summary/tags) переиспользуется для OpenRPC, при конфликте
+  приоритет у `mcp`. Механизм типизации: конкретный объектный параметр fn с generics I/O (вывод из
+  in/out) — `Out<C>` внутри `C & {...}`/F-bounded схлопывает C в Contract при выводе (проверено
+  4 итерации); рабочий паттерн `fn<I,O>(c: {in:I; out?:O; mcp?: McpMeta<Out<{in:I;out:O}>>; [k:string]:unknown})`.
+  Прувы: `@ts-expect-error` на v.png (value типизирован) и на не-McpToolResult возврат. Живьём:
+  avatar→image-блок, mcp.desc приоритетнее нейтральной, echo→text default. **Дельта к src:**
+  McpMeta<O>/McpToolResult/McpContentBlock (types/protocol), fn-сигнатура (I/O generics — заметное
+  изменение элегантного `fn<C extends Contract>(c: C)`), общий `toCallToolResult` (мост + mcp-биндинг).
+  Зеркало→SDK CallToolResult — каст на границе моста (SDK-тип из zod-схемы ревизии, resultType;
+  полное структурное зеркало хрупко). **Две правки формы (2026-11-23):** (1) хук `server?: (server:
+  McpServer) => void` — пользователь получает McpServer и регистрирует свои тулы/ресурсы поверх
+  composer; (2) **opt-in: тулами становятся только эндпоинты с описанным `mcp`-карманом** (фильтр
+  `endpoints().filter(e => e.contract?.mcp)` до mcpTools). Прогнано живьём: tools/list → [Media.avatar,
+  ping] (echo без mcp исключён, tools/call echo → -32602), ping → pong из хука, avatar → image.
+  **ПЕРЕНЕСЁН В SRC (2026-11-23, форма одобрена):** opt-in лист `src/protocol/mcp/vercel/index.ts`
+  (внутри protocol/mcp; алиасы `@/*` → `src/*` настроены в tsconfig/vite/tsdown — импорт `@/core`,
+  `@/generate`, `@/schemas`, `@/types` вместо `../../../`; design/examples/tsconfig.json наследует
+  корневой для compile-check примеров), сабпат
+  `@chord-ts/rpc/mcp-handler`. **Финальная форма (2026-11-23): лист DEP-FREE** — `registerMcpTools(server,
+  composer, opts)`: пользователь сам зовёт `createMcpHandler` (mcp-handler) и передаёт server; chord
+  регистрирует тулы. SDK не импортится (сервер типизирован структурно, McpServerLike). peerDependencies
+  снова только zod (mcp-handler/SDK убраны — потребитель ставит сам). **Схема унифицирована одним
+  методом:** `flatToolSchema` возвращает StandardSchemaWithJSON (validate + jsonSchema Converter из
+  адаптера, `withJsonSchema`), потребляют и registerMcpTools, и agentTools; `flatToolJson` — общий
+  flat-JSON (mcpTools переиспользует, без дублирования). `fromJsonSchema` НЕ нужен (inputSchema —
+  flat-схема напрямую). Лист экспортит типизированную `fn` (I/O generics, mcp.result из out; core fn
+  не тронут), `registerMcpTools`, `toCallToolResult`, McpMeta<O>/McpToolResult/McpContentBlock.
+  AnySchema += опциональный jsonSchema Converter. Гейты: 107 тестов, tsc чистый, publint All good,
+  dist/mcp-handler импортит только chord-модули. Пример 13: createMcpHandler + registerMcpTools,
+  свои тулы рядом в initialize. Строгий mcp.result — в листе; core Contract.mcp — декорация (types.ts).
 
 ## Gap-ревью перед переносом в src (приоритеты)
 

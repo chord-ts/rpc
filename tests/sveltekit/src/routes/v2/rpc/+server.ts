@@ -6,18 +6,25 @@ import { z } from 'zod';
 
 class Math {
   constructor() {}
-  static $add = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
+  static $add = fn({
+    in: z.object({ a: z.number(), b: z.number() }),
+    out: z.number(),
+    summary: 'Сложение',
+    desc: 'Складывает два числа **a** и **b**.',
+    tags: ['арифметика'],
+    
+  });
   add: typeof Math.$add.fn = async (x) => x.a + x.b;
 
   // Бизнес-ошибка: нативный RpcError со своим кодом и data долетает до клиента как есть.
-  static $div = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
+  static $div = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number(), summary: 'Деление', desc: 'Делит **a** на **b**; при b=0 бросает RpcError.' });
   div: typeof Math.$div.fn = async (x) => {
     if (x.b === 0) throw new RpcError(-32000, 'Division by zero', { a: x.a, b: x.b });
     return x.a / x.b;
   };
 
   // Обычный Error обработчика мапится протоколом в InternalError (-32603).
-  static $sqrt = fn({ in: z.object({ x: z.number() }), out: z.number() });
+  static $sqrt = fn({ in: z.object({ x: z.number() }), out: z.number(), summary: 'Квадратный корень', desc: 'Корень из **x**; при x<0 бросает Error.' });
   sqrt: typeof Math.$sqrt.fn = async ({ x }) => {
     if (x < 0) throw new Error(`Negative input: ${x}`);
     return x ** 0.5;
@@ -25,7 +32,7 @@ class Math {
 
   // Массив как одно значение: обработчик получает массив целиком, клиент шлёт [[…]]
   // (proxy оборачивает одиночный array-аргумент). OpenRPC: дескриптор arg0 с array-схемой.
-  static $sumAll = fn({ in: z.array(z.number()), out: z.number() });
+  static $sumAll = fn({ in: z.array(z.number()), out: z.number(), summary: 'Сумма массива', desc: 'Суммирует элементы массива (провод [[…]]).' });
   sumAll: typeof Math.$sumAll.fn = async (nums) => nums.reduce((a, b) => a + b, 0);
 }
 
@@ -41,13 +48,13 @@ class Clock {
 // скаляр (rpc.Scalars.upper('hello')) — сервер принимает обе формы. Try it в clef исполняет.
 class Scalars {
   constructor() {}
-  static $upper = fn({ in: z.string(), out: z.string() });
+  static $upper = fn({ in: z.string(), out: z.string(), summary: 'Верхний регистр', desc: 'Переводит строку в верхний регистр.', mcp: {} });
   upper: typeof Scalars.$upper.fn = async (s) => s.toUpperCase();
 
-  static $double = fn({ in: z.number(), out: z.number() });
+  static $double = fn({ in: z.number(), out: z.number(), summary: 'Удвоение', desc: 'Умножает число на 2.' });
   double: typeof Scalars.$double.fn = async (n) => n * 2;
 
-  static $not = fn({ in: z.boolean(), out: z.boolean() });
+  static $not = fn({ in: z.boolean(), out: z.boolean(), summary: 'Отрицание', desc: 'Логическое НЕ.' });
   not: typeof Scalars.$not.fn = async (b) => !b;
 
   // Несколько аргументов — tuple-схема: обработчик объявлен перечислением (text, times),

@@ -1,7 +1,7 @@
 // Core layer contracts: gasket, schema-first declaration, DI, native error, client projection.
 // Imports only the bottom shared contracts (AnySchema/SchemaAdapter) — no upper layers.
 
-import type { AnySchema, InferOutput, SchemaAdapter } from '../types';
+import type { AnySchema, InferOutput, SchemaAdapter, McpMeta } from '../types';
 
 // --- Native error: protocol-neutral, bindings map kind to their wire ---
 /** Protocol-neutral failure kinds of the core gasket. Bindings map them to their own
@@ -37,6 +37,14 @@ export type Contract = {
   /** stream-декларация: схема события (вместо out); наличие отличает stream-эндпоинт. */
   event?: AnySchema<any>;
   use?: MaybeArray<Middleware<any>>;
+  /** Нейтральная мета для генераторов (OpenRPC/OpenAPI): описание (GFM), краткая метка, теги,
+   * deprecated. Протокол-специфичная мета — в карманах (mcp/rest); при конфликте приоритет у кармана. */
+  desc?: string;
+  summary?: string;
+  tags?: string[];
+  deprecated?: boolean;
+  /** MCP-декорация тула (name/title/desc/annotations/icons/_meta + расширения). Приоритет над нейтральной. */
+  mcp?: McpMeta;
 };
 
 export type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : unknown;

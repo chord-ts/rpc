@@ -7,8 +7,9 @@ export * from './v1';
 export * from './types';
 export * from './core/types';
 export type { Middleware } from './core/types'; // v2 поверх v1 Middleware (явный экспорт перебивает star)
+export type { McpMeta, McpAnnotations } from './types'; // единый источник; явный экспорт перебивает duplicate star (types + protocol)
 export { fn, stream, compose, paramNames } from './core';
-export { defaultSchemas, resolveSchemas, flatToolSchema, packToolArgs, wrapScalar, flatObject, stringSchema } from './schemas';
+export { defaultSchemas, resolveSchemas, flatToolSchema, flatToolJson, withJsonSchema, packToolArgs, wrapScalar, flatObject, stringSchema } from './schemas';
 export { json } from './format';
 export type { Format, WireFn, ApplyWire, JsonWire, JsonWireOf, FormatTag } from './format/types';
 export { openapi, openrpc, mcpTools, asyncapi, swagger, redoc, clef } from './generate';

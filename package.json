@@ -37,6 +37,10 @@
       "types": "./dist/schemas/zod.d.ts",
       "import": "./dist/schemas/zod.js"
     },
+    "./mcp-handler": {
+      "types": "./dist/mcp-handler/index.d.ts",
+      "import": "./dist/mcp-handler/index.js"
+    },
     "./middlewares": {
       "types": "./dist/v1/middlewares/index.d.ts",
       "import": "./dist/v1/middlewares/index.js"
@@ -57,13 +61,30 @@
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
-      "client": ["dist/client/index.d.ts"],
-      "core": ["dist/core/index.d.ts"],
-      "schemas/zod": ["dist/schemas/zod.d.ts"],
-      "middlewares": ["dist/v1/middlewares/index.d.ts"],
-      "middlewares/*": ["dist/v1/middlewares/*.d.ts"],
-      "validators": ["dist/v1/validators/index.d.ts"],
-      "specs": ["dist/v1/specs/index.d.ts"]
+      "client": [
+        "dist/client/index.d.ts"
+      ],
+      "core": [
+        "dist/core/index.d.ts"
+      ],
+      "schemas/zod": [
+        "dist/schemas/zod.d.ts"
+      ],
+      "mcp-handler": [
+        "dist/mcp-handler/index.d.ts"
+      ],
+      "middlewares": [
+        "dist/v1/middlewares/index.d.ts"
+      ],
+      "middlewares/*": [
+        "dist/v1/middlewares/*.d.ts"
+      ],
+      "validators": [
+        "dist/v1/validators/index.d.ts"
+      ],
+      "specs": [
+        "dist/v1/specs/index.d.ts"
+      ]
     }
   },
   "peerDependencies": {
@@ -93,6 +114,7 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/conformance": "0.2.0-alpha.12",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@open-rpc/meta-schema": "^1.14.6",
     "@types/node": "^24.19.2",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
@@ -100,6 +122,7 @@
     "arktype": "^2.2.9",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
+    "mcp-handler": "^2.4.0",
     "prettier": "^3.1.0",
     "terser": "^5.26.0",
     "tsdown": "^0.23.7",

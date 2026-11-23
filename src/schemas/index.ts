@@ -85,17 +85,52 @@ export function stringSchema(): AnySchema {
   };
 }
 
-/** Плоская схема тула из контракта — одна для всех фреймворков, generic ~standard.
- * fn: `in` как есть (object) или { value: T } (скаляр). REST: path/query/body части + auto-path.
- * Адаптер даёт только jsonSchema; сборка плоской схемы — generic-билдерами выше. */
+/** Плоский JSON Schema тула (object-форма) — общий для mcpTools-дескриптора и flatToolSchema.
+ * fn: object как есть, скаляр → { value: T }. REST: path/query/body части + auto-path из шаблона. */
+export function flatToolJson(
+  contract: { in: AnySchema } & Record<string, unknown>,
+  toJson: (s: AnySchema) => unknown,
+): Record<string, unknown> {
+  const rest = contract.rest as { endpoint: string } | undefined;
+  if (!rest) {
+    const json = toJson(contract.in) as { type?: string };
+    return json.type === 'object' ? json : { type: 'object', properties: { value: json }, required: ['value'] };
+  }
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  for (const part of ['path', 'query', 'body'] as const) {
+    const s = contract[part] as AnySchema | undefined;
+    if (!s) continue;
+    const pj = toJson(s) as { properties?: Record<string, unknown>; required?: string[] };
+    Object.assign(properties, pj.properties ?? {});
+    required.push(...(pj.required ?? []));
+  }
+  for (const m of rest.endpoint.matchAll(/\{([^}]+)\}/g)) {
+    if (!(m[1] in properties)) {
+      properties[m[1]] = { type: 'string' };
+      required.push(m[1]);
+    }
+  }
+  return { type: 'object', properties, required };
+}
+
+/** ЕДИНЫЙ метод схемы тула для MCP и tools: возвращает StandardSchemaWithJSON (validate + jsonSchema
+ * Converter из адаптера). registerTool/agentTools принимают напрямую, без fromJsonSchema.
+ * fn: object-схема как есть (identity, уже несёт jsonSchema) или { value: T } (скаляр). REST: части + auto-path. */
 export function flatToolSchema(
   contract: { in: AnySchema } & Record<string, unknown>,
   schemas: SchemaAdapter,
 ): AnySchema {
+  const toJson = (s: AnySchema) => schemas.jsonSchema(s);
+  const json = flatToolJson(contract, toJson);
   const rest = contract.rest as { endpoint: string } | undefined;
   if (!rest) {
-    const isObject = (schemas.jsonSchema(contract.in) as { type?: string }).type === 'object';
-    return isObject ? contract.in : wrapScalar(contract.in);
+    const isObject = (toJson(contract.in) as { type?: string }).type === 'object';
+    if (isObject) {
+      // object уже несёт jsonSchema (zod/valibot) — identity; generic без него — оборачиваем.
+      return contract.in['~standard'].jsonSchema ? contract.in : withJsonSchema(contract.in, json);
+    }
+    return withJsonSchema(wrapScalar(contract.in), json);
   }
   const parts: AnySchema[] = [];
   const covered = new Set<string>();
@@ -103,14 +138,28 @@ export function flatToolSchema(
     const s = contract[part] as AnySchema | undefined;
     if (!s) continue;
     parts.push(s);
-    const props = (schemas.jsonSchema(s) as { properties?: Record<string, unknown> }).properties ?? {};
+    const props = (toJson(s) as { properties?: Record<string, unknown> }).properties ?? {};
     for (const name of Object.keys(props)) covered.add(name);
   }
   const extra: Record<string, AnySchema> = {};
   for (const m of rest.endpoint.matchAll(/\{([^}]+)\}/g)) {
     if (!covered.has(m[1])) extra[m[1]] = stringSchema();
   }
-  return flatObject(parts, extra);
+  return withJsonSchema(flatObject(parts, extra), json);
+}
+
+/** Оборачивает схему в StandardSchemaWithJSON: validate базы + jsonSchema Converter из адаптера.
+ * registerTool принимает схему напрямую (без fromJsonSchema): validate проверяет args, jsonSchema
+ * рекламирует форму в tools/list. Schema-agnostic — JSON даёт адаптер, не вендорная библиотека. */
+export function withJsonSchema(base: AnySchema, json: Record<string, unknown>): AnySchema {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'chord',
+      validate: (value) => base['~standard'].validate(value),
+      jsonSchema: { input: () => json, output: () => json },
+    },
+  };
 }
 
 /** Упаковка аргументов тула в core params — общая для mcp-биндинга и agent tools.

@@ -12,10 +12,8 @@ import { defaultSchemas, packToolArgs } from '../../schemas';
 import { toError, toWire } from './jsonrpc';
 import { messageToHttp } from '../message';
 
-export interface McpMeta {
-  desc?: string;
-  title?: string;
-}
+// McpMeta переехал в types (нижний слой): Contract(core) и generate читают его, как RestMeta.
+export type { McpMeta } from '../../types';
 
 const PROTOCOL_VERSION = '2025-06-18';
 const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26'];

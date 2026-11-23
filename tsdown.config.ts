@@ -1,4 +1,5 @@
 import { defineConfig } from 'tsdown';
+import { fileURLToPath } from 'node:url';
 
 // v2 — корень dist (фасад + листья client/core/schemas/zod); v1 изолирован в dist/v1.
 // Явные имена entries задают раскладку, совпадающую с package.json exports и dts-emit (tsc mirror src).
@@ -8,6 +9,7 @@ export default defineConfig({
     'client/index': 'src/client/index.ts',
     'core/index': 'src/core/index.ts',
     'schemas/zod': 'src/schemas/zod.ts',
+    'mcp-handler/index': 'src/protocol/mcp/vercel/index.ts',
     'v1/index': 'src/v1/index.ts',
     'v1/client/index': 'src/v1/client/index.ts',
     'v1/middlewares/index': 'src/v1/middlewares/index.ts',
@@ -18,6 +20,7 @@ export default defineConfig({
     'v1/specs/index': 'src/v1/specs/index.ts',
   },
   format: ['esm'],
+  alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   dts: true, // dts генерится tsdown под забандленный js — структура совпадает (attw internal resolution)
   outDir: 'dist',
   clean: true,

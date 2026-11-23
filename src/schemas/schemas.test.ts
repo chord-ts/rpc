@@ -27,6 +27,19 @@ test('flatToolSchema: fn object → in as-is, fn scalar → { value }', async ()
   expect(await scalar['~standard'].validate({ value: 42 })).toEqual({ value: { value: 42 } });
 });
 
+test('flatToolSchema: единый метод несёт jsonSchema Converter (MCP/tools без fromJsonSchema)', () => {
+  const scalar = flatToolSchema({ in: z.number() }, adapter);
+  const conv = scalar['~standard'].jsonSchema!;
+  expect(conv.output({ target: 'draft-2020-12' })).toMatchObject({
+    type: 'object',
+    properties: { value: { type: 'number' } },
+    required: ['value'],
+  });
+  // object — identity, jsonSchema из вендорной схемы
+  const objIn = z.object({ a: z.string() });
+  expect(flatToolSchema({ in: objIn }, adapter)['~standard'].jsonSchema).toBeTruthy();
+});
+
 test('flatToolSchema: REST merges parts + auto-path from template (generic)', async () => {
   const contract = {
     in: z.unknown(),

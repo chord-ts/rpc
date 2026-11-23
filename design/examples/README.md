@@ -16,7 +16,9 @@ compile-checked против `src` и прогнаны живьём.
   `fromSvelteKit`: каррирование, headers/signal, SSE-фрейминг потокового тела), `mcp-client`
   (**демо-клиент** MCP: конформные запросы и разбор SSE — стенд, не API пакета),
   `group-stream` (group/broadcast-стрим: канал на группу, publish/subscribe-хэндлы, backpressure);
-  `message` — только демо-LoopbackSocket (message-шов, проекции и stream перенесены в src).
+  `vercel-mcp` (мост chord → `mcp-handler`, бывш. `@vercel/mcp-adapter`: реестр chord → официальный
+  MCP-протокол 2026-07-28 + транспорт); `message` — только демо-LoopbackSocket (message-шов,
+  проекции и stream перенесены в src).
 
 ## Прогрессия
 
@@ -34,6 +36,7 @@ compile-checked против `src` и прогнаны живьём.
 | 10 | [`10-stream-projection.ts`](./10-stream-projection.ts) | продвинутый | аддитивность проекций (src): stream-модель без правок старого кода |
 | 11 | [`11-group-stream.ts`](./11-group-stream.ts) | продвинутый | group/broadcast-стрим (спайк): CRDT-доска, fan-out, refcount, backpressure |
 | 12 | [`12-client.ts`](./12-client.ts) | продвинутый | типизированный клиент (src/client): jsonrpc/rest конструкторы, формат-гард, wire-типы возврата |
+| 13 | [`13-vercel-mcp.ts`](./13-vercel-mcp.ts) | продвинутый | мост chord → mcp-handler: официальный MCP 2026-07-28 + транспорт, chord = реестр/DI/валидация |
 
 Базовые (01–02), расширенные (03–04) и продвинутые 05/07/09/10/12 работают на механиках из `src`
 (проекции протоколов + fromSvelteKit/fromExpress/fromWs/fromWsStream, stream-глагол, клиент).
@@ -59,6 +62,13 @@ StreamBinding/StreamProtocol + events + fromWsStream; существующие �
 с типизированными publish/subscribe-хэндлами на декларации; общий генератор на группу деривирует
 события, канал ядра держит fan-out/refcount/backpressure. CRDT-доска: два подписчика комнаты,
 отмена одного (refcount), отдельная комната, reliable-overflow → disconnect. Src не тронут.
+**13** — мост chord → `mcp-handler` (бывш. `@vercel/mcp-adapter`, v2). Пользователь пишет одну
+обёртку `vercelMcp(composer, opts)` → web-standard `(Request)=>Response` (SvelteKit/Next/Hono/Nitro).
+Мост переиспользует `mcpTools`/`packToolArgs`/`resolveSchemas`/`core.call` из src; `fromJsonSchema`
+(SDK) делает inputSchema schema-agnostic. **Официальный адаптер нативно несёт ревизию 2026-07-28**
+(stateless, discover, subscriptions/listen, MRTR `inputRequired`) — ту же, что вручную пишет 06.
+Стратегическая развилка: переиспользовать стандартный протокол+транспорт (chord = реестр/DI/валидация)
+vs писать своё (06). Прогнан живьём: discover/tools-list/tools-call (Math.count 41→42). Src не тронут.
 
 ## Прогон
 

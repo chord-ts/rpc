@@ -9,11 +9,24 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // RPC (fn): базовый jsonrpc, мультипротокол, форматы, websocket.
 export class Math {
   constructor() {}
-  static $add = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
+  // Нейтральная мета (summary/desc/tags) доезжает до OpenRPC/OpenAPI; fn подсказывает эти поля.
+  static $add = fn({
+    in: z.object({ a: z.number(), b: z.number() }),
+    out: z.number(),
+    summary: 'Сложение',
+    desc: 'Складывает два числа **a** и **b**.',
+    tags: ['арифметика'],
+    // MCP-декорация (карман типизирован, fn подсказывает поля); приоритет над нейтральной мета.
+    mcp: { title: 'Сложение чисел', annotations: { readOnlyHint: true } },
+  });
   add: typeof Math.$add.fn = async (x) => x.a + x.b;
 
-  static $count = fn({ in: z.number(), out: z.number(), desc: 'Инкремент' });
+  static $count = fn({ in: z.number(), out: z.number(), summary: 'Инкремент', desc: 'Увеличивает число на 1.' });
   count: typeof Math.$count.fn = async (n) => n + 1;
+
+  // deprecated — метод помечается устаревшим в OpenRPC/OpenAPI (опциональное поле).
+  static $legacy = fn({ in: z.void(), out: z.string(), desc: 'Устаревший метод.', deprecated: true });
+  legacy: typeof Math.$legacy.fn = async () => 'legacy';
 }
 
 // REST (get/post): базовый rest, мультипротокол, formdata.

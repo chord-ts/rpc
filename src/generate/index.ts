@@ -6,7 +6,7 @@
 
 import type { AnySchema, RestMeta, HttpProtocol } from '../types';
 import type { Core } from '../core/types';
-import { resolveSchemas } from '../schemas';
+import { resolveSchemas, flatToolJson } from '../schemas';
 
 export interface GenOptions {
   jsonSchema?: (s: AnySchema) => unknown;
@@ -208,6 +208,7 @@ export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
         name: `${e.service}.${e.method}`,
         summary: c.summary,
         description: c.desc,
+        deprecated: c.deprecated ?? false,
         tags: (c.tags ? (c.tags as string[]) : [e.service]).map((name) => ({ name })),
         params: inJson ? paramsOf(inJson) : [],
         paramStructure: structureOf(inJson),
@@ -266,30 +267,13 @@ export function mcpTools(core: Core<any>, opts: GenOptions = {}): Spec<{ tools: 
       const meta = c.mcp as { desc?: string; title?: string } | undefined;
       const rest = c.rest as RestMeta | undefined;
 
-      let inputSchema: JsonSchemaObj;
+      // Плоский inputSchema — общий метод с flatToolSchema (MCP/tools), без дублирования.
+      const inputSchema = flatToolJson(c, toJson) as JsonSchemaObj;
       let outputSchema: unknown;
       if (rest) {
-        const properties: Record<string, unknown> = {};
-        const required: string[] = [];
-        for (const part of ['path', 'query', 'body'] as const) {
-          const s = c[part] ? (toJson(c[part] as AnySchema) as JsonSchemaObj) : undefined;
-          Object.assign(properties, s?.properties ?? {});
-          required.push(...(s?.required ?? []));
-        }
-        for (const m of rest.endpoint.matchAll(/\{([^}]+)\}/g)) {
-          if (!(m[1] in properties)) {
-            properties[m[1]] = { type: 'string' };
-            required.push(m[1]);
-          }
-        }
-        inputSchema = { type: 'object', properties, required };
         const success = c.resp ? (c.resp as Record<number, AnySchema>)[rest.status ?? 200] : undefined;
         outputSchema = success ? toJson(success) : undefined;
       } else {
-        inputSchema = toJson(c.in) as JsonSchemaObj;
-        if (inputSchema.type !== 'object') {
-          inputSchema = { type: 'object', properties: { value: inputSchema }, required: ['value'] };
-        }
         outputSchema = c.out ? toJson(c.out) : undefined;
       }
 

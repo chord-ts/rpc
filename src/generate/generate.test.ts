@@ -30,7 +30,15 @@ class Math {
   pad: typeof Math.$pad.fn = async (text, width, fill) => text.padStart(width, fill ?? ' ');
   static $sumAll = fn({ in: z.array(z.number()), out: z.number() });
   sumAll: typeof Math.$sumAll.fn = async (nums) => nums.reduce((a, b) => a + b, 0);
+  static $old = fn({ in: z.void(), out: z.string(), summary: 'Устарело', desc: 'Старый метод', tags: ['legacy'], deprecated: true });
+  old: typeof Math.$old.fn = async () => 'old';
+  static $decorated = fn({ in: z.void(), out: z.string(), desc: 'нейтральная', mcp: { title: 'MCP Title', desc: 'mcp desc', annotations: { readOnlyHint: true }, name: 'decorated_tool' } });
+  decorated: typeof Math.$decorated.fn = async () => 'ok';
 }
+
+// Карман mcp типизирован (автокомплит), не открытый any: title обязан быть string.
+// @ts-expect-error — mcp.title: number не проходит (поле типизировано)
+fn({ in: z.void(), out: z.string(), mcp: { title: 123 } });
 
 const composer = compose({ Catalog, Math }, { inject: {}, schemas: new ZodAdapter() });
 
@@ -87,6 +95,28 @@ test('openrpc: params — object by-name, tuple by-position, void → [], ска
     { name: 'arg0', required: true, schema: { type: 'array', items: { type: 'number' } } },
   ]);
   expect(method('Math.sumAll').paramStructure).toBe('by-position');
+});
+
+test('openrpc: нейтральная мета — summary/desc/tags/deprecated (deprecated опционально)', () => {
+  const doc = openrpc(composer).document as any;
+  const method = (name: string) => doc.methods.find((m: any) => m.name === name);
+  const old = method('Math.old');
+  expect(old.summary).toBe('Устарело');
+  expect(old.description).toBe('Старый метод');
+  expect(old.tags).toEqual([{ name: 'legacy' }]);
+  expect(old.deprecated).toBe(true);
+  // без явного deprecated — default false (генератор эмитит поле всегда, спека валидна)
+  expect(method('Math.count').deprecated).toBe(false);
+  // OpenAPI эмитит deprecated тем же полем
+  const rest = openapi(composer).document as any;
+  expect(rest.paths['/items/{item_id}'].get.deprecated).toBeUndefined();
+});
+
+test('mcpTools: mcp-мета приоритетнее нейтральной (title/desc), карман типизирован', () => {
+  const { tools } = mcpTools(composer).document as any;
+  const d = tools.find((t: any) => t.name === 'Math.decorated');
+  expect(d.title).toBe('MCP Title');
+  expect(d.description).toBe('mcp desc'); // mcp.desc перебивает нейтральную desc
 });
 
 test('mcpTools: all endpoints, REST flattened + auto-path, fn scalar wrapped', () => {

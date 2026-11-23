@@ -14,6 +14,12 @@ export interface AnySchema<Output = unknown> {
     version: 1;
     vendor: string;
     validate(value: unknown): ValidateResult<Output> | Promise<ValidateResult<Output>>;
+    /** Standard JSON Schema v1 Converter (опционально): zod/arktype/valibot несут его; chord-обёртки
+     * (withJsonSchema) добавляют для registerTool — схема сама рекламирует форму аргументов. */
+    jsonSchema?: {
+      input: (options: { target: string }) => Record<string, unknown>;
+      output: (options: { target: string }) => Record<string, unknown>;
+    };
   };
 }
 
@@ -33,6 +39,28 @@ export interface RestMeta {
   method: string;
   endpoint: string;
   status?: number;
+}
+
+/** MCP tool annotations (spec hints, not enforcement). */
+export interface McpAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
+/** MCP metadata pocket on fn (shared with generate/core — bottom layer, like RestMeta).
+ * Поля декорации типизированы для автокомплита; index signature держит карман открытым для
+ * протокол-расширений (resource/prompt/…). Маппер result→content — в MCP-мосте (спайк 13). */
+export interface McpMeta {
+  name?: string;
+  title?: string;
+  desc?: string;
+  annotations?: McpAnnotations;
+  icons?: { src: string; mimeType?: string; sizes?: string[] }[];
+  _meta?: Record<string, unknown>;
+  [k: string]: unknown;
 }
 
 // --- Transport seam, value-level (structural, zero-dep: no DOM/node types) ---
