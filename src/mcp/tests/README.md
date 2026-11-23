@@ -20,7 +20,7 @@ conformance-набор** Model Context Protocol. Рефери ходит по HT
 ## Файлы
 
 ```
-src/protocol/mcp/tests/
+src/mcp/tests/
   conformance.test.ts     запуск рефери + ratchet (vitest, src/**/*.test.ts)
   harness.ts              node:http ↔ fetch мост, endpoint на 127.0.0.1:random, стриминг SSE
   fixtures.ts             fixture-контракт апстрима декларациями chord
@@ -28,11 +28,11 @@ src/protocol/mcp/tests/
 ```
 
 `tsconfig.build.json` исключает `src/**/tests/**` из dts-emit — проверено: в `dist`-раскладку
-попадает только `protocol/mcp/index.d.ts`. `@types/node` добавлен в devDependencies: harness
+попадает только `mcp/index.d.ts`. `@types/node` добавлен в devDependencies: harness
 использует `node:http`, а тесты теперь внутри `src` и попадают в `pnpm typecheck`.
 
 Под тестом сейчас **спайк-реализация** (`design/examples/helpers/{mcp,http}`) — после переноса
-в `src/protocol/mcp` меняются импорты в harness, сценарии и baseline не трогаются.
+в `src/mcp` меняются импорты в harness, сценарии и baseline не трогаются.
 
 ## Запуск
 

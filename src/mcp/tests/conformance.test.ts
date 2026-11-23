@@ -4,7 +4,7 @@
 // Запуск: pnpm test:mcp          (отчёт + ratchet по baseline)
 //         pnpm test:mcp:report   (только отчёт, без assert на код возврата)
 //
-// Baseline: tests/mcp/expected-failures.yaml — список сценариев, которые мы пока не закрываем.
+// Baseline: src/mcp/tests/expected-failures.yaml — список сценариев, которые мы пока не закрываем.
 // Рефери сам падает на STALE-записях (сценарий из списка начал проходить) — значит список
 // нельзя тихо устареть: закрыл пробел → убери строку. Так набор становится ratchet'ом.
 
@@ -17,7 +17,7 @@ import { startMcpServer, type McpTestServer } from './harness';
 
 const REFEREE = join(process.cwd(), 'node_modules/@modelcontextprotocol/conformance/dist/index.js');
 const REQUIREMENTS = '2026-07-28';
-const BASELINE = join(process.cwd(), 'src/protocol/mcp/tests/expected-failures.yaml');
+const BASELINE = join(process.cwd(), 'src/mcp/tests/expected-failures.yaml');
 const REPORT_ONLY = process.env.MCP_CONFORMANCE_REPORT === '1';
 
 let server: McpTestServer | undefined;

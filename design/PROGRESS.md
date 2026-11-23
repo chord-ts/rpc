@@ -52,6 +52,24 @@
   в `register.test.ts` (мангл параметра → guard; с аннотацией → инъекция работает). Клиентские имена
   методов — динамические proxy-строки, property mangling ломает адресацию (держать выключенным).
 
+## Сверка готовности к публикации 2.0 beta (2026-11-24)
+
+**Пакет готов к публикации.** `2.0.0-beta.1` в npm ещё не опубликован (последняя — `1.0.0-beta.32`),
+это будет первая публикация 2.x; версия в package.json уже нужная, бамп не требуется.
+Публикация — за пользователем: `pnpm publish --tag beta --no-git-checks`.
+
+- **Гейты (свежий прогон):** 105/105 (104 unit + conformance ratchet, `--pool=forks`),
+  `tsc --noEmit` чистый, `pnpm build` чистый, **publint All good**, **attw** node10/node16-ESM/bundler 🟢
+  по всем сабпатам (node16-CJS ⚠️ — ESM-only baseline). git clean, синхронизирован с origin/v2.
+- **Найдена и починена регрессия путей после exports-рефакторинга:** скрипты `test:mcp`/`test:mcp:report`
+  и `BASELINE` в `conformance.test.ts` указывали на удалённую `src/protocol/mcp/tests` — скрипт не находил
+  тесты, а рефери молча шёл без baseline (`existsSync` → false) и падал с exit 1 при неизменном состоянии
+  протокола. Пути исправлены на `src/mcp/tests`, ratchet снова зелёный («Baseline check passed»,
+  127/44 — как 2026-11-19), README тестов обновлён. Нюанс: `test:mcp:report` с префиксом
+  `MCP_CONFORMANCE_REPORT=1` — bash-синтаксис, в Windows cmd не сработает (ставить env отдельно).
+- **Не перепроверялось:** svelte-check стенда `tests/sveltekit` (node_modules не установлены;
+  запись 2026-11-23 — v2 чистые, 53 v1 baseline), живые прогоны примеров (закрыты 2026-11-23).
+
 ## TODO — продолжение (точка входа 2026-11-20)
 
 **На подумать — первым делом в следующий раз (2026-11-21, clef Try it) — ЗАКРЫТО 2026-11-23, см. ниже:** скалярные `fn`
@@ -95,14 +113,15 @@ spread в аргументы; невалидный одиночный масси
 build/typecheck чистые, svelte-check v2 clean (53 v1 baseline).
 
 Снято 2026-11-19. Детали — в записи спайка 06 и в разделе «Тесты» ниже; устройство
-conformance-инфраструктуры — `src/protocol/mcp/tests/README.md`.
+conformance-инфраструктуры — `src/mcp/tests/README.md`.
 
 **Где остановились.** MCP 2026-07-28: поверхность `mcp(composer, {…})` + `fromSvelteKit(endpoint)`
 (7 строк), домен публикует изменения через `publish({ kind })`. Официальный рефери и
 fixture-контракт апстрима подключены: **127 passed / 44 failed checks, 23 из 37 scored-сценариев
 проходят, baseline 14 записей, ratchet зелёный** (до fixture-контракта было 106/62 и 6 чистых).
-Реализация в src **не перенесена**: `src/protocol/mcp/index.ts` пустой, тесты импортируют спайк
-`design/examples/helpers/{mcp,http}` — временная зависимость src → design принята осознанно.
+Реализация в src **не перенесена**: modern-профиля в `src/mcp/` нет (лист отдаёт `mcpTools` +
+vercel-мост `./vercel`), тесты импортируют спайк `design/examples/helpers/{mcp,http}` —
+временная зависимость src → design принята осознанно.
 
 **Команды возобновления:** `pnpm test:mcp` (ratchet) · `pnpm test:mcp:report` (отчёт) ·
 `npx vitest run src --exclude '**/mcp/tests/**'` (62 unit) · `npx tsc --noEmit`.
@@ -561,7 +580,8 @@ compile-checked и прогнаны живьём.
       исключает тесты из dts-emit. typecheck (`tsc --noEmit`) покрывает и тесты.
 - [x] Примеры `design/examples/` (01→11, общие классы `shared.ts`) — compile-checked против src, прогнаны живьём.
 - [x] **MCP conformance: официальный рефери + fixture-контракт апстрима** (2026-11-19,
-      `src/protocol/mcp/tests/` — ко-локация с модулем, решение пользователя).
+      `src/mcp/tests/` — ко-локация с модулем, решение пользователя; переехало из
+      `src/protocol/mcp/tests` при exports-рефакторинге 2026-11-23).
       `@modelcontextprotocol/conformance@0.2.0-alpha.12` (MIT, точный пин — тот же, что у апстрима
       `modelcontextprotocol/typescript-sdk`, `test/conformance`). Рефери ходит по HTTP как настоящий
       клиент, чёрный ящик, без привязки к API SDK. Набор заморожен ревизией:
@@ -569,10 +589,10 @@ compile-checked и прогнаны живьём.
       13 extension/pending не оцениваются. `pnpm test:mcp` (ratchet) / `pnpm test:mcp:report` (отчёт).
       `harness.ts` поднимает endpoint на 127.0.0.1:random и мостит node:http ↔ fetch
       Request/Response со стримингом SSE; под тестом спайк `design/examples/helpers/{mcp,http}` —
-      после переноса в `src/protocol/mcp` меняются импорты harness, сценарии/baseline не трогаются.
+      после переноса в `src/mcp` меняются импорты harness, сценарии/baseline не трогаются.
       `@types/node` добавлен в devDeps (harness использует node:http, тесты теперь внутри src и
       попадают в typecheck); `tsconfig.build.json` exclude += `src/**/tests/**` — проверено,
-      в dts-emit попадает только `protocol/mcp/index.d.ts`.
+      в dts-emit попадает только `mcp/index.d.ts`.
       **Fixture-контракт склонирован** (`fixtures.ts`): клонирован КОНТРАКТ, а не код апстримного
       `everythingServer.ts` (1659 строк под API SDK; пин коммита
       `5ee54ee30ddc00a914a3d981880f87fdce0e6246`). Имена/схемы/поведение выражены через `fn` + meta,
@@ -606,7 +626,7 @@ compile-checked и прогнаны живьём.
       (доки CC-BY-4.0), рефери MIT, chord Apache-2.0 — совместимо; attribution и пин коммита сохранены.
 - [ ] Продвинутые спайки `examples/helpers/{mcp,http,mcp-client,capnweb,group-stream}`
       (06/08/11) — compile-checked + ручной прогон; MCP-часть покрыта официальным рефери
-      (`src/protocol/mcp/tests`), своих vitest-тестов на профиль/канал пока нет. `mcp-client` —
+      (`src/mcp/tests`), своих vitest-тестов на профиль/канал пока нет. `mcp-client` —
       демо-стенд, не публичный API и не клиентский рантайм пакета; `http` — предлагаемая версия
       generic-адаптера.
 - [x] **v1 `batch`/`spec` починены (2026-11-23, 17/17 v1):** корень — регрессия адаптер-сплита
