@@ -104,6 +104,24 @@ export type ClientType = typeof api;
 export const POST = (event) => fromSvelteKit(api, event);
 ```
 
+
+**After (v2)** — same file:
+
+```typescript
+import { z } from 'zod';
+import { compose, fn, jsonrpc, fromSvelteKit } from '@chord-ts/rpc';
+
+class Say {
+  static $hello = fn({ in: z.string(), out: z.string() });
+  hello = Say.$hello(async (name) => `Hello, ${name}!`);
+}
+
+const api = jsonrpc(compose({ Say }));
+export type ClientType = typeof api;
+export const POST = (event) => fromSvelteKit(api, event);
+```
+
+
 Three things happened here:
 
 - **The declaration is a static field.** `static $hello = fn({ in, out })` describes the method; the handler is the instance field `hello` — the same name without the `$`. The annotation `typeof Say.$hello.fn` gives the handler its argument and return types from the schema, so a wrong signature is a compile error, not a runtime surprise.

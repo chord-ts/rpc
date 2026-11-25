@@ -250,6 +250,17 @@ vercel-мост `./vercel`), тесты импортируют спайк `desig
       Прув `@ts-expect-error` (mcp.title: number отклоняется), mcp-декорация в shared.ts Math.$add.
       106 тестов, typecheck чистый, lint-дельта 0; dist пересобран, dev перезапущен ([::1]:5173).
 - [ ] `z.tuple([...])` — позиционные вызовы (открытый вопрос).
+- [ ] **Спайк: callable-декларация (2026-11-25, форма не утверждена).** `hello = Say.$hello(async …)`
+      вместо `hello: typeof Say.$hello.fn = …` — вызов декларации контекстно типизирует обработчик
+      (identity-возврат). `design/examples/spike-callable-declaration.ts`, проверка дефолтным
+      `design/examples/tsconfig.json` (отдельный spike-tsconfig убран по запросу пользователя): tsc +
+      живой прогон зелёные — все формы входа (скаляр/объект/tuple/массив/void), REST-части, stream,
+      DI-this, сосуществование аннотационного стиля, Client-проекция; большие методы (8-позиционный
+      tuple с optional-хвостом, крупный объект с вложенностью) — типы обеих форм идентичны (Equal),
+      7 @ts-expect-error guards. Перенос аддитивен: call-сигнатура в Fn/StreamFn/RestFn, callable-рантайм
+      fn/stream/get/post…, function-guard в buildRoutes; копирование контракта через defineProperty
+      (readonly name/length функции). Ожидается решение пользователя; альтернативы — статус-кво
+      (.fn-аннотация) и свободный bind(decl, handler).
 
 ## 3. Единый источник валидации (schema-agnostic)
 
