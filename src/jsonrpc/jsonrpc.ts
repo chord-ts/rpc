@@ -18,9 +18,13 @@ export const ErrorCode = {
   MethodNotFound: -32601,
   InvalidParams: -32602,
   InternalError: -32603,
+  ServerError: -32000,
 } as const;
 
-/** JSON-RPC protocol error (native throw): custom codes, data, optional transport status. */
+/** JSON-RPC protocol error (native throw): custom codes, data, optional transport status.
+ * Static factories cover the spec codes (§5.1), including the reserved server-error code,
+ * with default messages — users throw named errors without memorizing the numbers;
+ * the constructor stays for custom codes. */
 export class RpcError extends Error {
   constructor(
     public code: number,
@@ -30,6 +34,25 @@ export class RpcError extends Error {
   ) {
     super(message);
     this.name = 'RpcError';
+  }
+
+  static parseError(message = 'Parse error', data?: unknown): RpcError {
+    return new RpcError(ErrorCode.ParseError, message, data);
+  }
+  static invalidRequest(message = 'Invalid request', data?: unknown): RpcError {
+    return new RpcError(ErrorCode.InvalidRequest, message, data);
+  }
+  static methodNotFound(message = 'Method not found', data?: unknown): RpcError {
+    return new RpcError(ErrorCode.MethodNotFound, message, data);
+  }
+  static invalidParams(message = 'Invalid params', data?: unknown): RpcError {
+    return new RpcError(ErrorCode.InvalidParams, message, data);
+  }
+  static internal(message = 'Internal error', data?: unknown): RpcError {
+    return new RpcError(ErrorCode.InternalError, message, data);
+  }
+  static serverError(message = 'Server error', data?: unknown): RpcError {
+    return new RpcError(ErrorCode.ServerError, message, data);
   }
 }
 

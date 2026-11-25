@@ -201,6 +201,15 @@ vercel-мост `./vercel`), тесты импортируют спайк `desig
 - [x] Карта экспорта и имена зафиксированы в [`v2-architecture.md`](./v2-architecture.md): корневой
       фасад `.` + листья (`schemas/{zod,valibot,yup}`, `client`, `core`); `compose`/`http`/`del`.
 - [x] Переключение корня `.` на v2 + v2-entries в tsdown + `dist`-раскладка (release-шаг, 2026-11-20).
+- [x] **MIGRATION.md (2026-11-25):** подробный серверный гайд v1→v2 в корне репо (English — выбор
+      пользователя «MIGRATION.md, English»): шаги 0–10 (tsconfig → fn → compose → транспорты →
+      DI/$constructor → middleware → ошибки → схемы → REST → доки → клиент), проводной контракт params,
+      новые возможности и известные пробелы beta.1. Все сниппеты и wire-ответы проверены временным
+      vitest-тестом (15 проверок) + tsc; компактная секция README ссылается на гайд.
+      **Статусы (2026-11-25, по запросу пользователя):** REST и WS помечены beta (в шагах 3/8 и
+      Known gaps); новый клиент не покрывает возможности v1-клиента — cache/batch/abort(signal)/
+      onError/per-call options (сверено с IRPC.Client в src/v1/client/types.ts) — явно в шаге 10
+      и Known gaps, с советом остаться на v1-клиенте для этих сценариев.
 
 ## 2. Регистрация (schema-first, без декораторов)
 
@@ -273,6 +282,13 @@ vercel-мост `./vercel`), тесты импортируют спайк `desig
       content-type инлайнится в ответах. Биндинги мапят: jsonrpc/mcp —
       `toError` (kind → код, error-конверт / isError-контент), rest — kind → статус (422/500)
       напрямую без JSON-RPC-модели, capnweb — нативный throw. `ErrorObject` — wire-форма.
+- [x] **Фабрики RpcError (2026-11-25):** статические `parseError`/`invalidRequest`/`methodNotFound`/
+      `invalidParams`/`internal` + `serverError` (-32000, добавлен по запросу пользователя;
+      `ErrorCode.ServerError`) — готовые коды спеки (§5.1) + дефолтные сообщения, `message?`/`data?`
+      переопределяют; конструктор остаётся для кастомных кодов (форма выбрана пользователем:
+      «статические фабрики», мотив — «пользователь не знает коды в спецификации jsonrpc»).
+      4 теста в jsonrpc.test.ts (19 в семействе), typecheck чистый. В MIGRATION.md ошибки вынесены
+      в JSON-RPC-раздел (шаг 6, пример деления через serverError), REST-маппинг (422/404/500 + {detail}) — в шаг 8.
 - [x] Batch коррелируется по id, notification — без ответа.
 - [x] **src:** ядро `Core` без `exec` — `call/notify/endpoints` + `schemas`; тулы — отдельный
       `agentTools(composer)` (не метод ядра). JSON-RPC-конверт (normalize/toWire/batch) — в `jsonrpc`.

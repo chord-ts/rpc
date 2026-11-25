@@ -163,3 +163,53 @@ test('http projection: POST → JSON-RPC ответ без конверта тр
   expect(res.status).toBe(200);
   expect((res.body as any).result).toBe(3);
 });
+
+test('RpcError factories carry the spec codes and default messages', () => {
+  expect(RpcError.parseError()).toMatchObject({ code: ErrorCode.ParseError, message: 'Parse error' });
+  expect(RpcError.invalidRequest()).toMatchObject({ code: ErrorCode.InvalidRequest, message: 'Invalid request' });
+  expect(RpcError.methodNotFound()).toMatchObject({ code: ErrorCode.MethodNotFound, message: 'Method not found' });
+  expect(RpcError.invalidParams()).toMatchObject({ code: ErrorCode.InvalidParams, message: 'Invalid params' });
+  expect(RpcError.internal()).toMatchObject({ code: ErrorCode.InternalError, message: 'Internal error' });
+  expect(RpcError.serverError()).toMatchObject({ code: ErrorCode.ServerError, message: 'Server error' });
+  expect(RpcError.parseError()).toBeInstanceOf(RpcError);
+});
+
+test('RpcError factories accept a custom message and data', () => {
+  const e = RpcError.invalidParams('Expected a number', { field: 'a' });
+  expect(e).toMatchObject({ code: ErrorCode.InvalidParams, message: 'Expected a number', data: { field: 'a' } });
+});
+
+test('factory error thrown by a handler keeps its code and data on the wire', async () => {
+  class Guard {
+    constructor() {}
+    static $m = fn({ in: z.unknown(), out: z.unknown() });
+    m: typeof Guard.$m.fn = async () => {
+      throw RpcError.invalidParams('Expected a number', { field: 'a' });
+    };
+  }
+  const exec = envelope({ Guard }, { inject: {} });
+  const res = await exec({ method: 'Guard.m', id: 1 });
+  expect(res).toEqual({
+    jsonrpc: '2.0',
+    id: 1,
+    error: { code: ErrorCode.InvalidParams, message: 'Expected a number', data: { field: 'a' } },
+  });
+});
+
+test('serverError factory keeps -32000 and data on the wire', async () => {
+  class Calc {
+    constructor() {}
+    static $div = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
+    div: typeof Calc.$div.fn = async ({ a, b }) => {
+      if (b === 0) throw RpcError.serverError('Division by zero', { a, b });
+      return a / b;
+    };
+  }
+  const exec = envelope({ Calc }, { inject: {} });
+  const res = await exec({ method: 'Calc.div', params: { a: 1, b: 0 }, id: 1 });
+  expect(res).toEqual({
+    jsonrpc: '2.0',
+    id: 1,
+    error: { code: -32000, message: 'Division by zero', data: { a: 1, b: 0 } },
+  });
+});

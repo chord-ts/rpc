@@ -116,7 +116,7 @@ The root re-exports the essentials (`compose`, `fn`, `jsonrpc`, transport adapte
 
 ## 🔁 Migrating from v1
 
-v1 still ships (deprecated) and the root re-exports it, so existing imports keep working. v2 is a new, non-overlapping API — migrate incrementally.
+v1 still ships (deprecated) and the root re-exports it, so existing imports keep working. v2 is a new, non-overlapping API — migrate incrementally. For the step-by-step server migration, see [MIGRATION.md](./MIGRATION.md).
 
 | v1 | v2 |
 |---|---|
