@@ -30,7 +30,9 @@ export type InferOutput<S extends AnySchema> = S extends AnySchema<infer O> ? O 
  * генерации спеков (openapi/openrpc/mcpTools/asyncapi). Плоские схемы тулов строятся generic
  * ~standard-билдерами (schemas), вендорных методов в интерфейсе нет. */
 export interface SchemaAdapter {
-  jsonSchema(schema: AnySchema): unknown;
+  /** io selects the schema side: 'input' for request/params (defaults/transforms applied on the
+   * way in), 'output' for results. Defaults to 'output' when omitted. */
+  jsonSchema(schema: AnySchema, io?: 'input' | 'output'): unknown;
 }
 
 /** REST metadata (shared with generate — generate is below protocol, so the contract stays here).

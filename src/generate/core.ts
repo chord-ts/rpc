@@ -46,16 +46,42 @@ export const inlineJson = (document: unknown) => JSON.stringify(document).replac
 
 /** Schema converter: из адаптера в compose (core.schemas), fallback generic; opts.jsonSchema —
  * точечный override. $schema снимается при встраивании. */
-export function converter(opts: GenOptions, core: Core<any>): (s: AnySchema) => unknown {
+export function converter(opts: GenOptions, core: Core<any>): (s: AnySchema, io?: 'input' | 'output') => unknown {
   const toJson = resolveSchemas(core, opts.jsonSchema).jsonSchema;
-  return (s) => {
-    const out = toJson(s);
+  return (s, io) => {
+    const out = toJson(s, io);
     if (out && typeof out === 'object' && '$schema' in out) {
       const { $schema: _drop, ...rest } = out as Record<string, unknown>;
       return rest;
     }
     return out;
   };
+}
+
+/** Hoist a schema's local `$defs` into a shared `components.schemas` map and rewrite every
+ * `#/$defs/X` ref to `#/components/schemas/<prefix>_X`. Embedded schemas (OpenRPC params/result,
+ * OpenAPI parameters) resolve refs against the DOCUMENT root, so local $defs would dangle.
+ * The prefix keeps keys unique across methods even when a vendor reuses names like __schema0. */
+export function hoistSchemaDefs(schema: unknown, components: Record<string, unknown>, prefix: string): unknown {
+  const rewrite = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(rewrite);
+    if (!node || typeof node !== 'object') return node;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      if (k === '$defs') continue; // hoisted into components
+      if (k === '$ref' && typeof v === 'string' && v.startsWith('#/$defs/')) {
+        out[k] = `#/components/schemas/${prefix}_${v.slice('#/$defs/'.length)}`;
+      } else {
+        out[k] = rewrite(v);
+      }
+    }
+    return out;
+  };
+  if (schema && typeof schema === 'object') {
+    const defs = (schema as Record<string, unknown>).$defs as Record<string, unknown> | undefined;
+    if (defs) for (const [key, def] of Object.entries(defs)) components[`${prefix}_${key}`] = rewrite(def);
+  }
+  return rewrite(schema);
 }
 
 export const infoOf = (opts: GenOptions) => opts.info ?? { title: 'Chord RPC', version: '1.0.0' };

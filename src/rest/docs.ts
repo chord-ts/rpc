@@ -14,8 +14,8 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
     if (!meta || !e.contract) continue;
     const c = e.contract as Record<string, unknown> & { in: AnySchema; resp?: Record<number, AnySchema> };
 
-    const pathSchema = c.path ? (toJson(c.path as AnySchema) as JsonObj) : undefined;
-    const querySchema = c.query ? (toJson(c.query as AnySchema) as JsonObj) : undefined;
+    const pathSchema = c.path ? (toJson(c.path as AnySchema, 'input') as JsonObj) : undefined;
+    const querySchema = c.query ? (toJson(c.query as AnySchema, 'input') as JsonObj) : undefined;
     const pathNames = [...meta.endpoint.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
 
     const parameters: unknown[] = [];
@@ -36,7 +36,7 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
     for (const [status, schema] of Object.entries(c.resp ?? {})) {
       responses[status] = {
         description: reasonPhrase(+status),
-        content: { 'application/json': { schema: toJson(schema) } },
+        content: { 'application/json': { schema: toJson(schema, 'output') } },
       };
     }
     responses.default = {
@@ -54,7 +54,7 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
       responses,
     };
     if (c.body) {
-      operation.requestBody = { required: true, content: { 'application/json': { schema: toJson(c.body as AnySchema) } } };
+      operation.requestBody = { required: true, content: { 'application/json': { schema: toJson(c.body as AnySchema, 'input') } } };
     }
 
     paths[meta.endpoint] = { ...paths[meta.endpoint], [meta.method.toLowerCase()]: operation };

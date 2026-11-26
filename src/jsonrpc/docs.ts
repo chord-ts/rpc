@@ -3,7 +3,7 @@
 
 import type { AnySchema, HttpProtocol } from '@/types';
 import type { Core } from '@/core/types';
-import { converter, infoOf, serveSpec, serveHtml, inlineJson, type GenOptions, type Spec, type JsonObj } from '@/generate/core';
+import { converter, hoistSchemaDefs, infoOf, serveSpec, serveHtml, inlineJson, type GenOptions, type Spec, type JsonObj } from '@/generate/core';
 
 type TupleObj = JsonObj & { type?: string; prefixItems?: unknown[]; minItems?: number };
 
@@ -35,12 +35,19 @@ function structureOf(s: TupleObj | undefined): 'by-name' | 'by-position' | undef
 
 export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
   const toJson = converter(opts, core);
+  // Recursive/reused schemas carry local $defs; hoist them to components.schemas so embedded
+  // params/result refs resolve against the document root (OpenRPC requires a valid meta-schema doc).
+  const schemas: Record<string, unknown> = {};
+  let sid = 0;
   const methods = core
     .endpoints()
     .filter((e) => !e.contract?.rest && !e.contract?.event)
     .map((e) => {
       const c = (e.contract ?? {}) as Record<string, unknown>;
-      const inJson = e.contract ? (toJson(e.contract.in) as TupleObj) : undefined;
+      const inJson = e.contract
+        ? (hoistSchemaDefs(toJson(e.contract.in, 'input'), schemas, `in${sid++}`) as TupleObj)
+        : undefined;
+      const outJson = e.contract?.out ? hoistSchemaDefs(toJson(e.contract.out, 'output'), schemas, `out${sid++}`) : {};
       return {
         name: `${e.service}.${e.method}`,
         summary: c.summary,
@@ -49,7 +56,7 @@ export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
         tags: (c.tags ? (c.tags as string[]) : [e.service]).map((name) => ({ name })),
         params: inJson ? paramsOf(inJson) : [],
         paramStructure: structureOf(inJson),
-        result: { name: 'result', schema: e.contract?.out ? toJson(e.contract.out) : {} },
+        result: { name: 'result', schema: outJson },
         errors: [
           { code: -32601, message: 'Method not found' },
           { code: -32602, message: 'Invalid params' },
@@ -57,7 +64,13 @@ export function openrpc(core: Core<any>, opts: GenOptions = {}): Spec {
         ],
       };
     });
-  return serveSpec({ openrpc: '1.3.2', info: infoOf(opts), methods });
+  const document = {
+    openrpc: '1.3.2',
+    info: infoOf(opts),
+    methods,
+    ...(Object.keys(schemas).length ? { components: { schemas } } : {}),
+  };
+  return serveSpec(document);
 }
 
 // clef: UI-binding поверх OpenRPC (inline spec) — explorer + Try it. endpoint — адрес JSON-RPC-binding'а.

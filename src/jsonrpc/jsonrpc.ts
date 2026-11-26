@@ -7,7 +7,7 @@ import { CoreError, type Core, type CoreErrorKind, type ServiceMap } from '@/cor
 import type { AnySchema, MessageBinding, MessageProtocol, ServiceTag } from '@/types';
 import type { Format, FormatTag, WireFn, JsonWire } from '@/format/types';
 import { json } from '@/format';
-import type { ErrorObject, RPCBody, RPCId, RPCResponse } from './types';
+import type { ErrorObject, RPCId, RPCResponse } from './types';
 import { openrpc } from './docs';
 import { messageToHttp } from '@/message';
 
@@ -62,21 +62,39 @@ const CORE_CODES: Record<CoreErrorKind, number> = {
   'invalid-output': ErrorCode.InternalError,
 };
 
-/** Native error → wire ErrorObject: RpcError keeps code/data/status, CoreError maps kind → code,
- * anything else → InternalError. */
+/** Native error → wire ErrorObject: RpcError keeps code/data, CoreError maps kind → code,
+ * anything else → InternalError with a GENERIC message. Unexpected handler failures must not leak
+ * internal detail (connection strings, stacks) to the client; RpcError/CoreError carry intentional,
+ * safe messages. The wire error object has only code/message/data — no transport `status` member. */
 export function toError(e: unknown): ErrorObject {
   if (e instanceof RpcError) {
-    return { code: e.code, message: e.message, data: e.data, status: e.status };
+    return e.data === undefined ? { code: e.code, message: e.message } : { code: e.code, message: e.message, data: e.data };
   }
   if (e instanceof CoreError) {
-    return { code: CORE_CODES[e.kind], message: e.message, data: e.data };
+    return e.data === undefined
+      ? { code: CORE_CODES[e.kind], message: e.message }
+      : { code: CORE_CODES[e.kind], message: e.message, data: e.data };
   }
-  return { code: ErrorCode.InternalError, message: e instanceof Error ? e.message : String(e) };
+  return { code: ErrorCode.InternalError, message: 'Internal error' };
 }
 
 export function toWire(id: RPCId, value: unknown, error?: ErrorObject): RPCResponse {
-  return error ? { jsonrpc: '2.0', id, error } : { jsonrpc: '2.0', id, result: value };
+  // result is a REQUIRED member on success (spec §5); a void handler yields undefined → null.
+  return error ? { jsonrpc: '2.0', id, error } : { jsonrpc: '2.0', id, result: value === undefined ? null : value };
 }
+
+// --- Request-structure validation (JSON-RPC 2.0 §4/§5) ---
+type Rec = Record<string, unknown>;
+const isRec = (v: unknown): v is Rec => v !== null && typeof v === 'object' && !Array.isArray(v);
+// id MUST be String, Number, or Null (fractional numbers discouraged but not forbidden).
+const isValidId = (v: unknown): v is RPCId => v === null || typeof v === 'string' || typeof v === 'number';
+// params: chord's wire contract also accepts a bare scalar (convenience over strict §4.2);
+// the shape is validated against the endpoint schema by core, not here.
+const invalidRequest = (id: RPCId): RPCResponse => ({
+  jsonrpc: '2.0',
+  id,
+  error: { code: ErrorCode.InvalidRequest, message: 'Invalid request' },
+});
 
 /** JSON-RPC protocol over VALUES: self-addressed (method inside the envelope), so the native
  * seam is MessageBinding; the http projection is the built-in messageToHttp bridge. Format lives
@@ -88,31 +106,50 @@ export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
 ): MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
   const format = (opts?.format ?? json) as Format<any, F>;
   let discovery: object | undefined; // lazy, generated once
+  // One Request → response (or null for a notification / invalid notification). Structure is
+  // validated before dispatch; every read of the item happens inside try, so a malformed batch
+  // (e.g. [null]) can never throw out of handle and crash the process.
+  async function handleOne(item: unknown, baseCtx: Rec): Promise<RPCResponse | null> {
+    const obj = isRec(item) ? item : undefined;
+    // Notification = no id. undefined counts as absent (JSON.stringify drops it); null is a VALID id.
+    const notification = obj ? obj.id === undefined : false;
+    const id: RPCId = obj && isValidId(obj.id) ? obj.id : null;
+    if (
+      !obj ||
+      obj.jsonrpc !== '2.0' ||
+      typeof obj.method !== 'string' ||
+      (obj.id !== undefined && !isValidId(obj.id))
+    ) {
+      return notification ? null : invalidRequest(id);
+    }
+    const method = obj.method;
+    let v: unknown;
+    let error: ErrorObject | undefined;
+    try {
+      v =
+        method === 'rpc.discover'
+          ? await core.run({ ...baseCtx }, async () => (discovery ??= openrpc(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }).document))
+          : await core.call(method, obj.params, { ctx: { ...baseCtx } }); // per-call copy: no ctx leak across batch
+    } catch (e) {
+      error = toError(e);
+    }
+    return notification ? null : toWire(id, v, error);
+  }
+
   const message: MessageBinding = {
     async handle(value, ctx): Promise<unknown | null> {
-      const body = value as RPCBody;
-      if (body == null) {
-        return { jsonrpc: '2.0', id: null, error: { code: ErrorCode.InvalidRequest, message: 'Invalid request' } };
-      }
-      // normalize → core.call per call → toWire; notification (no id) → no response.
-      const calls = Array.isArray(body) ? body : [body];
-      const baseCtx = (ctx ?? {}) as Record<string, unknown>;
+      const baseCtx = (ctx ?? {}) as Rec;
+      const isBatch = Array.isArray(value);
+      // Empty batch → a single Invalid Request error object (spec §6), not null.
+      if (isBatch && value.length === 0) return invalidRequest(null);
+      const items = isBatch ? value : [value];
       const out: RPCResponse[] = [];
-      for (const c of calls) {
-        let v: unknown;
-        let error: ErrorObject | undefined;
-        try {
-          v =
-            c.method === 'rpc.discover'
-              ? (discovery ??= openrpc(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }).document)
-              : await core.call(c.method, c.params, { ctx: { ...baseCtx } }); // per-call copy: no ctx leak across batch
-        } catch (e) {
-          error = toError(e);
-        }
-        if (c.id != null) out.push(toWire(c.id, v, error));
+      for (const item of items) {
+        const res = await handleOne(item, baseCtx);
+        if (res) out.push(res);
       }
-      // JSON-RPC spec: a batch of only notifications gets no response (not an empty array).
-      if (Array.isArray(body)) return out.length ? out : null;
+      // A batch of only notifications gets no response (not an empty array).
+      if (isBatch) return out.length ? out : null;
       return out[0] ?? null;
     },
   };

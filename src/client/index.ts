@@ -116,19 +116,37 @@ function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, 
   };
 }
 
-/** WS: message projection, serial calls (one in-flight); multiplexing by id — later, as on server. */
+/** WS: message projection, multiplexed by request id — parallel calls correlate correctly.
+ * An error reply rejects the matching promise (b.parse throws RpcError); a close hook, when the
+ * socket provides one, rejects all pending calls so none hangs forever. */
 function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding): CallFn {
-  let pending: ((reply: unknown) => void) | null = null;
+  const pending = new Map<string | number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
   socket.onMessage((data) => {
-    const reply = format.decode(data);
-    const resolve = pending;
-    pending = null;
-    resolve?.(reply);
+    let reply: unknown;
+    try {
+      reply = format.decode(data);
+    } catch {
+      return; // malformed frame: no id to correlate
+    }
+    const id = (reply as { id?: string | number } | null)?.id;
+    if (id == null) return;
+    const slot = pending.get(id);
+    if (!slot) return;
+    pending.delete(id);
+    try {
+      slot.resolve(b.parse(reply));
+    } catch (e) {
+      slot.reject(e);
+    }
+  });
+  socket.onClose?.(() => {
+    for (const slot of pending.values()) slot.reject(new Error('Socket closed'));
+    pending.clear();
   });
   return (method, input) =>
-    new Promise((resolve) => {
-      const value = b.build(method, input);
-      pending = (reply) => resolve(b.parse(reply));
+    new Promise((resolve, reject) => {
+      const value = b.build(method, input) as { id: string | number };
+      pending.set(value.id, { resolve, reject });
       socket.send(format.encode(value));
     });
 }
@@ -143,9 +161,13 @@ function proxy(call: CallFn): any {
         return build([...path, String(prop)]);
       },
       // Проводной контракт: позиционные аргументы — [a, b]; массив-как-значение — [[…]]
-      // (одиночный array-аргумент оборачивается); объект/скаляр — как есть.
+      // (одиночный array-аргумент оборачивается); объект/скаляр — как есть; без аргументов —
+      // params опускается (void/any-методы вызываются как rpc.Svc.ping()).
       apply: (_, __, args) =>
-        call(path.join('.'), args.length === 1 ? (Array.isArray(args[0]) ? [args[0]] : args[0]) : args),
+        call(
+          path.join('.'),
+          args.length === 0 ? undefined : args.length === 1 ? (Array.isArray(args[0]) ? [args[0]] : args[0]) : args,
+        ),
     });
   return build([]);
 }

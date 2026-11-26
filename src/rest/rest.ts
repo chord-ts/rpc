@@ -54,13 +54,30 @@ type RestFn<C extends RestContract, P extends string> = C & {
   (handler: RestHandler<C, P>): RestHandler<C, P>;
 };
 
+// Own-property merge (defineProperty, not Object.assign): Object.assign triggers the `__proto__`
+// setter → prototype pollution of the handler input. `__proto__` keys are dropped outright.
+function mergeSafe(target: Record<string, unknown>, src: unknown): void {
+  if (src === null || typeof src !== 'object') return;
+  for (const key of Object.keys(src as Record<string, unknown>)) {
+    if (key === '__proto__') continue;
+    Object.defineProperty(target, key, {
+      value: (src as Record<string, unknown>)[key],
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+}
+
 /** Composite schema: vendor-agnostic `in` synthesized from parts. Validates each slice with its
- * part (a part without a schema passes through), merges parsed values into one handler input. */
+ * part (a part without a schema passes through), merges parsed values into one handler input.
+ * Merge order body → query → path: the path is authoritative and cannot be overwritten by a
+ * same-named body/query field (resource-id spoofing). */
 function composite(c: RestContract): AnySchema<any> {
   const parts: [string, AnySchema<any> | undefined][] = [
-    ['path', c.path],
-    ['query', c.query],
     ['body', c.body],
+    ['query', c.query],
+    ['path', c.path],
   ];
   return {
     '~standard': {
@@ -73,12 +90,12 @@ function composite(c: RestContract): AnySchema<any> {
         for (const [name, schema] of parts) {
           const slice = slices[name] ?? {};
           if (!schema) {
-            Object.assign(merged, slice as object);
+            mergeSafe(merged, slice);
             continue;
           }
           const r = await schema['~standard'].validate(slice);
           if ('issues' in r) issues.push(...r.issues);
-          else Object.assign(merged, r.value as object);
+          else mergeSafe(merged, r.value);
         }
         return issues.length > 0 ? { issues } : { value: merged };
       },
@@ -111,10 +128,19 @@ interface RestRoute extends RestMeta {
 
 function compilePath(template: string): { regex: RegExp; params: string[] } {
   const params: string[] = [];
-  const pattern = template.replace(/\{([^}]+)\}/g, (_m, name: string) => {
-    params.push(name);
-    return '([^/]+)';
-  });
+  // Literal segments are regex-escaped; only {name} placeholders become capture groups.
+  // Without escaping, '/items.json' would also match '/itemsXjson'.
+  const pattern = template
+    .split(/(\{[^}]+\})/g)
+    .map((seg) => {
+      const m = seg.match(/^\{([^}]+)\}$/);
+      if (m) {
+        params.push(m[1]);
+        return '([^/]+)';
+      }
+      return seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    })
+    .join('');
   return { regex: new RegExp(`^${pattern}$`), params };
 }
 
@@ -136,6 +162,10 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
     const { regex, params } = compilePath(meta.endpoint);
     routes.push({ ...meta, service: e.service, handler: e.method, regex, pathParams: params });
   }
+  // Specificity first: fewer path params, then more literal characters — '/items/new' wins over
+  // '/items/{id}' regardless of registration order.
+  const literalLen = (s: string) => s.replace(/\{[^}]+\}/g, '').length;
+  routes.sort((a, b) => a.pathParams.length - b.pathParams.length || literalLen(b.endpoint) - literalLen(a.endpoint));
 
   // REST транспорт-адресуемый (method+path) — нативный контракт HTTP, проекция одна.
   const http: Binding = {
@@ -144,23 +174,35 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
 
       let route: RestRoute | undefined;
       let pathValues: Record<string, string> = {};
+      let pathMatched = false;
+      let decodeFailed = false;
       for (const r of routes) {
-        if (r.method !== req.method) continue;
         const m = url.pathname.match(r.regex);
-        if (m) {
-          route = r;
+        if (!m) continue;
+        pathMatched = true;
+        if (r.method !== req.method) continue;
+        route = r;
+        try {
           pathValues = Object.fromEntries(r.pathParams.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
-          break;
+        } catch {
+          decodeFailed = true; // malformed percent-encoding must not throw out of handle
         }
+        break;
       }
+      if (decodeFailed) return { status: 400, body: { detail: 'Malformed path' } };
       if (!route) {
-        return { status: 404, body: { detail: 'Not found' } };
+        // path matched another verb → 405; no path at all → 404.
+        return pathMatched
+          ? { status: 405, body: { detail: 'Method not allowed' } }
+          : { status: 404, body: { detail: 'Not found' } };
       }
 
-      const query: Record<string, string> = {};
-      url.searchParams.forEach((v, k) => {
-        query[k] = v;
-      });
+      // Repeated query keys (?tag=a&tag=b) become an array; a single key stays a string.
+      const query: Record<string, unknown> = {};
+      for (const k of new Set(url.searchParams.keys())) {
+        const all = url.searchParams.getAll(k);
+        query[k] = all.length > 1 ? all : all[0];
+      }
       // body — уже распарсенное значение (адаптер × Format или раннее извлечение). Decode не нужен.
       // Slices, not merge: each part validated by its schema (composite `in`).
       // query from URL is strings; numeric query fields declared with z.coerce.number().
@@ -171,7 +213,9 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
       } catch (e) {
         // REST мапит kind напрямую (без JSON-RPC-модели): invalid-params → 422, прочее → 500.
         const status = e instanceof CoreError && e.kind === 'invalid-params' ? 422 : 500;
-        const detail = e instanceof Error ? e.message : String(e);
+        // CoreError messages are intentional (validation); unexpected handler errors → generic,
+        // so internal detail (connection strings, stacks) never leaks to the client.
+        const detail = e instanceof CoreError ? e.message : 'Internal error';
         return { status, body: { detail } };
       }
     },

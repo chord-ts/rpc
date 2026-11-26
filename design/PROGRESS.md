@@ -5,6 +5,61 @@
 > намерениям. Два трека: **src** — фактический рантайм; **спайк** — compile-checked примеры в
 > `design/` (проверены `tsc --strict` и живым прогоном, но в src не перенесены, форма не одобрена).
 
+## TODO: фиксы по ревью Claude (2026-11-26, блокеры+высокие+средние ЗАКРЫТЫ)
+
+Ревью ветки `v2` (база `origin/main`). Объём согласован: **блокеры + высокие + дешёвые средние**,
+**capnweb пропускаем** (экспериментальный API). Развилки: B11 → ZodAdapter на subpath (из корня
+убран); H8 → минимально (геттеры/сеттеры не регистрируются, авто-регистрация методов сохранена).
+Регрессии написаны заново (файла `tests/v2/regressions.test.ts` из ревью в репо не было):
+`src/jsonrpc/conformance.test.ts`, `src/rest/rest.test.ts`, `src/core/review.test.ts`,
+`src/client/review.test.ts`, `src/generate/review.test.ts`.
+
+- [x] B10 `pnpm-workspace.yaml`: `onlyBuiltDependencies` + `packages: ['.']`. `pnpm install
+      --offline --lockfile-only` проходит (pnpm 10.28), lockfile не тронут.
+- [x] B11 `ZodAdapter` убран из корня → `@chord-ts/rpc/schemas/zod` (сабпат уже в exports).
+      README/MIGRATION/демо sveltekit обновлены; src-тесты и design-примеры уже импортят сабпат.
+- [x] B2 JSON-RPC 2.0: валидация `jsonrpc`/`method`/`id` → `-32600`; пустой батч→один объект-ошибка;
+      батч примитивов→массив ошибок; `id:null` валиден (ответ есть), `id:undefined`→notification;
+      `result` обязателен (void→null); `toError` не эмитит `status`. params-скаляр оставлен (wire-контракт chord).
+- [x] B3 падения одним запросом: jsonrpc `handleOne` (все чтения item в try), rest `decodeURIComponent`
+      →400, ws `format.decode`→parse-error фрейм, express `await handle`→generic 500.
+- [x] B4 REST: приоритет path (merge body→query→path), body/query не перетирают path-параметр.
+- [x] B5 REST prototype pollution: `mergeSafe` (defineOwnProperty, срез `__proto__`) в composite и `flatObject`.
+- [x] B6 схема-массив: классификация tuple/array по JSON Schema `prefixItems` на compose
+      (`MethodDesc.positional`, core импортит generic `defaultSchemas` — без вендора и цикла);
+      голый `[1,2,3]` для `z.array` → один аргумент; работает и без зарегистрированного адаптера.
+- [x] B7 клиент: 0 аргументов → `params` опускается (`rpc.Svc.ping()` работает).
+- [x] B8 WS-клиент: `Map<id,{resolve,reject}>`, reject на error-ответ, guard decode, `onClose`→reject pending.
+- [x] B9 OpenRPC: `hoistSchemaDefs` → `components.schemas`, rewrite `#/$defs/X`→`#/components/schemas/<prefix>_X`.
+      Тест структурный (все `$ref` резолвятся, висячих `#/$defs` нет); ajv в devDeps нет — полная
+      meta-schema-валидация не запускалась.
+- [x] H1 stream: middleware (`compose.use` + `contract.use`) onion вокруг iterable (guard до итерации).
+- [x] H2 `rpc.discover` через `Core.run` (новый глагол — composer-onion вокруг terminal).
+- [x] H3 утечка сообщений: rest `detail` / jsonrpc `toError` / ws stream-фрейм — generic для неожиданных
+      ошибок; CoreError/RpcError сообщения сохраняются. Тест `'boom'` обновлён на generic + not-leak.
+- [x] H4 REST: экранирование литералов шаблона + сортировка по специфичности (меньше params, больше литералов).
+- [x] H6 MCP shipped: `registerMcpTools` итерирует эндпоинты, имя=`mcp.name`, вызов по `Service.method`;
+      `flatToolSchema` object всегда через адаптер (Date/void смягчены, tools/list не падает);
+      `mcpTools` генератор тоже уважает `mcp.name`. Unit-тест с fake McpServerLike.
+- [x] H7 WS-транспорт: try вокруг decode/handle, `onClose`-cleanup (return генератора), closed-guard sends.
+      `Socket.onClose?` добавлен опционально (клиент и сервер используют если есть).
+- [x] Средние: inject-тип (options обязателен при DepKeys — conditional rest-tuple), express `originalUrl`,
+      REST 405 (path matched, verb differs), query-массивы (`getAll`), jsonSchema `io` input/output
+      (адаптер+converter+openrpc/openapi/mcpTools; `in`→input, `out`→output).
+- [x] H8 (минимально): геттеры/сеттеры и data-поля прототипа не регистрируются (только callable-методы).
+- [ ] Долг (отложено, вне объёма): capnweb (B1 RCE + утечки results/caps + args[0]); глубокий v1
+      (H5 cacheMiddleware, глобальный реестр, утечки полей ошибок, getSchema); дизайн-уровень
+      (opt-in прототипа, WireClient уже реестра, лимиты батча/тела, warnMissingHandlers probe,
+      paramNames дефолты, CDN integrity, SSE/headers, коллизии v1×v2 имён, недостижимые v1-сабпаты).
+
+**Гейты (2026-11-26):** `tsc --noEmit` чистый; **153/153** unit-теста (23 файла, `--pool=forks`,
+без MCP); lint-дельта 0 (новых не-any нарушений нет). **MCP ratchet НЕ перепроверен**: прерванный
+`pnpm install` снёс top-level симлинки `node_modules`, сеть недоступна, tarball
+`@modelcontextprotocol/server@2.4.0` отсутствует в store → офлайн не восстановить. Симлинки
+достроены скриптом из целого `.pnpm` (vitest/zod/MCP-conformance работают, server — нет).
+**Запустить `pnpm test:mcp` после восстановления сети/пакета** — правки jsonrpc/schemas/mcpTools
+могут затронуть MCP-профиль (спайк использует свои helpers, но генератор имён и flatToolSchema общие).
+
 ## Релиз 2.0.0-beta.1 — клиент + формат на эндпоинте (2026-11-20)
 
 Клиентский рантайм перенесён в src, формат поднят на эндпоинт, release-конфиг собран. Версия

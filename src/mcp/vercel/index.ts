@@ -11,7 +11,6 @@
 //   - декорация mcp-меты приоритетнее нейтральной; свои тулы пользователь регистрирует рядом (в своём initialize).
 
 import { fn as coreFn } from '@/core';
-import { mcpTools } from '@/generate';
 import { flatToolSchema, packToolArgs, resolveSchemas } from '@/schemas';
 import type { AnySchema, McpMeta as McpMetaBase, McpAnnotations } from '@/types';
 import type { Contract, Out, Fn, Core } from '@/core/types';
@@ -77,46 +76,34 @@ export interface RegisterMcpOptions {
   jsonSchema?: (s: AnySchema) => unknown;
 }
 
-type McpTool = {
-  name: string;
-  title?: string;
-  description?: string;
-  inputSchema: unknown;
-  outputSchema?: unknown;
-  annotations?: unknown;
-};
-
 /** Регистрирует MCP-тулы composer'а на сервере пользователя (opt-in: только эндпоинты с mcp-карманом).
  * Вызывается внутри createMcpHandler((server) => …); свои тулы пользователь регистрирует рядом. */
 export function registerMcpTools(server: McpServerLike, core: Core<any>, opts: RegisterMcpOptions = {}) {
   const schemas = resolveSchemas(core, opts.jsonSchema);
-  const toJson = (s: AnySchema) => schemas.jsonSchema(s);
-  const mcpCore: Core<any> = { ...core, endpoints: () => core.endpoints().filter((e) => e.contract?.mcp) };
-  const tools = mcpTools(mcpCore, { jsonSchema: opts.jsonSchema }).document.tools as McpTool[];
-  const endpoints = new Map(mcpCore.endpoints().map((e) => [`${e.service}.${e.method}`, e]));
-
-  for (const tool of tools) {
-    const ep = endpoints.get(tool.name);
-    if (!ep?.contract) continue;
-    const contract = ep.contract;
-    const meta = (contract as { mcp?: McpMeta }).mcp;
-    // Единый метод схемы (validate + jsonSchema Converter) — registerTool принимает напрямую.
+  const toJson = (s: AnySchema) => schemas.jsonSchema(s, 'input');
+  // Итерируем эндпоинты напрямую: имя тула — mcp.name (плоское), вызов ядра — по Service.method.
+  for (const e of core.endpoints()) {
+    const contract = e.contract;
+    if (!contract?.mcp || contract.event) continue; // opt-in: только mcp-карман, unary (stream — не тул)
+    const meta = contract.mcp as McpMeta;
+    const path = `${e.service}.${e.method}`;
+    // Единый метод схемы (validate + jsonSchema Converter из адаптера) — registerTool принимает напрямую.
     const inputSchema = flatToolSchema(contract, schemas);
     server.registerTool(
-      tool.name,
+      meta.name ?? path,
       {
-        title: meta?.title ?? tool.title,
-        description: tool.description,
+        title: meta.title,
+        description: meta.desc ?? (contract.desc as string) ?? '',
         inputSchema,
-        annotations: meta?.annotations ?? tool.annotations,
-        icons: meta?.icons,
-        _meta: meta?._meta,
+        annotations: meta.annotations,
+        icons: meta.icons,
+        _meta: meta._meta,
       },
       async (args, ctx) => {
         const req = ctx.http?.req;
         const chordCtx = opts.ctx && req ? opts.ctx(req) : {};
         const params = packToolArgs(contract, args, toJson);
-        const value = await core.call(tool.name, params, { ctx: chordCtx });
+        const value = await core.call(path, params, { ctx: chordCtx });
         return toCallToolResult(value, meta);
       },
     );

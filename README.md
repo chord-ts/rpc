@@ -60,7 +60,8 @@ The example uses [SvelteKit](https://kit.svelte.dev/); the same pattern works on
 
 ```typescript
 import { z } from 'zod';
-import { compose, fn, jsonrpc, fromSvelteKit, ZodAdapter } from '@chord-ts/rpc';
+import { compose, fn, jsonrpc, fromSvelteKit } from '@chord-ts/rpc';
+import { ZodAdapter } from '@chord-ts/rpc/schemas/zod';
 
 // 1. Declare a service: schema-first methods, no decorators
 class Math {
@@ -102,7 +103,7 @@ export const POST = (event) => fromSvelteKit(api, event);
 
 ### 📦 Subpaths
 
-The root re-exports the essentials (`compose`, `fn`, `jsonrpc`, transport adapters, `ZodAdapter`). Everything else lives in granular subpaths:
+The root re-exports the essentials (`compose`, `fn`, `jsonrpc`, transport adapters). Everything else lives in granular subpaths — including `ZodAdapter` at `@chord-ts/rpc/schemas/zod`, so the root never pulls in zod unless you opt in:
 
 | Import | What |
 |---|---|
@@ -147,7 +148,8 @@ export const POST = (event) => composer.exec(event);
 
 ```typescript
 import { z } from 'zod';
-import { compose, fn, jsonrpc, fromSvelteKit, ZodAdapter } from '@chord-ts/rpc';
+import { compose, fn, jsonrpc, fromSvelteKit } from '@chord-ts/rpc';
+import { ZodAdapter } from '@chord-ts/rpc/schemas/zod';
 
 class Say {
   static $hello = fn({ in: z.string(), out: z.string() });

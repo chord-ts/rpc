@@ -116,7 +116,16 @@ export type Client<S extends ServiceMap> = { [K in keyof S]: RemoteService<Insta
 
 // --- Internal dispatch shapes ---
 export type Call = { method: string; params: unknown };
-export type MethodDesc = { service: string; method: string; contract: Contract | null; use: Middleware[] };
+export type MethodDesc = {
+  service: string;
+  method: string;
+  contract: Contract | null;
+  use: Middleware[];
+  /** Wire params spreading: true = tuple (positional args), false = array-as-single-value,
+   * undefined = unclassified (fall back to the bare-array heuristic). Set at compose from the
+   * input JSON Schema (prefixItems ⇒ tuple). */
+  positional?: boolean;
+};
 
 // --- Protocol-neutral core gasket ---
 /** Registry entry: one endpoint. `contract` carries in/out/use + protocol metadata fields
@@ -138,6 +147,9 @@ export interface Core<S extends ServiceMap> {
   notify(method: string, params: unknown, opts?: { ctx?: unknown }): Promise<void>;
   stream(method: string, params: unknown, opts?: StreamOpts): AsyncIterable<unknown>;
   endpoints(): readonly Endpoint[];
+  /** Composer-level middleware onion around an arbitrary terminal. `rpc.discover` goes through it
+   * so a blocking guard covers discovery too. Per-endpoint `use` is applied by call/stream, not here. */
+  run<T>(ctx: unknown, terminal: (ctx: unknown) => Promise<T>): Promise<T>;
   schemas?: SchemaAdapter;
 }
 

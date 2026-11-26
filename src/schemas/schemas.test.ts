@@ -20,9 +20,10 @@ test('ZodAdapter: void/date (unrepresentable:any) не бросает; generic d
   expect(() => defaultSchemas.jsonSchema(z.void())).toThrow();
 });
 
-test('flatToolSchema: fn object → in as-is, fn scalar → { value }', async () => {
+test('flatToolSchema: fn object validate as-is (jsonSchema из адаптера), fn scalar → { value }', async () => {
   const objIn = z.object({ a: z.string() });
-  expect(flatToolSchema({ in: objIn }, adapter)).toBe(objIn);
+  const objSchema = flatToolSchema({ in: objIn }, adapter);
+  expect(await objSchema['~standard'].validate({ a: 'x' })).toEqual({ value: { a: 'x' } });
 
   const scalar = flatToolSchema({ in: z.number() }, adapter);
   expect(await scalar['~standard'].validate({ value: 42 })).toEqual({ value: { value: 42 } });

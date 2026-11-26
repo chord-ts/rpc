@@ -200,7 +200,8 @@ Note the HTTP status stays `200` in both cases — JSON-RPC carries errors in th
 The full wiring, with the options you will actually use:
 
 ```typescript
-import { compose, fn, jsonrpc, ZodAdapter } from '@chord-ts/rpc';
+import { compose, fn, jsonrpc } from '@chord-ts/rpc';
+import { ZodAdapter } from '@chord-ts/rpc/schemas/zod';
 
 const composer = compose(
   { Say, Math },
@@ -481,7 +482,7 @@ static $greet = fn({ in: v.string(), out: v.string() });
 For **docs generation** the library must also produce JSON Schema. Register `ZodAdapter` once at compose time:
 
 ```typescript
-import { ZodAdapter } from '@chord-ts/rpc';
+import { ZodAdapter } from '@chord-ts/rpc/schemas/zod';
 const composer = compose({ Say, Math }, { schemas: new ZodAdapter() });
 ```
 

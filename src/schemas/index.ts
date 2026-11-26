@@ -22,11 +22,15 @@ export function resolveSchemas(core: Core<any>, override?: (s: AnySchema) => unk
  * `jsonSchema(s)`; {} когда конвертера нет. Unrepresentable-типы (void/date) НЕ деградируются —
  * для них вендорный адаптер (ZodAdapter с z.toJSONSchema unrepresentable:'any') на уровне compose. */
 export const defaultSchemas: SchemaAdapter = {
-  jsonSchema: (s) => {
+  jsonSchema: (s, io = 'output') => {
     const js = std(s).jsonSchema;
     if (typeof js === 'function') return (js as (x: AnySchema) => unknown)(s);
     if (js && typeof (js as { output?: unknown }).output === 'function') {
-      return (js as { output: (o: { target: string }) => unknown }).output({ target: 'draft-2020-12' });
+      const conv = js as {
+        input: (o: { target: string }) => unknown;
+        output: (o: { target: string }) => unknown;
+      };
+      return io === 'input' ? conv.input({ target: 'draft-2020-12' }) : conv.output({ target: 'draft-2020-12' });
     }
     return {};
   },
@@ -61,7 +65,11 @@ export function flatObject(parts: AnySchema[], extra: Record<string, AnySchema>)
         for (const p of parts) {
           const r = await p['~standard'].validate(value);
           if ('issues' in r) issues.push(...r.issues);
-          else Object.assign(merged, r.value as object);
+          else {
+            // Own-key copy skipping __proto__: Object.assign would trigger the prototype setter.
+            const v = r.value as Record<string, unknown>;
+            for (const k of Object.keys(v)) if (k !== '__proto__') merged[k] = v[k];
+          }
         }
         for (const [name, s] of Object.entries(extra)) {
           const r = await s['~standard'].validate((value as Record<string, unknown>)?.[name]);
@@ -116,19 +124,20 @@ export function flatToolJson(
 
 /** ЕДИНЫЙ метод схемы тула для MCP и tools: возвращает StandardSchemaWithJSON (validate + jsonSchema
  * Converter из адаптера). registerTool/agentTools принимают напрямую, без fromJsonSchema.
- * fn: object-схема как есть (identity, уже несёт jsonSchema) или { value: T } (скаляр). REST: части + auto-path. */
+ * fn: object как есть по validate, но jsonSchema всегда из адаптера (смягчает Date/void, иначе
+ * tools/list падает на непредставимых полях); скаляр → { value: T }. REST: части + auto-path. */
 export function flatToolSchema(
   contract: { in: AnySchema } & Record<string, unknown>,
   schemas: SchemaAdapter,
 ): AnySchema {
-  const toJson = (s: AnySchema) => schemas.jsonSchema(s);
+  const toJson = (s: AnySchema) => schemas.jsonSchema(s, 'input');
   const json = flatToolJson(contract, toJson);
   const rest = contract.rest as { endpoint: string } | undefined;
   if (!rest) {
     const isObject = (toJson(contract.in) as { type?: string }).type === 'object';
     if (isObject) {
-      // object уже несёт jsonSchema (zod/valibot) — identity; generic без него — оборачиваем.
-      return contract.in['~standard'].jsonSchema ? contract.in : withJsonSchema(contract.in, json);
+      // validate — нативная схема; advertised jsonSchema — из адаптера (не raw zod с Date/void).
+      return withJsonSchema(contract.in, json);
     }
     return withJsonSchema(wrapScalar(contract.in), json);
   }

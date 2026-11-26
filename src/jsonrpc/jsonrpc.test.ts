@@ -63,13 +63,15 @@ test('input validation failure → InvalidParams with issues', async () => {
   expect((res as { error: { data: unknown[] } }).error.data).toHaveLength(1);
 });
 
-test('handler throw → InternalError with the thrown message', async () => {
+test('handler throw → InternalError with a GENERIC message (no internal leak)', async () => {
   const res = await exec({ method: 'Calc.boom', id: 1 });
   expect(res).toMatchObject({
     jsonrpc: '2.0',
     id: 1,
-    error: { code: ErrorCode.InternalError, message: 'boom' },
+    error: { code: ErrorCode.InternalError, message: 'Internal error' },
   });
+  // the thrown detail ('boom') must not reach the client
+  expect(JSON.stringify(res)).not.toContain('boom');
 });
 
 test('out validation is opt-in: off by default, on with validateOut', async () => {

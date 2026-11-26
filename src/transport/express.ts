@@ -9,6 +9,7 @@ import { json } from '../format';
 export interface ExpressReq {
   method: string;
   url: string;
+  originalUrl?: string; // полный путь при маунте роутера (app.use('/api', router)); приоритетнее url
   body?: unknown; // Uint8Array (express.raw()) или распарсенный объект (express.json())
   ctx?: unknown;
 }
@@ -37,8 +38,13 @@ export async function fromExpress(
     res.status(400).set('content-type', 'application/json').send(JSON.stringify({ detail: 'Parse error' }));
     return;
   }
-  const r = await binding.http.handle({ method: req.method, url: `http://localhost${req.url}`, body }, req.ctx);
-  res.status(r.status);
-  for (const [k, v] of Object.entries({ 'content-type': format.contentType, ...r.headers })) res.set(k, v);
-  res.send(r.status === 204 ? null : r.raw ? (r.body as string | Uint8Array) : format.encode(r.body));
+  try {
+    const r = await binding.http.handle({ method: req.method, url: `http://localhost${req.originalUrl ?? req.url}`, body }, req.ctx);
+    res.status(r.status);
+    for (const [k, v] of Object.entries({ 'content-type': format.contentType, ...r.headers })) res.set(k, v);
+    res.send(r.status === 204 ? null : r.raw ? (r.body as string | Uint8Array) : format.encode(r.body));
+  } catch {
+    // Unexpected binding failure: generic 500, no internal message leaked, no rejected promise in the route.
+    res.status(500).set('content-type', 'application/json').send(JSON.stringify({ detail: 'Internal error' }));
+  }
 }

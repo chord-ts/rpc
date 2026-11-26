@@ -9,6 +9,7 @@ import {
   type ComposeOptions,
   type Contract,
   type Core,
+  type DepKeys,
   type Endpoint,
   type Fn,
   type Handler,
@@ -21,6 +22,9 @@ import {
   type StreamHandler,
   type StreamOpts,
 } from './types';
+// Generic (dep-free) schema adapter — used only to classify array inputs at compose. schemas has
+// no runtime import of core, so this adds no cycle and keeps core vendor-neutral.
+import { defaultSchemas } from '@/schemas';
 
 // The declaration is a callable function carrying the contract as own enumerable fields.
 // defineProperty, not Object.assign: a function's `name`/`length` are non-writable — [[Set]]
@@ -115,9 +119,13 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
       );
     }
 
-    // Регистрируем отдельно методы без описания
-    for (const method of Object.getOwnPropertyNames((Ctor as AnyCtor).prototype)) {
+    // Регистрируем отдельно методы без описания. Только callable-методы прототипа: геттеры/сеттеры
+    // и data-поля эндпоинтами не становятся (геттер иначе исполнялся бы при чтении instance[method]).
+    const proto = (Ctor as AnyCtor).prototype;
+    for (const method of Object.getOwnPropertyNames(proto)) {
       if (method === 'constructor' || routes.has(`${service}.${method}`)) continue;
+      const d = Object.getOwnPropertyDescriptor(proto, method);
+      if (!d || typeof d.value !== 'function') continue;
       routes.set(`${service}.${method}`, { service, method, contract: null, use: [] });
     }
   }
@@ -160,13 +168,32 @@ function runChain(
 }
 
 /** Registers services and returns the protocol-agnostic gasket.
- * options опциональны: для сервисов без зависимостей достаточно `compose({ Service })`. */
-export function compose<S extends ServiceMap>(services: S, options?: ComposeOptions<S>): Core<S> {
+ * options опциональны только для сервисов без зависимостей: `compose({ Service })`. Если у сервисов
+ * есть DI-ключи (DepKeys), options обязателен (inject нельзя обойти опусканием всего параметра). */
+export function compose<S extends ServiceMap>(
+  services: S,
+  ...args: [DepKeys<S>] extends [never] ? [options?: ComposeOptions<S>] : [options: ComposeOptions<S>]
+): Core<S> {
+  const options = args[0];
   const inject = (options?.inject ?? {}) as unknown as Record<string, (ctx: any) => any>;
   const use = options?.use;
   const composerMiddlewares: Middleware[] = Array.isArray(use) ? use : use ? [use] : [];
   const validateOut = options?.validateOut ?? false;
   const routes = buildRoutes(services);
+
+  // Classify array inputs once: tuple (prefixItems) → positional args; plain array → a single
+  // array value. Lets a standard JSON-RPC client's bare [1,2,3] reach an array-schema handler as
+  // one argument instead of being spread. Unclassifiable schemas keep the bare-array heuristic.
+  const classifier = options?.schemas ?? defaultSchemas;
+  for (const desc of routes.values()) {
+    if (!desc.contract) continue;
+    try {
+      const json = classifier.jsonSchema(desc.contract.in) as { type?: string; prefixItems?: unknown[] };
+      if (json && json.type === 'array') desc.positional = Array.isArray(json.prefixItems);
+    } catch {
+      // no converter / synthetic schema → fall back at call time
+    }
+  }
 
   // Fail fast at compose (not first request): a resolved dep key without an inject factory
   // is almost always a minified bundle mangling constructor parameter names. The error
@@ -216,11 +243,11 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
 
     if (desc.contract) {
       let parsedIn = await desc.contract.in['~standard'].validate(params);
-      // Проводной контракт (JSON-RPC §4.2, params MUST be Structured): позиционные аргументы —
-      // [a, b], массив-как-значение — [[…]], скаляр — [value] или голый (chord-клиент).
-      // Голый массив params — всегда позиционные аргументы; невалидный одиночный массив
-      // распаковываем в значение (если обе формы невалидны — ошибка от прямой).
-      let positional = Array.isArray(params);
+      // Проводной контракт (JSON-RPC §4.2): tuple → позиционные [a, b]; массив-как-значение →
+      // [[…]] или голый […] (один аргумент-массив); скаляр → [value] или голый (chord-клиент).
+      // desc.positional=false (array-схема) — голый массив НЕ разворачивается; невалидный
+      // одиночный массив распаковываем в значение (если обе формы невалидны — ошибка от прямой).
+      let positional = Array.isArray(params) && desc.positional !== false;
       if ('issues' in parsedIn && Array.isArray(params) && params.length === 1) {
         const unwrapped = await desc.contract.in['~standard'].validate(params[0]);
         if (!('issues' in unwrapped)) {
@@ -273,29 +300,31 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
 
   // Третий глагол: голые события + нативные ошибки. Валидация входа и каждого события;
   // отмена gasket-enforced (signal.aborted → AbortError), return()/break потребителя →
-  // finally-cleanup генератора. Middleware вокруг stream — отдельный вопрос (обёртка вокруг
-  // iterable vs per-event), пока не применяется.
+  // finally-cleanup генератора. Middleware (compose.use + contract.use) применяется onion'ом
+  // вокруг iterable: guard исполняется до итерации (авторизация защищает и стримы).
   async function* stream(method: string, params: unknown, opts?: StreamOpts): AsyncIterable<unknown> {
     const desc = routes.get(method);
     if (!desc || !desc.contract?.event) {
       throw new CoreError('not-found', `Not a stream method: ${method}`);
     }
-    const parsedIn = await desc.contract.in['~standard'].validate(params);
-    if ('issues' in parsedIn) {
-      throw new CoreError('invalid-params', 'Validation error', parsedIn.issues);
-    }
-    const Ctor = services[desc.service] as AnyCtor;
-    const ctx = opts?.ctx ?? {};
-    const deps = depKeys(Ctor).map((name) => inject[name](ctx));
-    const instance = new Ctor(...deps);
-    const handler = instance[desc.method];
-    if (typeof handler !== 'function') {
-      throw new CoreError('not-found', `Method not found: ${method}`);
-    }
-    const signal = opts?.signal ?? new AbortController().signal;
     const eventSchema = desc.contract.event;
-    // .call(instance): обработчик — async function* (не стрелка), this = инстанс (this.ctx и DI).
-    for await (const event of handler.call(instance, parsedIn.value, signal)) {
+    const signal = opts?.signal ?? new AbortController().signal;
+    const iterable = (await runChain(opts?.ctx ?? {}, [...composerMiddlewares, ...desc.use], async (c) => {
+      const parsedIn = await desc.contract!.in['~standard'].validate(params);
+      if ('issues' in parsedIn) {
+        throw new CoreError('invalid-params', 'Validation error', parsedIn.issues);
+      }
+      const Ctor = services[desc.service] as AnyCtor;
+      const deps = depKeys(Ctor).map((name) => inject[name](c));
+      const instance = new Ctor(...deps);
+      const handler = instance[desc.method];
+      if (typeof handler !== 'function') {
+        throw new CoreError('not-found', `Method not found: ${method}`);
+      }
+      // .call(instance): обработчик — async function* (не стрелка), this = инстанс (this.ctx и DI).
+      return handler.call(instance, parsedIn.value, signal) as AsyncIterable<unknown>;
+    })) as AsyncIterable<unknown>;
+    for await (const event of iterable) {
       if (signal.aborted) throw new DOMException('The stream was aborted', 'AbortError');
       const parsed = await eventSchema['~standard'].validate(event);
       if ('issues' in parsed) {
@@ -313,6 +342,8 @@ export function compose<S extends ServiceMap>(services: S, options?: ComposeOpti
     },
     stream,
     endpoints: () => registry,
+    run: <T>(ctx: unknown, terminal: (ctx: unknown) => Promise<T>) =>
+      runChain(ctx, composerMiddlewares, terminal) as Promise<T>,
     schemas: options?.schemas,
   };
 }

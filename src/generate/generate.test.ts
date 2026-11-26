@@ -118,7 +118,7 @@ test('openrpc: нейтральная мета — summary/desc/tags/deprecated 
 
 test('mcpTools: mcp-мета приоритетнее нейтральной (title/desc), карман типизирован', () => {
   const { tools } = mcpTools(composer).document as any;
-  const d = tools.find((t: any) => t.name === 'Math.decorated');
+  const d = tools.find((t: any) => t.name === 'decorated_tool'); // mcp.name задаёт плоское имя тула
   expect(d.title).toBe('MCP Title');
   expect(d.description).toBe('mcp desc'); // mcp.desc перебивает нейтральную desc
 });

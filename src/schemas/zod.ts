@@ -5,8 +5,9 @@ import { z } from 'zod';
 import type { AnySchema, SchemaAdapter } from '../types';
 
 export class ZodAdapter implements SchemaAdapter {
-  jsonSchema(schema: AnySchema): unknown {
+  jsonSchema(schema: AnySchema, io: 'input' | 'output' = 'output'): unknown {
     // zod4: void/date непредставимы в JSON Schema — смягчаем до any штатной опцией конвертера.
-    return z.toJSONSchema(schema as z.ZodTypeAny, { unrepresentable: 'any' });
+    // io:'input' описывает поля с .default()/.transform() так, как их принимает обработчик.
+    return z.toJSONSchema(schema as z.ZodTypeAny, { io, unrepresentable: 'any' });
   }
 }

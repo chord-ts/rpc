@@ -12,6 +12,6 @@ export { fn, stream, compose, paramNames } from './core';
 // jsonrpc-биндинг + wire-модель (без docs-генераторов openrpc/clef — они в сабпате /jsonrpc).
 export { jsonrpc, ErrorCode, RpcError } from './jsonrpc';
 export type { ErrorObject, RPCId, RPCRequest, RPCResponse, RPCBody } from './jsonrpc';
-// ZodAdapter — вендорный адаптер схем для compose (zod — optional peer). format — default json, в root не нужен.
-export { ZodAdapter } from './schemas/zod';
+// ZodAdapter — вендорный лист, только сабпат @chord-ts/rpc/schemas/zod (zod — optional peer).
+// В корне его нет: корневой импорт не должен тянуть zod, если пользователь не выбрал zod-адаптер.
 export { fromSvelteKit, fromExpress, fromWs, fromWsStream, type Socket } from './transport';
