@@ -44,11 +44,14 @@ type RespOut<C extends RestContract> = C['resp'] extends Record<number, AnySchem
     : unknown
   : unknown;
 
+type RestHandler<C extends RestContract, P extends string> = (input: RestIn<C, P>) => Promise<RespOut<C>>;
 type RestFn<C extends RestContract, P extends string> = C & {
   in: AnySchema<RestIn<C, P>>;
   out?: AnySchema<RespOut<C>>;
-  fn: (input: RestIn<C, P>) => Promise<RespOut<C>>;
+  fn: RestHandler<C, P>;
   rest: RestMeta & { endpoint: P };
+  /** Callable-декларация: `$method(handler)` контекстно типизирует обработчик и возвращает его как есть. */
+  (handler: RestHandler<C, P>): RestHandler<C, P>;
 };
 
 /** Composite schema: vendor-agnostic `in` synthesized from parts. Validates each slice with its
@@ -84,11 +87,12 @@ function composite(c: RestContract): AnySchema<any> {
 }
 
 /** Generic REST declaration. Named http (not rest) to avoid clashing with the rest(composer) binding.
- * Flat `status` is hoisted into rest; the success-status schema from resp becomes `out`. */
+ * Flat `status` is hoisted into rest; the success-status schema from resp becomes `out`.
+ * Callable, как core fn: `$method(handler)` типизирует обработчик из частей и возвращает его как есть. */
 export function http<P extends string, C extends RestContract>(meta: RestMeta & { endpoint: P }, c: C): RestFn<C, P> {
   const rest = c.status !== undefined ? { ...meta, status: c.status } : meta;
   const out = c.resp?.[c.status ?? 200];
-  return { ...c, in: composite(c), ...(out ? { out } : {}), rest } as unknown as RestFn<C, P>;
+  return fn({ ...c, in: composite(c), ...(out ? { out } : {}), rest }) as unknown as RestFn<C, P>;
 }
 export const get = <P extends string, C extends RestContract>(endpoint: P, c: C) => http({ method: 'GET', endpoint }, c);
 export const post = <P extends string, C extends RestContract>(endpoint: P, c: C) => http({ method: 'POST', endpoint }, c);

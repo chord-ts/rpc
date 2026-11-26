@@ -167,6 +167,10 @@ vercel-мост `./vercel`), тесты импортируют спайк `desig
 
 ### Грабли, на которые уже наступили
 
+- **Устаревший dist ломает typecheck MCP-фикстур (2026-11-26).** `src/mcp/tests/fixtures.ts` импортит
+  `fn` из `'../../..'` — это корень пакета, резолв через exports/types идёт в `dist/index.d.ts`, не в src.
+  Старый v1-dist (без `fn`) даёт ложные TS2305 + каскад «inject обязателен» в harness (any-тип обработчика
+  перестаёт фильтроваться в DepKeyOf). Лечение: `pnpm build:dts` перед typecheck; на чистом src ошибки нет.
 - **WARNING ≠ pass.** Pretty-сводка печатает `✓ N passed, 0 failed` для сценариев с WARNING
   (SHOULD-проверки), но reconciliation считает их непрохождением. Снятие таких строк с baseline
   по сводке делает прогон красным — они обязаны быть в baseline с пометкой `(WARNING)`.
@@ -250,17 +254,22 @@ vercel-мост `./vercel`), тесты импортируют спайк `desig
       Прув `@ts-expect-error` (mcp.title: number отклоняется), mcp-декорация в shared.ts Math.$add.
       106 тестов, typecheck чистый, lint-дельта 0; dist пересобран, dev перезапущен ([::1]:5173).
 - [ ] `z.tuple([...])` — позиционные вызовы (открытый вопрос).
-- [ ] **Спайк: callable-декларация (2026-11-25, форма не утверждена).** `hello = Say.$hello(async …)`
-      вместо `hello: typeof Say.$hello.fn = …` — вызов декларации контекстно типизирует обработчик
-      (identity-возврат). `design/examples/spike-callable-declaration.ts`, проверка дефолтным
-      `design/examples/tsconfig.json` (отдельный spike-tsconfig убран по запросу пользователя): tsc +
-      живой прогон зелёные — все формы входа (скаляр/объект/tuple/массив/void), REST-части, stream,
-      DI-this, сосуществование аннотационного стиля, Client-проекция; большие методы (8-позиционный
-      tuple с optional-хвостом, крупный объект с вложенностью) — типы обеих форм идентичны (Equal),
-      7 @ts-expect-error guards. Перенос аддитивен: call-сигнатура в Fn/StreamFn/RestFn, callable-рантайм
-      fn/stream/get/post…, function-guard в buildRoutes; копирование контракта через defineProperty
-      (readonly name/length функции). Ожидается решение пользователя; альтернативы — статус-кво
-      (.fn-аннотация) и свободный bind(decl, handler).
+- [x] **Callable-декларация перенесена в src (2026-11-26, форма утверждена пользователем).**
+      `hello = Say.$hello(async …)` вместо `hello: typeof Say.$hello.fn = …` — вызов декларации
+      контекстно типизирует обработчик и возвращает его как есть (identity). Аддитивно, как планировал
+      спайк: call-сигнатура в `Fn`/`StreamFn`/`RestFn` (+ экспортированные `Handler`/`StreamHandler`),
+      callable-рантайм `fn`/`stream`/`http` (get/post/put/patch/del наследуют через http), function-guard
+      в `buildRoutes` (plain-object контракты тоже принимаются); контракт копируется на функцию через
+      `defineProperty` (readonly name/length функции, Object.assign бы бросал). Аннотационный стиль
+      сосуществует, в т.ч. в одном классе; `Client`-проекция, биндинги и генераторы читают поля с функции
+      без изменений. Тесты: `src/core/callable.test.ts` — identity/фантомность, регистрация и wire-вызовы
+      (скаляр/объект/tuple/массив/void), валидация, DI-this, REST-срезы и статусы, stream, сосуществование,
+      mix-guard, 8-позиционный tuple с optional-хвостом (Equal-прувы идентичности форм), 6 @ts-expect-error
+      guards. Гейты: 118/118 (`--pool=forks`, 19 файлов), tsc чистый, lint-дельта ≤ 0, MCP ratchet
+      127/44 «Baseline check passed» (как 2026-11-19). Доки: MIGRATION.md шаг 1 (callable — основной,
+      аннотация — альтернатива; Math-сниппет переведён) + README (пример/таблица/After). Спайк
+      `design/examples/spike-callable-declaration.ts` — superseded, знания в src (удаление — за пользователем).
+      Остальные сниппеты MIGRATION (шаги 4/6/8/9) пока в аннотационном стиле — обе формы валидны.
 
 ## 3. Единый источник валидации (schema-agnostic)
 

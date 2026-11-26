@@ -11,29 +11,49 @@ import {
   type Core,
   type Endpoint,
   type Fn,
+  type Handler,
   type Instantiated,
   type MethodDesc,
   type Middleware,
   type ServiceMap,
   type StreamContract,
   type StreamFn,
+  type StreamHandler,
   type StreamOpts,
 } from './types';
+
+// The declaration is a callable function carrying the contract as own enumerable fields.
+// defineProperty, not Object.assign: a function's `name`/`length` are non-writable — [[Set]]
+// would throw on a contract carrying them; defineProperty redefines (they are configurable).
+function callable<F extends (...args: never[]) => unknown, C extends object>(bind: F, c: C): F & C {
+  for (const key of Object.keys(c)) {
+    Object.defineProperty(bind, key, {
+      value: (c as Record<string, unknown>)[key],
+      enumerable: true,
+      configurable: true,
+      writable: true,
+    });
+  }
+  return bind as F & C;
+}
 
 /**
  * Declares a procedure from a schema. `$method.fn` is the phantom handler type:
  * the argument is inferred from `in`, the return from `out` (unknown when omitted).
+ * The declaration is callable: `$method(handler)` contextually types the handler and returns
+ * it as-is; the annotation style (`m: typeof $m.fn = …`) coexists with it.
  */
 export function fn<C extends Contract>(c: C): Fn<C> {
-  return c as unknown as Fn<C>;
+  return callable((handler: Handler<C>) => handler, c) as unknown as Fn<C>;
 }
 
 /**
  * Declares a stream endpoint: `$method.fn` — async-генератор (input, signal) → события.
  * Тип аргумента из `in`, тип события из `event`. Отмена нативная (signal / return() итератора).
+ * Callable-форма та же: `$method(handler)` типизирует генератор и возвращает его как есть.
  */
 export function stream<C extends StreamContract>(c: C): StreamFn<C> {
-  return c as unknown as StreamFn<C>;
+  return callable((handler: StreamHandler<C>) => handler, c) as unknown as StreamFn<C>;
 }
 
 // Dependency keys match constructor parameter names (parsing ctor.toString()).
@@ -58,8 +78,9 @@ function depKeys(ctor: AnyCtor): string[] {
   return Array.isArray(explicit) ? (explicit as string[]) : paramNames(ctor);
 }
 
-// Endpoints come from `static $method = fn({...})` (schema-first) and from public
-// prototype methods without `$method` (simple, no validation).
+// Endpoints come from `static $method = fn({...})` (schema-first; the declaration is a callable
+// function carrying the contract fields) and from public prototype methods without `$method`
+// (simple, no validation). Plain-object contracts are accepted too.
 function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc> {
   const routes = new Map<string, MethodDesc>();
   for (const [service, Ctor] of Object.entries(services)) {
@@ -68,7 +89,12 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
     let hasRest = false;
     let hasRpc = false;
     for (const [key, contract] of Object.entries(Ctor)) {
-      if (!key.startsWith('$') || typeof contract !== 'object' || contract === null || !('in' in contract)) {
+      if (
+        !key.startsWith('$') ||
+        (typeof contract !== 'object' && typeof contract !== 'function') ||
+        contract === null ||
+        !('in' in contract)
+      ) {
         continue;
       }
       if ((contract as { rest?: unknown }).rest) hasRest = true;

@@ -96,23 +96,6 @@ import { compose, fn, jsonrpc, fromSvelteKit } from '@chord-ts/rpc';
 
 class Say {
   static $hello = fn({ in: z.string(), out: z.string() });
-  hello: typeof Say.$hello.fn = async (name) => `Hello, ${name}!`;
-}
-
-const api = jsonrpc(compose({ Say }));
-export type ClientType = typeof api;
-export const POST = (event) => fromSvelteKit(api, event);
-```
-
-
-**After (v2)** — same file:
-
-```typescript
-import { z } from 'zod';
-import { compose, fn, jsonrpc, fromSvelteKit } from '@chord-ts/rpc';
-
-class Say {
-  static $hello = fn({ in: z.string(), out: z.string() });
   hello = Say.$hello(async (name) => `Hello, ${name}!`);
 }
 
@@ -121,10 +104,18 @@ export type ClientType = typeof api;
 export const POST = (event) => fromSvelteKit(api, event);
 ```
 
+The declaration is callable: `Say.$hello(handler)` types the handler from the schema and returns it unchanged. The annotation style does the same job — pick either, they coexist even in one class:
+
+```typescript
+class Say {
+  static $hello = fn({ in: z.string(), out: z.string() });
+  hello: typeof Say.$hello.fn = async (name) => `Hello, ${name}!`;
+}
+```
 
 Three things happened here:
 
-- **The declaration is a static field.** `static $hello = fn({ in, out })` describes the method; the handler is the instance field `hello` — the same name without the `$`. The annotation `typeof Say.$hello.fn` gives the handler its argument and return types from the schema, so a wrong signature is a compile error, not a runtime surprise.
+- **The declaration is a static field.** `static $hello = fn({ in, out })` describes the method; the handler is the instance field `hello` — the same name without the `$`. Calling the declaration with the handler (`hello = Say.$hello(async …)`) gives the handler its argument and return types from the schema, so a wrong signature is a compile error, not a runtime surprise. The annotation `typeof Say.$hello.fn` is the alternative form of the same contract.
 - **Handlers are async.** The phantom type returns `Promise<out>`; write `async` even for synchronous bodies.
 - **`compose` takes classes, not instances.** v2 constructs a fresh instance per request and injects dependencies through the constructor ([Step 4](#step-4-move-context-injection-to-the-constructor)).
 
@@ -157,13 +148,13 @@ The shape of `in` decides both the handler signature and the JSON-RPC `params` f
 ```typescript
 class Math {
   static $add = fn({ in: z.object({ a: z.number(), b: z.number() }), out: z.number() });
-  add: typeof Math.$add.fn = async ({ a, b }) => a + b;
+  add = Math.$add(async ({ a, b }) => a + b);
 
   static $repeat = fn({ in: z.tuple([z.string(), z.number()]), out: z.string() });
-  repeat: typeof Math.$repeat.fn = async (text, times) => text.repeat(times);
+  repeat = Math.$repeat(async (text, times) => text.repeat(times));
 
   static $sumAll = fn({ in: z.array(z.number()), out: z.number() });
-  sumAll: typeof Math.$sumAll.fn = async (nums) => nums.reduce((a, b) => a + b, 0);
+  sumAll = Math.$sumAll(async (nums) => nums.reduce((a, b) => a + b, 0));
 }
 ```
 

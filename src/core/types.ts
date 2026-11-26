@@ -52,8 +52,12 @@ export type Out<C extends Contract> = C['out'] extends AnySchema<infer O> ? O : 
 // Tuple (фиксированная длина) → позиционные аргументы обработчика (провод [a, b]);
 // обычный массив — одиночное значение-массив (провод [[…]]); объект/скаляр — одиночный вход.
 type HandlerArgs<I> = I extends unknown[] ? (number extends I['length'] ? [I] : I) : [I];
+/** Сигнатура обработчика, выведенная из контракта: аргументы из `in`, возврат из `out`. */
+export type Handler<C extends Contract> = (...args: HandlerArgs<InferOutput<C['in']>>) => Promise<Out<C>>;
 export type Fn<C extends Contract> = C & {
-  fn: (...args: HandlerArgs<InferOutput<C['in']>>) => Promise<Out<C>>;
+  fn: Handler<C>;
+  /** Callable-декларация: `$method(handler)` контекстно типизирует обработчик и возвращает его как есть. */
+  (handler: Handler<C>): Handler<C>;
 };
 
 // --- schema-first stream declaration + `stream` ---
@@ -64,9 +68,15 @@ export type StreamContract = {
   desc?: string;
 };
 
-/** Фантомный тип обработчика: async-генератор (input, signal) → события. */
+/** Сигнатура stream-обработчика: async-генератор (input, signal) → события. */
+export type StreamHandler<C extends StreamContract> = (
+  input: InferOutput<C['in']>,
+  signal: AbortSignal,
+) => AsyncIterable<InferOutput<C['event']>>;
+/** Фантомный тип обработчика + callable-декларация: `$method(handler)` — identity-возврат. */
 export type StreamFn<C extends StreamContract> = C & {
-  fn: (input: InferOutput<C['in']>, signal: AbortSignal) => AsyncIterable<InferOutput<C['event']>>;
+  fn: StreamHandler<C>;
+  (handler: StreamHandler<C>): StreamHandler<C>;
 };
 
 export type StreamOpts = { ctx?: unknown; signal?: AbortSignal };

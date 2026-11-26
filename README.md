@@ -69,7 +69,7 @@ class Math {
     out: z.number(),
     desc: 'Adds two numbers',
   });
-  add: typeof Math.$add.fn = async ({ a, b }) => a + b;
+  add = Math.$add(async ({ a, b }) => a + b);
 }
 
 // 2. Compose the registry and pick a protocol binding
@@ -121,7 +121,7 @@ v1 still ships (deprecated) and the root re-exports it, so existing imports keep
 | v1 | v2 |
 |---|---|
 | `Composer.init({ Say: new Say() })` | `compose({ Say }, { schemas: new ZodAdapter() })` |
-| `@rpc()` decorator on a method | `static $hello = fn({ in, out })` + `hello: typeof Say.$hello.fn = …` |
+| `@rpc()` decorator on a method | `static $hello = fn({ in, out })` + `hello = Say.$hello(async …)` |
 | `experimentalDecorators` / `emitDecoratorMetadata` | not needed — schema-first |
 | `composer.use(sveltekitMiddleware())` + `composer.exec(event)` | `fromSvelteKit(jsonrpc(composer), event)` |
 | `client<Client>({ endpoint })` | `jsonrpc<typeof api>({ endpoint })` from `/client` |
@@ -151,7 +151,7 @@ import { compose, fn, jsonrpc, fromSvelteKit, ZodAdapter } from '@chord-ts/rpc';
 
 class Say {
   static $hello = fn({ in: z.string(), out: z.string() });
-  hello: typeof Say.$hello.fn = async (name) => `Hello, ${name}!`;
+  hello = Say.$hello(async (name) => `Hello, ${name}!`);
 }
 const api = jsonrpc(compose({ Say }, { schemas: new ZodAdapter() }));
 export const POST = (event) => fromSvelteKit(api, event);
