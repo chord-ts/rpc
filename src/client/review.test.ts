@@ -357,4 +357,13 @@ describe('review2: WS client ids and timeout', () => {
     const rpc = jsonrpc<typeof api>({ socket: c, timeout: 10 });
     await expect(rpc.Math.add({ a: 1, b: 1 })).rejects.toThrow('timed out');
   });
+
+  it('request ids are unique strings (uid, not a counter)', async () => {
+    const c = makeSocket(); // no server → calls time out, but request frames are captured
+    const rpc = jsonrpc<typeof api>({ socket: c, timeout: 5 });
+    await Promise.allSettled([rpc.Math.add({ a: 1, b: 1 }), rpc.Math.add({ a: 2, b: 2 })]);
+    const ids = c.sent.map((f) => (JSON.parse(f as string) as { id: unknown }).id);
+    expect(typeof ids[0]).toBe('string');
+    expect(ids[0]).not.toBe(ids[1]);
+  });
 });

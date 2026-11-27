@@ -30,11 +30,18 @@ import type {
 export * from '../v1/client';
 
 // --- internal: JSON-RPC profile (envelope + unwrap) ---
-// Module-level id counter: two clients sharing one socket must not both start at 1 and claim
-// each other's replies.
-let nextId = 0;
+// Request id — a short unique string from Web Crypto, no dependency. getRandomValues is available
+// in browsers in any context (unlike randomUUID, which needs a secure context) and in Node ≥ 20.
+// Random ids avoid collisions across clients/processes talking to one server; a per-process
+// counter could clash on reconnect or when two clients share a socket.
+function uid(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  let id = '';
+  for (const b of bytes) id += b.toString(16).padStart(2, '0');
+  return id;
+}
 function jsonRpcProfile(): JsonRpcProfile {
-  const envelope = (method: string, input: unknown) => ({ jsonrpc: '2.0', method, params: input, id: ++nextId });
+  const envelope = (method: string, input: unknown) => ({ jsonrpc: '2.0', method, params: input, id: uid() });
   const unwrap = (value: unknown): unknown => {
     const body = value as { result?: unknown; error?: { code: number; message: string; data?: unknown } } | null;
     if (body?.error) throw new RpcError(body.error.code, body.error.message, body.error.data);
