@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { fn, compose } from '../index';
 import { openrpc } from '@/jsonrpc';
+import { post, openapi } from '@/rest';
 import { registerMcpTools } from '../mcp/vercel';
 import { ZodAdapter } from '../schemas/zod';
 
@@ -41,6 +42,46 @@ test('B9: OpenRPC document has no dangling #/$defs refs; all refs resolve to com
       expect(schemas[r.slice('#/components/schemas/'.length)]).toBeDefined();
     }
   }
+});
+
+// --- Второй раунд ревью: OpenAPI hoist + рекурсивный корень ($ref:'#') в обоих документах ---
+
+class TreeRest {
+  static $save = post('/tree', { body: z.object({ a: Node, b: Node }) });
+  save = TreeRest.$save(async () => ({ ok: true }));
+  static $put = post('/node', { body: Node });
+  put = TreeRest.$put(async () => ({ ok: true }));
+}
+
+function expectNoDanglingRefs(doc: Record<string, unknown>): void {
+  const refs: string[] = [];
+  collectRefs(doc, refs);
+  expect(refs).not.toContain('#');
+  expect(refs.some((r) => r.startsWith('#/$defs/'))).toBe(false);
+  const schemas = ((doc.components as Record<string, unknown>)?.schemas ?? {}) as Record<string, unknown>;
+  for (const r of refs) {
+    if (r.startsWith('#/components/schemas/')) {
+      expect(schemas[r.slice('#/components/schemas/'.length)]).toBeDefined();
+    }
+  }
+}
+
+test('review2: OpenAPI hoists $defs into components.schemas — no dangling refs', () => {
+  const doc = openapi(compose({ TreeRest }, { schemas: new ZodAdapter() })).document as Record<string, unknown>;
+  expectNoDanglingRefs(doc);
+  const schemas = ((doc.components as Record<string, unknown>)?.schemas ?? {}) as Record<string, unknown>;
+  expect(Object.keys(schemas).length).toBeGreaterThan(0);
+});
+
+test('review2: recursive root ($ref:"#") is hoisted and rewritten in OpenRPC and OpenAPI', () => {
+  class Rec {
+    static $node = fn({ in: Node, out: z.object({ ok: z.boolean() }) });
+    node = Rec.$node(async () => ({ ok: true }));
+  }
+  const openrpcDoc = openrpc(compose({ Rec }, { schemas: new ZodAdapter() })).document as Record<string, unknown>;
+  expectNoDanglingRefs(openrpcDoc);
+  const openapiDoc = openapi(compose({ TreeRest }, { schemas: new ZodAdapter() })).document as Record<string, unknown>;
+  expectNoDanglingRefs(openapiDoc);
 });
 
 // --- H6: registerMcpTools уважает mcp.name, вызывает ядро по Service.method, схема из адаптера ---
@@ -86,6 +127,18 @@ test('H6: tool registered under mcp.name; handler calls core by Service.method',
 
   const ping = server.registered.find((r) => r.name === 'ping')!;
   expect((await ping.handler({}, { http: {} })).content[0].text).toBe('pong');
+});
+
+test('review2: void handler yields a valid text block (text is a string, not undefined)', async () => {
+  class Done {
+    static $done = fn({ in: z.void(), out: z.void(), mcp: { name: 'done' } });
+    done = Done.$done(async () => {});
+  }
+  const server = fakeServer();
+  registerMcpTools(server, compose({ Done }, { schemas: new ZodAdapter() }));
+  const res = await server.registered[0].handler({}, { http: {} });
+  expect(typeof res.content[0].text).toBe('string');
+  expect(res.content[0].text).toBe('');
 });
 
 test('H6: advertised inputSchema jsonSchema does not throw on void/Date (adapter-softened)', () => {

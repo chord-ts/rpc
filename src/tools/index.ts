@@ -10,7 +10,9 @@ import { resolveSchemas, flatToolSchema, packToolArgs } from '../schemas';
 
 export function agentTools(core: Core<any>, opts: GenOptions = {}): AgentTool[] {
   const schemas = resolveSchemas(core, opts.jsonSchema);
-  const toJson = schemas.jsonSchema;
+  // Bound call + 'input' side (same as flatToolSchema): a detached method loses `this` on class
+  // adapters, and the output side misdescribes transform/default inputs when packing args.
+  const toJson = (s: AnySchema) => schemas.jsonSchema(s, 'input');
   const descriptors = mcpTools(core, opts).document.tools as Array<Omit<AgentTool, 'schema' | 'invoke' | 'func'>>;
   // Unary only: stream-эндпоинты не тулы (mcpTools их тоже исключает — индексы сходятся).
   const endpoints = core.endpoints().filter((e) => e.contract && !e.contract.event);

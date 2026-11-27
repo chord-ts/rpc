@@ -44,6 +44,44 @@ test('H1: composer middleware guards a stream (denial before any event)', async 
   await expect(it.next()).rejects.toThrow('denied');
 });
 
+// --- Второй раунд ревью: проводные эвристики (1-кортеж, обёрнутый массив, simple-эндпоинты) ---
+
+class One {
+  static $one = fn({ in: z.tuple([z.string()]), out: z.string() });
+  one = One.$one(async (s) => s);
+}
+
+class Bag {
+  static $arr = fn({ in: z.array(z.unknown()), out: z.unknown() });
+  arr = Bag.$arr(async (xs) => xs[0]);
+}
+
+class Simple {
+  async echo(x: unknown) {
+    return x;
+  }
+}
+
+test('review2: 1-tuple accepts a bare scalar (positional [value] fallback)', async () => {
+  const c = compose({ One }, { schemas: new ZodAdapter() });
+  expect(await c.call('One.one', 'a')).toBe('a'); // голый скаляр (chord-клиент)
+  expect(await c.call('One.one', ['a'])).toBe('a'); // стандартный позиционный params
+});
+
+test('review2: array(unknown) — wrapped [[…]] delivers the inner array, not the wrapper', async () => {
+  const c = compose({ Bag }, { schemas: new ZodAdapter() });
+  expect(await c.call('Bag.arr', [['x']])).toBe('x'); // обёрнутая форма каноническая
+  expect(await c.call('Bag.arr', ['x'])).toBe('x'); // голый массив тоже работает
+  expect(await c.call('Bag.arr', [5])).toBe(5); // голый [5] — значение [5], не скаляр 5
+});
+
+test('review2: simple endpoint — positional [5] reaches echo(x) as 5, [[…]] as the array', async () => {
+  const c = compose({ Simple });
+  expect(await c.call('Simple.echo', [5])).toBe(5);
+  expect(await c.call('Simple.echo', [[1, 2]])).toEqual([1, 2]);
+  expect(await c.call('Simple.echo', 5)).toBe(5);
+});
+
 test('H1: per-stream use middleware runs around the iterable', async () => {
   const log: string[] = [];
   const mw: Middleware = async (ctx, next) => {

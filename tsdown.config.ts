@@ -14,11 +14,13 @@ export default defineConfig({
     jsonrpc: 'src/jsonrpc/index.ts',
     rest: 'src/rest/index.ts',
     mcp: 'src/mcp/index.ts',
-    capnweb: 'src/capnweb/index.ts',
+    tools: 'src/tools/index.ts',
+    // capnweb не публикуется до закрытия security-долга (RCE) — код остаётся в src.
     events: 'src/events/index.ts',
     'transport/sveltekit': 'src/transport/sveltekit.ts',
     'transport/express': 'src/transport/express.ts',
-    'transport/ws': 'src/transport/ws.ts',
+    // WS-транспорт не публикуется до стабилизации (одна подписка на сокет, без мультиплексирования
+    // стримов) — код и тесты остаются в src. Клиентский socket-режим ./client сохранён.
     'v1/index': 'src/v1/index.ts',
     'v1/client/index': 'src/v1/client/index.ts',
     'v1/middlewares/index': 'src/v1/middlewares/index.ts',

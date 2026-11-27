@@ -245,14 +245,30 @@ export function compose<S extends ServiceMap>(
       let parsedIn = await desc.contract.in['~standard'].validate(params);
       // Проводной контракт (JSON-RPC §4.2): tuple → позиционные [a, b]; массив-как-значение →
       // [[…]] или голый […] (один аргумент-массив); скаляр → [value] или голый (chord-клиент).
-      // desc.positional=false (array-схема) — голый массив НЕ разворачивается; невалидный
-      // одиночный массив распаковываем в значение (если обе формы невалидны — ошибка от прямой).
       let positional = Array.isArray(params) && desc.positional !== false;
       if ('issues' in parsedIn && Array.isArray(params) && params.length === 1) {
+        // Невалидный одиночный массив распаковываем в значение (если обе формы невалидны —
+        // ошибка от прямой).
         const unwrapped = await desc.contract.in['~standard'].validate(params[0]);
         if (!('issues' in unwrapped)) {
           parsedIn = unwrapped;
           positional = false;
+        }
+      } else if (desc.positional === false && Array.isArray(params) && params.length === 1 && Array.isArray(params[0])) {
+        // Обёрнутая форма [[…]] — каноническая для array-схемы (chord-клиент всегда оборачивает),
+        // поэтому выигрывает даже когда внешняя форма тоже валидна (z.array(z.unknown())).
+        // Трейдофф: голый [['x']] как массив-массивов с unknown-элементами неотличим от обёртки.
+        const unwrapped = await desc.contract.in['~standard'].validate(params[0]);
+        if (!('issues' in unwrapped)) {
+          parsedIn = unwrapped;
+          positional = false;
+        }
+      } else if ('issues' in parsedIn && !Array.isArray(params) && params !== undefined) {
+        // Голый скаляр для 1-кортежа (z.tuple([z.string()])): пробуем позиционную форму [value].
+        const wrapped = await desc.contract.in['~standard'].validate([params]);
+        if (!('issues' in wrapped)) {
+          parsedIn = wrapped;
+          positional = true;
         }
       }
       if ('issues' in parsedIn) {
@@ -278,9 +294,10 @@ export function compose<S extends ServiceMap>(
     }
 
     // Simple endpoint (no schema): pass params straight to the handler.
-    // Одиночный array-аргумент клиент шлёт как [[…]] — распаковываем (голый […] тоже работает).
+    // Позиционный контракт: [value] → один аргумент (стандартный JSON-RPC клиент), [[…]] →
+    // массив-как-значение (chord-клиент); голый многоэлементный […] — значение для 1-аргументного.
     return handler.length <= 1
-      ? handler.call(instance, Array.isArray(params) && params.length === 1 && Array.isArray(params[0]) ? params[0] : params)
+      ? handler.call(instance, Array.isArray(params) && params.length === 1 ? params[0] : params)
       : Array.isArray(params)
         ? handler.call(instance, ...params)
         : handler.call(instance, params);

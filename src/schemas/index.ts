@@ -165,7 +165,14 @@ export function withJsonSchema(base: AnySchema, json: Record<string, unknown>): 
     '~standard': {
       version: 1,
       vendor: 'chord',
-      validate: (value) => base['~standard'].validate(value),
+      // Check-only: on success return the ORIGINAL value, not the parsed one. Transforms/defaults
+      // must run exactly once — in core.call. A framework that validates with this schema and hands
+      // its parsed output to invoke would otherwise get it re-validated against the INPUT schema
+      // (z.string().transform(s => s.length): the second pass sees a number and fails).
+      validate: async (value) => {
+        const r = await base['~standard'].validate(value);
+        return 'issues' in r ? r : { value };
+      },
       jsonSchema: { input: () => json, output: () => json },
     },
   };

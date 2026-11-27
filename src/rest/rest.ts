@@ -70,15 +70,19 @@ function mergeSafe(target: Record<string, unknown>, src: unknown): void {
 }
 
 /** Composite schema: vendor-agnostic `in` synthesized from parts. Validates each slice with its
- * part (a part without a schema passes through), merges parsed values into one handler input.
+ * part and merges PARSED values into one handler input. A part without a schema contributes
+ * nothing — unvalidated body/query fields must not reach the handler (mass assignment) nor
+ * overwrite validated ones; the only exception is path: template names are declared by the
+ * endpoint itself, so they pass through as strings.
  * Merge order body → query → path: the path is authoritative and cannot be overwritten by a
  * same-named body/query field (resource-id spoofing). */
-function composite(c: RestContract): AnySchema<any> {
+function composite(c: RestContract, endpoint: string): AnySchema<any> {
   const parts: [string, AnySchema<any> | undefined][] = [
     ['body', c.body],
     ['query', c.query],
     ['path', c.path],
   ];
+  const pathNames = [...endpoint.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
   return {
     '~standard': {
       version: 1,
@@ -90,7 +94,11 @@ function composite(c: RestContract): AnySchema<any> {
         for (const [name, schema] of parts) {
           const slice = slices[name] ?? {};
           if (!schema) {
-            mergeSafe(merged, slice);
+            if (name === 'path' && slice !== null && typeof slice === 'object') {
+              const picked: Record<string, unknown> = {};
+              for (const n of pathNames) picked[n] = (slice as Record<string, unknown>)[n];
+              mergeSafe(merged, picked);
+            }
             continue;
           }
           const r = await schema['~standard'].validate(slice);
@@ -109,7 +117,7 @@ function composite(c: RestContract): AnySchema<any> {
 export function http<P extends string, C extends RestContract>(meta: RestMeta & { endpoint: P }, c: C): RestFn<C, P> {
   const rest = c.status !== undefined ? { ...meta, status: c.status } : meta;
   const out = c.resp?.[c.status ?? 200];
-  return fn({ ...c, in: composite(c), ...(out ? { out } : {}), rest }) as unknown as RestFn<C, P>;
+  return fn({ ...c, in: composite(c, meta.endpoint), ...(out ? { out } : {}), rest }) as unknown as RestFn<C, P>;
 }
 export const get = <P extends string, C extends RestContract>(endpoint: P, c: C) => http({ method: 'GET', endpoint }, c);
 export const post = <P extends string, C extends RestContract>(endpoint: P, c: C) => http({ method: 'POST', endpoint }, c);
@@ -198,7 +206,8 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
       }
 
       // Repeated query keys (?tag=a&tag=b) become an array; a single key stays a string.
-      const query: Record<string, unknown> = {};
+      // Null prototype: ?__proto__=… must create an own key, not set the object's prototype.
+      const query: Record<string, unknown> = Object.create(null);
       for (const k of new Set(url.searchParams.keys())) {
         const all = url.searchParams.getAll(k);
         query[k] = all.length > 1 ? all : all[0];
@@ -211,12 +220,21 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
         const value = await core.call(`${route.service}.${route.handler}`, params, { ctx });
         return { status: route.status ?? 200, body: value };
       } catch (e) {
-        // REST мапит kind напрямую (без JSON-RPC-модели): invalid-params → 422, прочее → 500.
-        const status = e instanceof CoreError && e.kind === 'invalid-params' ? 422 : 500;
+        // REST мапит kind напрямую (без JSON-RPC-модели): invalid-params → 422 + issues, прочее → 500.
+        if (e instanceof CoreError && e.kind === 'invalid-params') {
+          const body = e.data === undefined ? { detail: e.message } : { detail: e.message, issues: e.data };
+          return { status: 422, body };
+        }
+        // Handler-declared HTTP status (RpcError.status / Error+status, e.g. a resp-map 404/409):
+        // an explicit status marks the error as intentional, so its message is safe to expose.
+        const status = (e as { status?: unknown } | null)?.status;
+        if (typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599) {
+          return { status, body: { detail: e instanceof Error ? e.message : 'Error' } };
+        }
         // CoreError messages are intentional (validation); unexpected handler errors → generic,
         // so internal detail (connection strings, stacks) never leaks to the client.
         const detail = e instanceof CoreError ? e.message : 'Internal error';
-        return { status, body: { detail } };
+        return { status: 500, body: { detail } };
       }
     },
   };

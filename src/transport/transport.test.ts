@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { fn, stream, compose, jsonrpc, fromSvelteKit, fromExpress, fromWs, fromWsStream } from '../index';
+import { fn, stream, compose, jsonrpc, fromSvelteKit, fromExpress } from '../index';
+import { fromWs, fromWsStream } from '@/transport';
 import { get, rest } from '@/rest';
 import { events } from '@/events';
 import { ZodAdapter } from '../schemas/zod';

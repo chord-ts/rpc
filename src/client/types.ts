@@ -38,6 +38,8 @@ export interface FetchClientInit<F extends WireFn> {
 export interface WsClientInit<F extends WireFn> {
   socket: Socket;
   format?: Format<any, F>;
+  /** Per-call timeout in ms (off by default): a never-answered call rejects instead of hanging. */
+  timeout?: number;
 }
 export type ClientInit<F extends WireFn> = FetchClientInit<F> | WsClientInit<F>;
 
@@ -60,8 +62,9 @@ export type WireClient<S extends ServiceMap, F extends WireFn> = {
 export interface OpenApiOperation {
   operationId?: string;
   parameters?: { name: string; in: string }[];
-  requestBody?: { content?: Record<string, { schema?: { properties?: Record<string, unknown> } }> };
+  requestBody?: { content?: Record<string, { schema?: { properties?: Record<string, unknown>; $ref?: string } }> };
 }
 export interface OpenApiDoc {
   paths?: Record<string, Record<string, OpenApiOperation>>;
+  components?: { schemas?: Record<string, unknown> };
 }

@@ -4,7 +4,8 @@
 // fn и stream рядом. Пересечение моделей — на этапе типов; способности — spread проекций.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/10-stream-projection.ts
 
-import { compose, jsonrpc, fromSvelteKit, fromWs, fromWsStream } from '../../src';
+import { compose, jsonrpc, fromSvelteKit } from '../../src';
+import { fromWs, fromWsStream } from '../../src/transport';
 import { json } from '../../src/format';
 import { events } from '../../src/events';
 import { ZodAdapter } from '../../src/schemas/zod';

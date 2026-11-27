@@ -35,7 +35,12 @@ export async function fromExpress(
       body = raw; // уже значение (express.json() / раннее извлечение) или undefined
     }
   } catch {
-    res.status(400).set('content-type', 'application/json').send(JSON.stringify({ detail: 'Parse error' }));
+    // JSON-RPC family (message projection) gets the spec envelope (-32700, id:null); others {detail}.
+    const body =
+      'message' in binding
+        ? { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }
+        : { detail: 'Parse error' };
+    res.status(400).set('content-type', 'application/json').send(JSON.stringify(body));
     return;
   }
   try {

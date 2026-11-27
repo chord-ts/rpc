@@ -35,8 +35,8 @@ As a project grows, client–server communication becomes a maintenance burden. 
 
 * **Schema-first** — one `fn({ in, out })` declaration drives types, runtime validation, and docs
 * **Type-safe end-to-end** — the client is typed from the server binding; IDE autocompletion out of the box
-* **Multi-protocol** — JSON-RPC, REST, MCP (via `mcp-handler`), Cap'n Web from a single registry
-* **Transport adapters** — SvelteKit, Express, WebSocket; protocol-agnostic, you own the transport
+* **Multi-protocol** — JSON-RPC, REST, MCP (via `mcp-handler`) from a single registry
+* **Transport adapters** — SvelteKit, Express; protocol-agnostic, you own the transport
 * **Docs generation** — OpenRPC / OpenAPI / AsyncAPI plus clef / Swagger / ReDoc viewers
 * **Granular subpaths** — import only what you use; the root stays small and tree-shakeable
 
@@ -109,11 +109,16 @@ The root re-exports the essentials (`compose`, `fn`, `jsonrpc`, transport adapte
 |---|---|
 | `@chord-ts/rpc/rest` | REST sugar (`get`/`post`/…) + OpenAPI/Swagger/ReDoc |
 | `@chord-ts/rpc/jsonrpc` | JSON-RPC binding + OpenRPC/clef docs |
-| `@chord-ts/rpc/transport/sveltekit` · `/express` · `/ws` | per-platform adapters |
+| `@chord-ts/rpc/transport/sveltekit` · `/express` | per-platform adapters |
 | `@chord-ts/rpc/schemas/zod` | `ZodAdapter` |
 | `@chord-ts/rpc/client` | typed client constructors |
 | `@chord-ts/rpc/mcp-handler` | MCP 2026-07-28 bridge |
-| `@chord-ts/rpc/capnweb` · `/events` · `/mcp` | Cap'n Web, events/AsyncAPI, MCP tools |
+| `@chord-ts/rpc/events` · `/mcp` · `/tools` | events/AsyncAPI, MCP tools, agent tools (`agentTools`) |
+
+> **Not published yet** (code stays in `src` for contributors):
+> - Cap'n Web-style capabilities (`./capnweb`) — until the security review is closed.
+> - WebSocket transport (`./transport/ws`, `fromWs`/`fromWsStream`) — until stream multiplexing
+>   lands. The client's socket mode (`jsonrpc({ socket })` from `./client`) remains available.
 
 ## 🔁 Migrating from v1
 

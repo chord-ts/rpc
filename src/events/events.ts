@@ -8,9 +8,9 @@ import type { StreamProtocol } from '@/types';
 export function events(core: Core<any>): StreamProtocol {
   return {
     stream: {
-      handle(value, ctx) {
-        const req = value as { method: string; params?: unknown };
-        return core.stream(req.method, req.params, { ctx });
+      handle(value, ctx, signal) {
+        const req = (value ?? {}) as { method: string; params?: unknown };
+        return core.stream(req.method, req.params, { ctx, signal });
       },
     },
   };

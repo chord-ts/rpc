@@ -63,6 +63,7 @@ export function converter(opts: GenOptions, core: Core<any>): (s: AnySchema, io?
  * OpenAPI parameters) resolve refs against the DOCUMENT root, so local $defs would dangle.
  * The prefix keeps keys unique across methods even when a vendor reuses names like __schema0. */
 export function hoistSchemaDefs(schema: unknown, components: Record<string, unknown>, prefix: string): unknown {
+  let rootRef = false;
   const rewrite = (node: unknown): unknown => {
     if (Array.isArray(node)) return node.map(rewrite);
     if (!node || typeof node !== 'object') return node;
@@ -71,6 +72,11 @@ export function hoistSchemaDefs(schema: unknown, components: Record<string, unkn
       if (k === '$defs') continue; // hoisted into components
       if (k === '$ref' && typeof v === 'string' && v.startsWith('#/$defs/')) {
         out[k] = `#/components/schemas/${prefix}_${v.slice('#/$defs/'.length)}`;
+      } else if (k === '$ref' && v === '#') {
+        // Recursive root ref (z.lazy): '#' points at the schema root, which must live in
+        // components too — against the DOCUMENT root it would dangle.
+        rootRef = true;
+        out[k] = `#/components/schemas/${prefix}`;
       } else {
         out[k] = rewrite(v);
       }
@@ -81,7 +87,9 @@ export function hoistSchemaDefs(schema: unknown, components: Record<string, unkn
     const defs = (schema as Record<string, unknown>).$defs as Record<string, unknown> | undefined;
     if (defs) for (const [key, def] of Object.entries(defs)) components[`${prefix}_${key}`] = rewrite(def);
   }
-  return rewrite(schema);
+  const out = rewrite(schema);
+  if (rootRef) components[prefix] = out; // self-recursion resolves through components
+  return out;
 }
 
 export const infoOf = (opts: GenOptions) => opts.info ?? { title: 'Chord RPC', version: '1.0.0' };

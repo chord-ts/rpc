@@ -38,6 +38,23 @@ test('agentTools: REST tool — flat vendor schema with auto-path, invoke ok', a
   expect(await getItem.invoke({ item_id: '7' })).toEqual({ id: 'x' });
 });
 
+test('review2: transform schema — framework validate + invoke applies the transform exactly once', async () => {
+  class Measure {
+    constructor() {}
+    static $len = fn({ in: z.string().transform((s) => s.length), out: z.number() });
+    len: typeof Measure.$len.fn = async (n) => n;
+  }
+  const c = compose({ Measure }, { inject: {}, schemas: new ZodAdapter() });
+  const len = agentTools(c).find((t) => t.name === 'Measure.len')!;
+  // фреймворк валидирует tool.schema (плоская форма {value}) и передаёт результат в invoke —
+  // второй проход не должен применять transform повторно (иначе z.string() видит number и падает).
+  const parsed = await len.schema['~standard'].validate({ value: 'abc' });
+  expect('value' in parsed).toBe(true);
+  expect(await len.invoke((parsed as { value: unknown }).value)).toBe(3);
+  // прямой вызов с сырыми аргументами (плоская форма тула) тоже работает — валидация в core.call
+  expect(await len.invoke({ value: 'abc' })).toBe(3);
+});
+
 test('agentTools: stream-эндпоинты не тулы (unary only)', () => {
   class Ticker {
     constructor() {}

@@ -64,9 +64,19 @@ test('B2: id:null is a VALID id → response is produced (not treated as notific
   expect(res).toMatchObject({ jsonrpc: '2.0', id: null, result: 'x' });
 });
 
-test('B2: notification (id absent) → no response; invalid notification → no response', async () => {
+test('B2: notification (valid structure, id absent) → no response', async () => {
   expect(await handle({ jsonrpc: '2.0', method: 'Svc.echo', params: 'x' })).toBeNull();
-  expect(await handle({ jsonrpc: '2.0', method: 42 })).toBeNull();
+  // unknown method without id is still a notification — silence, not MethodNotFound
+  expect(await handle({ jsonrpc: '2.0', method: 'Svc.nope', params: 'x' })).toBeNull();
+});
+
+test('B2: invalid Request without id → -32600 with id:null (spec §5 example {"method":1})', async () => {
+  expect(await handle({ jsonrpc: '2.0', method: 1 })).toMatchObject({
+    jsonrpc: '2.0',
+    id: null,
+    error: { code: ErrorCode.InvalidRequest },
+  });
+  expect(await handle({ jsonrpc: '2.0', method: 42 })).toMatchObject({ error: { code: ErrorCode.InvalidRequest } });
 });
 
 test('B2: void success carries the REQUIRED result member (null)', async () => {

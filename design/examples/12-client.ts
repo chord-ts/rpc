@@ -7,7 +7,8 @@
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/12-client.ts
 
 import { z } from 'zod';
-import { compose, fn, jsonrpc as bindJsonrpc, fromSvelteKit, fromWs as serveWs, RpcError } from '../../src';
+import { compose, fn, jsonrpc as bindJsonrpc, fromSvelteKit, RpcError } from '../../src';
+import { fromWs as serveWs } from '../../src/transport';
 import { get, post, rest as bindRest, openapi } from '../../src/rest';
 import { json } from '../../src/format';
 import type { Format, WireFn } from '../../src/format/types';

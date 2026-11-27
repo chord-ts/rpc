@@ -42,8 +42,13 @@ export async function fromSvelteKit(
   try {
     body = opts.body !== undefined ? opts.body : await readBody(event.request, format, opts.as ?? 'format');
   } catch {
-    // Parse-error — граница адаптера (протокол-агностично).
-    return new Response(JSON.stringify({ detail: 'Parse error' }), { status: 400, headers: { 'content-type': 'application/json' } });
+    // Parse-error — граница адаптера. JSON-RPC-семейство (message-проекция) получает конверт
+    // спеки (-32700, id:null); остальные протоколы — {detail}.
+    const body =
+      'message' in binding
+        ? { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }
+        : { detail: 'Parse error' };
+    return new Response(JSON.stringify(body), { status: 400, headers: { 'content-type': 'application/json' } });
   }
   const res = await binding.http.handle({ method: event.request.method, url: event.request.url, body }, event.locals);
   return respond(res, format);

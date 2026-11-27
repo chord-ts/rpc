@@ -5,7 +5,8 @@
 //   http — встроенный мост). Пользователь не пишет кастомный binding и не выбирает мост.
 // Прогон: npx tsc --noEmit --strict --target es2022 --lib es2022,dom --module esnext --moduleResolution bundler --skipLibCheck design/examples/09-protocol-bindings.ts
 
-import { compose, jsonrpc, fromSvelteKit, fromWs } from '../../src';
+import { compose, jsonrpc, fromSvelteKit } from '../../src';
+import { fromWs } from '../../src/transport';
 import { rest } from '../../src/rest';
 import { mcpTools } from '../../src/mcp';
 import { capnweb } from '../../src/capnweb';

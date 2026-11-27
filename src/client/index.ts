@@ -18,7 +18,7 @@ import type { ServiceMap } from '../core/types';
 import type { Socket } from '../transport';
 import type { Format } from '../format/types';
 import { json } from '../format';
-import { RpcError } from '@/jsonrpc';
+import { RpcError, ErrorCode } from '@/jsonrpc';
 import type {
   HttpClientBinding, MessageClientBinding, JsonRpcProfile, CallFn,
   FetchClientInit, WsClientInit, ClientInit, BindingServices, BindingFormat,
@@ -30,9 +30,11 @@ import type {
 export * from '../v1/client';
 
 // --- internal: JSON-RPC profile (envelope + unwrap) ---
+// Module-level id counter: two clients sharing one socket must not both start at 1 and claim
+// each other's replies.
+let nextId = 0;
 function jsonRpcProfile(): JsonRpcProfile {
-  let id = 0;
-  const envelope = (method: string, input: unknown) => ({ jsonrpc: '2.0', method, params: input, id: ++id });
+  const envelope = (method: string, input: unknown) => ({ jsonrpc: '2.0', method, params: input, id: ++nextId });
   const unwrap = (value: unknown): unknown => {
     const body = value as { result?: unknown; error?: { code: number; message: string; data?: unknown } } | null;
     if (body?.error) throw new RpcError(body.error.code, body.error.message, body.error.data);
@@ -41,7 +43,18 @@ function jsonRpcProfile(): JsonRpcProfile {
   return {
     http: {
       build: (method, input) => ({ method: 'POST', url: '', body: envelope(method, input) }),
-      parse: (res) => unwrap(res.body),
+      parse: (res) => {
+        const body = res.body as { result?: unknown; error?: { code: number; message: string; data?: unknown }; detail?: string; message?: string } | null;
+        if (body?.error) throw new RpcError(body.error.code, body.error.message, body.error.data);
+        // Non-2xx without an envelope (adapter parse error, auth on the user's route, HTML error
+        // page) is still a failure — never resolve it as an undefined result. data mirrors v1:
+        // { status, headers, body } with the raw text when the body was not the endpoint format.
+        if (res.status < 200 || res.status >= 300) {
+          const detail = body?.detail ?? body?.message ?? `HTTP ${res.status}`;
+          throw new RpcError(ErrorCode.InternalError, detail, { status: res.status, headers: res.headers, body: res.body }, res.status);
+        }
+        return body?.result;
+      },
     },
     message: {
       build: (method, input) => envelope(method, input),
@@ -59,12 +72,21 @@ interface RestRoute {
   body: string[];
 }
 function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
+  const components = doc.components?.schemas ?? {};
+  // Recursive/reused body schemas are hoisted to components.schemas — resolve a bare $ref root.
+  const deref = (s: { properties?: Record<string, unknown>; $ref?: string } | undefined) => {
+    const ref = s?.$ref;
+    if (typeof ref === 'string' && ref.startsWith('#/components/schemas/')) {
+      return components[ref.slice('#/components/schemas/'.length)] as { properties?: Record<string, unknown> } | undefined;
+    }
+    return s;
+  };
   const routes: Record<string, RestRoute> = {};
   for (const [endpoint, ops] of Object.entries(doc.paths ?? {})) {
     for (const [verb, op] of Object.entries(ops)) {
       if (!op.operationId) continue;
       const params = op.parameters ?? [];
-      const bodySchema = op.requestBody?.content?.['application/json']?.schema;
+      const bodySchema = deref(op.requestBody?.content?.['application/json']?.schema);
       routes[op.operationId] = {
         method: verb.toUpperCase(),
         endpoint,
@@ -83,35 +105,81 @@ function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
         let path = route.endpoint;
         for (const name of route.path) path = path.replace(`{${name}}`, encodeURIComponent(String(flat[name])));
         const qs = new URLSearchParams();
-        for (const name of route.query) if (flat[name] !== undefined) qs.set(name, String(flat[name]));
+        for (const name of route.query) {
+          const v = flat[name];
+          if (v === undefined) continue;
+          // Array query → repeated keys (?tag=a&tag=b), the form the server parses back into an array.
+          if (Array.isArray(v)) for (const item of v) qs.append(name, String(item));
+          else qs.set(name, String(v));
+        }
         const body: Record<string, unknown> = {};
         for (const name of route.body) if (flat[name] !== undefined) body[name] = flat[name];
         const query = qs.toString();
         return { method: route.method, url: query ? `${path}?${query}` : path, body: route.body.length ? body : undefined };
       },
-      // REST error — HTTP status + {detail}, not a JSON-RPC envelope. Native throw with status.
+      // REST error — HTTP status + {detail}, not a JSON-RPC envelope. Native throw with status;
+      // headers/raw body attached v1-style (an HTML error page stays readable in error.body).
       parse: (res) => {
         if (res.status >= 200 && res.status < 300) return res.body;
         const detail = (res.body as { detail?: string } | undefined)?.detail ?? `HTTP ${res.status}`;
-        throw Object.assign(new Error(detail), { status: res.status, body: res.body });
+        throw Object.assign(new Error(detail), { status: res.status, headers: res.headers, body: res.body });
       },
     },
   };
 }
 
 // --- internal: transports (fetch / ws) ---
+// HTTP error handling mirrors v1 defaultTransport, adapted to native throws: network failure →
+// RpcError.serverError; redirect → location.assign in the browser, Error+data in SSR; non-2xx →
+// headers + trimmed preview logged, body decoded best-effort (an HTML error page is not the
+// endpoint format — keep the raw text instead of crashing on decode); 2xx decode failure →
+// RpcError.parseError.
 function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, doFetch: typeof fetch, headers?: Record<string, string>): CallFn {
   return async (method, input) => {
     const req = b.build(method, input);
-    // rest profile builds path+query → resolve from endpoint; jsonrpc (empty url) — the endpoint itself.
-    const url = req.url ? new URL(req.url, endpoint).toString() : endpoint;
-    const res = await doFetch(url, {
-      method: req.method,
-      headers: { 'content-type': format.contentType, ...headers },
-      body: req.body === undefined ? undefined : format.encode(req.body),
-    });
+    // rest profile builds path+query → join UNDER the endpoint (new URL would drop the prefix on
+    // an absolute path and throw on a relative endpoint); jsonrpc (empty url) — the endpoint itself.
+    const url = req.url ? `${endpoint.replace(/\/+$/, '')}${req.url.startsWith('/') ? '' : '/'}${req.url}` : endpoint;
+    let res: Response;
+    try {
+      res = await doFetch(url, {
+        method: req.method,
+        headers: { 'content-type': format.contentType, ...headers },
+        body: req.body === undefined ? undefined : format.encode(req.body),
+      });
+    } catch (e) {
+      // Сетевой сбой (до ответа): нативная ошибка fetch, обёрнутая с сообщением и причиной.
+      throw RpcError.serverError(e instanceof Error ? e.message : String(e), e);
+    }
+    // Редирект: fetch следует ему сам (follow), res.redirected/res.url дают цель. В браузере
+    // переход через location.assign; в Node (SSR) location нет — ошибка с целью в data.
+    if (res.redirected || (res.status >= 300 && res.status < 400)) {
+      if (typeof location !== 'undefined' && typeof location.assign === 'function') location.assign(res.url);
+      throw Object.assign(new Error(`Redirected to ${res.url}`), {
+        status: res.status,
+        data: { status: res.status, location: res.url, redirected: true },
+      });
+    }
     const raw = format.unit === 'bytes' ? new Uint8Array(await res.arrayBuffer()) : await res.text();
-    const value = raw ? format.decode(raw) : undefined;
+    if (!res.ok) {
+      const resHeaders = Object.fromEntries(res.headers.entries());
+      const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
+      const preview = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+      console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${url}\nheaders: ${JSON.stringify(resHeaders)}\npreview: ${preview}`);
+      let value: unknown = text;
+      try {
+        value = raw ? format.decode(raw) : undefined;
+      } catch {
+        // тело — страница ошибки, не формат эндпоинта: сырой текст остаётся значением
+      }
+      return b.parse({ status: res.status, headers: resHeaders, body: value });
+    }
+    let value: unknown;
+    try {
+      value = raw ? format.decode(raw) : undefined;
+    } catch (e) {
+      throw RpcError.parseError('Invalid response', { status: res.status, cause: e instanceof Error ? e.message : String(e) });
+    }
     return b.parse({ status: res.status, body: value });
   };
 }
@@ -119,7 +187,7 @@ function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, 
 /** WS: message projection, multiplexed by request id — parallel calls correlate correctly.
  * An error reply rejects the matching promise (b.parse throws RpcError); a close hook, when the
  * socket provides one, rejects all pending calls so none hangs forever. */
-function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding): CallFn {
+function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding, timeout?: number): CallFn {
   const pending = new Map<string | number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
   socket.onMessage((data) => {
     let reply: unknown;
@@ -146,7 +214,27 @@ function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding): C
   return (method, input) =>
     new Promise((resolve, reject) => {
       const value = b.build(method, input) as { id: string | number };
-      pending.set(value.id, { resolve, reject });
+      // Optional per-call timeout: a server that never replies must not hang the caller forever.
+      const timer =
+        timeout !== undefined
+          ? setTimeout(() => {
+              pending.delete(value.id);
+              reject(new Error(`Request timed out after ${timeout}ms`));
+            }, timeout)
+          : undefined;
+      const clear = () => {
+        if (timer !== undefined) clearTimeout(timer);
+      };
+      pending.set(value.id, {
+        resolve: (v) => {
+          clear();
+          resolve(v);
+        },
+        reject: (e) => {
+          clear();
+          reject(e);
+        },
+      });
       socket.send(format.encode(value));
     });
 }
@@ -180,7 +268,7 @@ export function jsonrpc<B extends RpcBinding>(init: ClientInit<BindingFormat<B>>
   const call =
     'endpoint' in init
       ? fetchCall(init.endpoint, format, profile.http, init.fetch ?? fetch, init.headers)
-      : wsCall(init.socket, format, profile.message);
+      : wsCall(init.socket, format, profile.message, init.timeout);
   return proxy(call) as WireClient<BindingServices<B>, BindingFormat<B>>;
 }
 

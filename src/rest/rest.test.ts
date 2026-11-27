@@ -2,7 +2,7 @@
 
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { compose, type TransportRequest } from '../index';
+import { compose, RpcError, type TransportRequest } from '../index';
 import { get, post, rest } from '@/rest';
 
 class Users {
@@ -99,4 +99,64 @@ test('medium: repeated query key becomes an array; single stays a string', async
 test('medium: static route wins over param route by specificity', async () => {
   expect((await api.http.handle(req('GET', '/items/new'))).body).toEqual({ which: 'new' });
   expect((await api.http.handle(req('GET', '/items/42'))).body).toEqual({ which: 'id', id: '42' });
+});
+
+// --- Второй раунд ревью: схема-less срезы, issues в 422, статус обработчика, __proto__ в query ---
+
+class Pay {
+  static $charge = post('/pay', { body: z.object({ amount: z.number().positive() }) });
+  charge = Pay.$charge(async (input) => input);
+}
+
+class Raw {
+  static $ingest = post('/raw', {});
+  ingest = Raw.$ingest(async (input) => input);
+}
+
+class Len {
+  static $len = get('/len', { query: z.object({ length: z.string().optional() }) });
+  len = Len.$len(async ({ length }) => ({ length: length ?? null }));
+}
+
+class Things {
+  static $find = get('/things/{id}', {});
+  find = Things.$find(async () => {
+    throw new RpcError(-32001, 'Thing not found', undefined, 404);
+  });
+}
+
+const api2 = rest(compose({ Pay, Raw, Len, Things }));
+
+test('review2: schema-less query cannot overwrite a validated body field nor inject new ones', async () => {
+  const res = await api2.http.handle(req('POST', '/pay?amount=-5&role=admin', { amount: 10 }));
+  expect(res.status).toBe(200);
+  expect(res.body).toEqual({ amount: 10 });
+});
+
+test('review2: schema-less body is not merged into the handler input at all', async () => {
+  const res = await api2.http.handle(req('POST', '/raw', { anything: 'goes' }));
+  expect(res.status).toBe(200);
+  expect(res.body).toEqual({});
+});
+
+test('review2: validation 422 carries the issues, not just a generic detail', async () => {
+  const res = await api2.http.handle(req('POST', '/pay', { amount: -5 }));
+  expect(res.status).toBe(422);
+  const body = res.body as { detail: string; issues?: unknown[] };
+  expect(body.detail).toBe('Validation error');
+  expect(Array.isArray(body.issues)).toBe(true);
+  expect(body.issues!.length).toBeGreaterThan(0);
+});
+
+test('review2: handler-declared HTTP status (RpcError.status) is honored', async () => {
+  const res = await api2.http.handle(req('GET', '/things/7'));
+  expect(res.status).toBe(404);
+  expect(res.body).toEqual({ detail: 'Thing not found' });
+});
+
+test('review2: __proto__ in query does not set the prototype (schema length stays unset)', async () => {
+  const res = await api2.http.handle(req('GET', '/len?__proto__=a&__proto__=b'));
+  expect(res.status).toBe(200);
+  expect(res.body).toEqual({ length: null });
+  expect((Object.prototype as { length?: unknown }).length).toBeUndefined();
 });

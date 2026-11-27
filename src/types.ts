@@ -106,9 +106,11 @@ export interface MessageProtocol extends HttpProtocol {
   message: MessageBinding;
 }
 /** Stream seam: subscription value + ctx → event iterable. Cancellation is native to the
- * iterator (return()/throw() → generator finally-cleanup); errors propagate as native throw. */
+ * iterator (return()/throw() → generator finally-cleanup); errors propagate as native throw.
+ * The adapter may pass an AbortSignal: return() queues behind a parked next(), so the signal
+ * is what reaches a handler waiting on an external event (cancel / socket close). */
 export interface StreamBinding {
-  handle(value: unknown, ctx?: unknown): AsyncIterable<unknown>;
+  handle(value: unknown, ctx?: unknown, signal?: AbortSignal): AsyncIterable<unknown>;
 }
 /** Stream projection — what stream adapters (fromWsStream) require. */
 export interface StreamProtocol {

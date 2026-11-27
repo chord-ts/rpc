@@ -13,7 +13,7 @@
     "Client Server",
     "Transport"
   ],
-  "license": "Apache License 2.0",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=20"
   },
@@ -53,9 +53,9 @@
       "types": "./dist/mcp.d.ts",
       "import": "./dist/mcp.js"
     },
-    "./capnweb": {
-      "types": "./dist/capnweb.d.ts",
-      "import": "./dist/capnweb.js"
+    "./tools": {
+      "types": "./dist/tools.d.ts",
+      "import": "./dist/tools.js"
     },
     "./events": {
       "types": "./dist/events.d.ts",
@@ -68,10 +68,6 @@
     "./transport/express": {
       "types": "./dist/transport/express.d.ts",
       "import": "./dist/transport/express.js"
-    },
-    "./transport/ws": {
-      "types": "./dist/transport/ws.d.ts",
-      "import": "./dist/transport/ws.js"
     },
     "./middlewares": {
       "types": "./dist/v1/middlewares/index.d.ts",
@@ -114,8 +110,8 @@
       "mcp": [
         "dist/mcp.d.ts"
       ],
-      "capnweb": [
-        "dist/capnweb.d.ts"
+      "tools": [
+        "dist/tools.d.ts"
       ],
       "events": [
         "dist/events.d.ts"
@@ -125,9 +121,6 @@
       ],
       "transport/express": [
         "dist/transport/express.d.ts"
-      ],
-      "transport/ws": [
-        "dist/transport/ws.d.ts"
       ],
       "middlewares": [
         "dist/v1/middlewares/index.d.ts"
@@ -155,9 +148,10 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "nodemon --exec npx ts-node src/tests.ts",
+    "dev": "vitest",
     "format": "prettier --write ./src/**/*.{js,json,html,ts}",
-    "lint": "eslint --fix ./src",
+    "lint": "eslint ./src",
+    "lint:fix": "eslint --fix ./src",
     "test": "vitest",
     "test:mcp": "vitest run src/mcp/tests",
     "test:mcp:report": "MCP_CONFORMANCE_REPORT=1 vitest run src/mcp/tests",

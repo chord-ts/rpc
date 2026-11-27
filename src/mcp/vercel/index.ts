@@ -50,7 +50,9 @@ export function fn<I extends AnySchema<any>, O extends AnySchema<any> | undefine
 /** Явный mcp.result приоритетнее; иначе default-обёртка в text-блок (без эвристики passthrough). */
 export function toCallToolResult(value: unknown, meta: McpMeta | undefined): McpToolResult {
   if (meta?.result) return meta.result(value);
-  return { content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value) }] };
+  // JSON.stringify(undefined) === undefined — a void handler must still yield a valid text block.
+  const text = value === undefined ? '' : typeof value === 'string' ? value : JSON.stringify(value);
+  return { content: [{ type: 'text', text }] };
 }
 
 /** Структурный минимум McpServer (SDK не импортится). Реальный McpServer пользователя совместим. */

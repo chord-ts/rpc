@@ -106,22 +106,24 @@ export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
 ): MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
   const format = (opts?.format ?? json) as Format<any, F>;
   let discovery: object | undefined; // lazy, generated once
-  // One Request → response (or null for a notification / invalid notification). Structure is
-  // validated before dispatch; every read of the item happens inside try, so a malformed batch
-  // (e.g. [null]) can never throw out of handle and crash the process.
+  // One Request → response (or null for a notification). Structure is validated before dispatch;
+  // every read of the item happens inside try, so a malformed batch (e.g. [null]) can never throw
+  // out of handle and crash the process.
   async function handleOne(item: unknown, baseCtx: Rec): Promise<RPCResponse | null> {
     const obj = isRec(item) ? item : undefined;
-    // Notification = no id. undefined counts as absent (JSON.stringify drops it); null is a VALID id.
-    const notification = obj ? obj.id === undefined : false;
     const id: RPCId = obj && isValidId(obj.id) ? obj.id : null;
+    // Spec §4/§5: an invalid Request object gets -32600 even without an id (spec example:
+    // {"jsonrpc":"2.0","method":1}). Only a structurally VALID Request without id is a
+    // notification — undefined counts as absent (JSON.stringify drops it); null is a VALID id.
     if (
       !obj ||
       obj.jsonrpc !== '2.0' ||
       typeof obj.method !== 'string' ||
       (obj.id !== undefined && !isValidId(obj.id))
     ) {
-      return notification ? null : invalidRequest(id);
+      return invalidRequest(id);
     }
+    const notification = obj.id === undefined;
     const method = obj.method;
     let v: unknown;
     let error: ErrorObject | undefined;

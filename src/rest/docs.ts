@@ -3,10 +3,15 @@
 
 import type { AnySchema, RestMeta, HttpProtocol } from '@/types';
 import type { Core } from '@/core/types';
-import { converter, infoOf, reasonPhrase, serveSpec, serveHtml, inlineJson, type GenOptions, type Spec, type JsonObj } from '@/generate/core';
+import { converter, hoistSchemaDefs, infoOf, reasonPhrase, serveSpec, serveHtml, inlineJson, type GenOptions, type Spec, type JsonObj } from '@/generate/core';
 
 export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
   const toJson = converter(opts, core);
+  // Embedded schemas (parameters, requestBody, responses) resolve refs against the DOCUMENT root:
+  // local $defs and recursive '#' refs are hoisted into components.schemas (same as OpenRPC).
+  const schemas: Record<string, unknown> = {};
+  let sid = 0;
+  const embed = (s: unknown) => hoistSchemaDefs(s, schemas, `s${sid++}`);
   const paths: Record<string, Record<string, unknown>> = {};
 
   for (const e of core.endpoints()) {
@@ -14,8 +19,8 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
     if (!meta || !e.contract) continue;
     const c = e.contract as Record<string, unknown> & { in: AnySchema; resp?: Record<number, AnySchema> };
 
-    const pathSchema = c.path ? (toJson(c.path as AnySchema, 'input') as JsonObj) : undefined;
-    const querySchema = c.query ? (toJson(c.query as AnySchema, 'input') as JsonObj) : undefined;
+    const pathSchema = c.path ? (embed(toJson(c.path as AnySchema, 'input')) as JsonObj) : undefined;
+    const querySchema = c.query ? (embed(toJson(c.query as AnySchema, 'input')) as JsonObj) : undefined;
     const pathNames = [...meta.endpoint.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
 
     const parameters: unknown[] = [];
@@ -36,7 +41,7 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
     for (const [status, schema] of Object.entries(c.resp ?? {})) {
       responses[status] = {
         description: reasonPhrase(+status),
-        content: { 'application/json': { schema: toJson(schema, 'output') } },
+        content: { 'application/json': { schema: embed(toJson(schema, 'output')) } },
       };
     }
     responses.default = {
@@ -54,13 +59,18 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
       responses,
     };
     if (c.body) {
-      operation.requestBody = { required: true, content: { 'application/json': { schema: toJson(c.body as AnySchema, 'input') } } };
+      operation.requestBody = { required: true, content: { 'application/json': { schema: embed(toJson(c.body as AnySchema, 'input')) } } };
     }
 
     paths[meta.endpoint] = { ...paths[meta.endpoint], [meta.method.toLowerCase()]: operation };
   }
 
-  return serveSpec({ openapi: '3.1.0', info: infoOf(opts), paths });
+  return serveSpec({
+    openapi: '3.1.0',
+    info: infoOf(opts),
+    paths,
+    ...(Object.keys(schemas).length ? { components: { schemas } } : {}),
+  });
 }
 
 // Swagger UI / ReDoc: UI-binding поверх OpenAPI (inline spec). Пользователь монтирует на свой GET.

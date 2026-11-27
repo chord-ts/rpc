@@ -5,6 +5,72 @@
 > намерениям. Два трека: **src** — фактический рантайм; **спайк** — compile-checked примеры в
 > `design/` (проверены `tsc --strict` и живым прогоном, но в src не перенесены, форма не одобрена).
 
+## WS-транспорт исключён из публичного API (2026-11-27)
+
+По запросу пользователя («ws тоже пока исключим из публичного api», параллель с capnweb):
+сабпат `./transport/ws` убран из package.json exports/typesVersions и tsdown; корневой фасад
+больше не реэкспортит `fromWs`/`fromWsStream`. Причина — до стабилизации (одна подписка на сокет,
+нет мультиплексирования стримов). Код и тесты остаются в src (`src/transport/ws.ts`).
+
+- **Клиентский socket-режим сохранён** (`jsonrpc({ socket })` из ./client) — работает против любого
+  JSON-RPC WS-сервера; тип `Socket` остаётся в корне (нужен для типизации init).
+- Тесты (transport/client) и design-примеры (05/09/10/12) переведены с корневого импорта на слой
+  `@/transport` (`../../src/transport`) — living-примеры против src остаются compile-checked.
+- README/MIGRATION синхронизированы: WS-секция Step 3 → deferred, streams-пример переведён на
+  in-process `core.stream`, Known gaps/Recap/intro почищены от публичного WS.
+- Гейты: typecheck чистый (src + design/examples), **186/186** unit (без MCP), lint-дельта 0 (161),
+  dist пересобран (dist/transport/ws.js отсутствует, корневой d.ts без fromWs/fromWsStream).
+
+## Клиент: паритет с v1 defaultTransport по ошибкам (2026-11-27)
+
+По запросу пользователя HTTP-транспорт v2-клиента (`fetchCall`, общий для jsonrpc/rest) обрабатывает
+ошибки как v1 `defaultTransport`, адаптировано под нативные throw (Result/FailedResponse в v2 нет):
+
+- сетевой сбой (до ответа) → `RpcError.serverError(message, cause)`;
+- редирект (`res.redirected`/3xx) → `location.assign(res.url)` в браузере; в SSR — `Error+status`
+  с `data: { status, location, redirected }`;
+- non-2xx → `console.error` со статусом, заголовками и trim-предпросмотром (без тегов, 200 симв.);
+  тело декодируется best-effort: HTML-страница ошибки не роняет decode — сырой текст остаётся
+  в `error.data.body` (jsonrpc: `data: { status, headers, body }`; rest: `Error+status+headers+body`),
+  JSON `{detail}` по-прежнему парсится;
+- битый JSON на 2xx → `RpcError.parseError('Invalid response', { status, cause })`.
+
++6 тестов (`src/client/review.test.ts`, describe «v1-parity»). Гейты: typecheck чистый,
+**186/186** unit (без MCP), lint-дельта 0 к раунду 2 (161), dist пересобран. MIGRATION step 10
+дополнен абзацем про транспортные ошибки; заодно убран устаревший «WS serializes calls».
+
+## Ревью Claude, раунд 2 (2026-11-27): все подтверждённые находки ЗАКРЫТЫ
+
+Ревью `REVIEW_CLAUDE.md` по v2-коду src. Проверено по коду, подтверждённое исправлено с
+регрессиями (ко-лоцированы в src). Развилки согласованы с пользователем: capnweb — убрать из
+exports; п.12 — привести к спеке; CI не добавляем, только lint-скрипты.
+
+- [x] Высокие 1–5: REST схема-less срезы не мержатся (path — только имена шаблона); WS null-фрейм
+      → error-фрейм (handle/return в try); WS-адаптеры передают `ctx`, cancel/close абортит signal
+      (StreamBinding.handle получил третий параметр `signal`, events пробрасывает в core.stream);
+      jsonrpc-клиент уважает HTTP-статус (не-2xx без конверта → RpcError), адаптеры отдают parse-error
+      конвертом -32700 для message-протоколов; REST-клиент сохраняет префикс endpoint, поддерживает
+      относительный endpoint, шлёт массивы повторяющимися ключами.
+- [x] П.6 capnweb: сабпат убран из exports/tsdown/typesVersions до закрытия RCE-долга (код в src);
+      README/MIGRATION помечают фичу как отложенную.
+- [x] Средние 7–10: REST 422 несёт issues, явный статус обработчика (RpcError.status / Error+status)
+      мапится в ответ; тулы валидируются ровно один раз (withJsonSchema — check-only validate,
+      transform применяется в core.call), void → text:'', agentTools toJson привязан и io:'input';
+      проводные эвристики: 1-кортеж принимает голый скаляр ([value]-fallback), обёрнутый [[…]] для
+      array-схемы канонически выигрывает (трейдофф: голый массив-массивов с unknown неотличим),
+      simple-эндпоинт [5] → 5; OpenAPI hoist'ит $defs и рекурсивный корень '#' в components.schemas
+      (hoistSchemaDefs регистрирует корень), REST-клиент deref'ит $ref-корень requestBody.
+- [x] Низкие 11–14: query на null-прототипе (__proto__ — own key); невалидный запрос без id → -32600
+      id:null по спеке (conformance-тест обновлён); WS-клиент — модульный счётчик id (два клиента на
+      одном сокете не воруют ответы) + опциональный timeout; ./tools в exports, v2 Format/json с
+      корня, license Apache-2.0 (SPDX), dev → vitest, lint без --fix + lint:fix, Known gaps в
+      MIGRATION освежены, console.log в sveltekit-роуте убран.
+- Регрессии: +26 тестов (rest/core/client/transport/generate/tools + conformance).
+  **Гейты (2026-11-27):** `tsc --noEmit` чистый; **180/180** unit-тестов (24 файла, `--pool=forks`,
+  без MCP — пакет server по-прежнему отсутствует офлайн, `pnpm test:mcp` не перепроверен);
+  lint-дельта **−1** (162→161, новых нарушений нет); `tsdown` собран под новую exports-карту.
+  tests/sveltekit против нового dist не прогонялся (svelte-check/playwright — за пользователем).
+
 ## TODO: фиксы по ревью Claude (2026-11-26, блокеры+высокие+средние ЗАКРЫТЫ)
 
 Ревью ветки `v2` (база `origin/main`). Объём согласован: **блокеры + высокие + дешёвые средние**,
