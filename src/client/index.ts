@@ -1,226 +1,325 @@
-// @ts-nocheck
-import { defaultCache, defaultOnError, defaultTransport } from './defaults';
+// Client layer: protocol-specific constructors, the inverse composition of the server.
+//   server: const api = jsonrpc(composer, { format }); fromSvelteKit(api, event)
+//   client: import { jsonrpc } from '@chord-ts/rpc/client'
+//           jsonrpc<typeof api>({ endpoint, format })  /  ({ socket, format })
+// Names mirror the server bindings (jsonrpc/rest); the module is ./client. The generic argument is
+// the SERVER binding type (protocol + services + format). The constructor derives services and format
+// from it, guards the protocol (B extends projection) and the format (init.format vs endpoint format),
+// and wire-transforms return types by the endpoint format. Transport is chosen by the init shape:
+// endpoint → fetch (http), socket → ws (message). REST is http-only (init has no socket).
+// Native errors (throw RpcError / Error+status), no cache/onError. notify/batch/stream — later.
+//
+// Frontend optimization: ESM, pure function exports, no top-level side effects → tree-shakeable
+// (importing jsonrpc does not retain rest). Minification: method names are dynamic proxy strings
+// (Service.method); default minifiers keep property names, but property mangling breaks addressing
+// (same class of risk as server DI paramNames) — keep property mangling off or use explicit keys.
 
-import type { IRPC, Transport, ErrorCallback, Cache, Format } from './types';
+import type { Socket } from '../transport';
+import type { Format } from '../format/types';
+import { json } from '../format';
+import { RpcError, ErrorCode } from '@/jsonrpc';
+import type {
+  HttpClientBinding, MessageClientBinding, JsonRpcProfile, CallFn,
+  FetchClientInit, ClientInit, BindingServices, BindingFormat,
+  RpcBinding, RestBinding, WireClient, OpenApiDoc,
+} from './types';
 
-import type { FailedResponse, Response, BatchRequest, BatchResponse } from '../specs';
-import { buildRequest } from '../specs';
+// v1-клиент (deprecated) реэкспортируется alongside v2-конструкторов: client/RPC/Builder (v1)
+// и jsonrpc/rest (v2) не пересекаются. Старый путь ./client сохранён, v2 без суффикса версии.
+export * from '../v1/client';
 
-/**
- * @example
- * ```typescript
- * // +server.ts
- * export type Client = typeof composer.clientType
- *
- * // +page.svelte
- * import { client } from '@chord-ts/rpc/client';
- * import type { Client } from './+server';
- *
- * const rpc = client<Client>({ endpoint: '/<path to endpoint>' });
- * ```
- */
-
-export function client<T>(init: IRPC.Init): IRPC.Builder<T> {
-  const rpc = new RPC(init);
-  const builder = new Builder(rpc);
-  return builder as unknown as IRPC.Builder<T>;
+// --- internal: JSON-RPC profile (envelope + unwrap) ---
+// Request id — a short unique string from Web Crypto, no dependency. getRandomValues is available
+// in browsers in any context (unlike randomUUID, which needs a secure context) and in Node ≥ 20.
+// Random ids avoid collisions across clients/processes talking to one server; a per-process
+// counter could clash on reconnect or when two clients share a socket.
+function uid(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  let id = '';
+  for (const b of bytes) id += b.toString(16).padStart(2, '0');
+  return id;
+}
+function jsonRpcProfile(): JsonRpcProfile {
+  const envelope = (method: string, input: unknown) => ({ jsonrpc: '2.0', method, params: input, id: uid() });
+  const unwrap = (value: unknown): unknown => {
+    const body = value as { result?: unknown; error?: { code: number; message: string; data?: unknown } } | null;
+    if (body?.error) throw new RpcError(body.error.code, body.error.message, body.error.data);
+    return body?.result;
+  };
+  return {
+    http: {
+      build: (method, input) => ({ method: 'POST', url: '', body: envelope(method, input) }),
+      parse: (res) => {
+        const body = res.body as { result?: unknown; error?: { code: number; message: string; data?: unknown }; detail?: string; message?: string } | null;
+        if (body?.error) throw new RpcError(body.error.code, body.error.message, body.error.data);
+        // Non-2xx without an envelope (adapter parse error, auth on the user's route, HTML error
+        // page) is still a failure — never resolve it as an undefined result. data mirrors v1:
+        // { status, headers, body } with the raw text when the body was not the endpoint format.
+        if (res.status < 200 || res.status >= 300) {
+          const detail = body?.detail ?? body?.message ?? `HTTP ${res.status}`;
+          throw new RpcError(ErrorCode.InternalError, detail, { status: res.status, headers: res.headers, body: res.body }, res.status);
+        }
+        return body?.result;
+      },
+    },
+    message: {
+      build: (method, input) => envelope(method, input),
+      parse: (reply) => unwrap(reply),
+    },
+  };
 }
 
-/**
- * Generic that simplifies extraction of returned type of function
- * @param {T} functionType - The `functionType` parameter is of type `T`, which represents a function
- * @example
- * ```typescript
- * const fn = async (a: number, b: string) => a + b;
- * type Sum = Returned<typeof fn>; // string
- * ```
- */
-
-export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {
-  #transport: Transport;
-  #format: Format;
-  errorCallback: ErrorCallback;
-  cacheStorage: Cache.Storage;
+// --- internal: REST profile (manifest = OpenAPI document) ---
+interface RestRoute {
+  method: string;
   endpoint: string;
-  internal: Set<string | symbol>;
-
-  options: IRPC.Options;
-
-  constructor({ endpoint, config, options }: IRPC.Init) {
-    if (!endpoint) {
-      throw Error('No RPC endpoint was provided');
-    }
-    this.endpoint = endpoint;
-
-    const proto = Reflect.getPrototypeOf(this)!;
-    this.internal = new Set([...Reflect.ownKeys(proto), ...Reflect.ownKeys(this)]);
-    this.#transport = config?.transport ?? defaultTransport;
-    this.#format = config?.format ?? {
-      parse: (r) => r.json(),
-      stringify: (r) => JSON.stringify(r)
-    }
-    this.errorCallback = config?.onError ?? defaultOnError;
-    this.cacheStorage = config?.cache ?? defaultCache;
-
-    this.options = options ?? {};
-  }
-
-  // FIXME: in prod build fields disappears in internal set
-  get transport() {
-    return this.#transport;
-  }
-  get format() {
-    return this.#format;
-  }
-
-  /**
-   * The function checks if a property is internal to the object.
-   * @param {string} prop - The property name to check.
-   * @returns A boolean value indicating whether the property is internal to the object.
-   */
-  // @ts-expect-error
-  public isInternal(prop: string) {
-    return this.internal.has(prop);
-  }
-
-  /**
-   * The function "call" is a TypeScript function that takes a method name and returns an asynchronous
-   * function that accepts an array of parameters, builds a request, sends it using a transport
-   * function, handles any errors, and returns the result.
-   * @param {string} method - The `method` parameter is a string that represents the name of the method
-   * to be called.
-   * @returns an asynchronous function that takes an array of unknown parameters and returns a Promise.
-   */
-  async call<P, R>({ method, params }: IRPC.Call<P>): Promise<R | void> {
-    const body = buildRequest({ method, params });
-    // TODO handle network error
-    const res = await this.transport({ route: this.endpoint, body, format: this.format }, this.options ?? {});
-    if ((res as FailedResponse).error) {
-      await this.errorCallback((res as FailedResponse).error, body);
-      return;
-    }
-    return (res as Response<R>).result;
-  }
-
-  private chainUpdate(override: IRPC.Overridable) {
-    const newRPC = new RPC<T>({
-      endpoint: this.endpoint,
-      config: { ...this.currentConfig, ...override.config },
-      options: { ...this.options, ...override.options }
-    });
-    return new Builder(newRPC);
-  }
-
-  private get currentConfig() {
-    return {
-      format: this.format,
-      transport: this.transport,
-      onError: this.errorCallback,
-      cache: this.cacheStorage
-    };
-  }
-
-  public config(config: ClientConfig) {
-    return this.chainUpdate({ config });
-  }
-
-  public abort(signal: AbortController['signal']) {
-    return this.chainUpdate({ options: { signal } });
-  }
-
-  public opt(options: IRPC.Options) {
-    return this.chainUpdate({ options });
-  }
-
-  public pipe() {
-    throw Error('Not implemented');
-  }
-
-  /**
-   * The function `batch` is an async function that takes in multiple calls and sends them as a batch
-   * request, returning the results.
-   * @param {BatchRequest} calls - The `calls` parameter is an array of batch requests. Each batch
-   * request is an object that contains the necessary information to make a request to the server.
-   * @returns The function `batch` returns an array of results. Each result corresponds to a call made
-   * in the `calls` parameter. If a call fails and returns a `FailedResponse` object, the
-   * `errorCallback` function is called with the error and the corresponding call. Otherwise, the
-   * result is extracted from the `Response` object and returned in the array.
-   */
-  public async batch(...calls: BatchRequest) {
-    const res = (await this.transport({ route: this.endpoint, body: calls, format: this.format })) as BatchResponse;
-    return res.map((r, i) => {
-      if ((r as FailedResponse)?.error) {
-        this.errorCallback((r as FailedResponse).error, calls[i]);
-      }
-      return (r as Response).result;
-    });
-  }
-
-  /**
-   * The `cache` function is a higher-order function that returns a function that caches the results of
-   * a given method call.
-   * @param {CacheConfig} config - The `config` parameter is an object that contains configuration
-   * options for the cache. It may have the following properties:
-   * @returns The function `cache` returns a higher-order function.
-   */
-  public cache(config: CacheConfig) {
-    const { get, set } = this.cacheStorage(config);
-    return function (method: string) {
-      return async function (...params: unknown[]) {
-        const cached = get({ method, params });
-        if (config?.mode !== 'update' && cached) return cached;
-        const res = this.call(method)(params).then((res) => {
-          set({ method, params }, res);
-          return res;
-        });
-        return cached ?? res;
-      };
-    };
-  }
-}
-
-export class Builder<T> extends Function {
   path: string[];
-  rpc: RPC<T>;
-  internal: Set<string | symbol>;
-
-  constructor(rpc: RPC<T>, path: string[] = []) {
-    super();
-
-    this.internal = new Set([...Reflect.ownKeys(this.prototype), ...Reflect.ownKeys(this)], ...Reflect.ownKeys(RPC.prototype));
-
-    this.path = path;
-    this.rpc = rpc;
-    return new Proxy(this, this) as Builder<T>;
-  }
-
-  private get readyMethod() {
-    return this.path.join('.');
-  }
-
-  public isInternal(prop: string) {
-    return this.internal.has(prop);
-  }
-
-  // Proxy part for request generation
-  apply<P, R>(target: object, thisArg: unknown, argArray?: P): Promise<R> {
-    return this.rpc.call({ method: this.readyMethod, params: argArray });
-  }
-
-  get(target: Builder<T>, prop: string) {
-    if (this.isInternal(prop) && !this.path.length ) {
-      // Handle Builder methods
-      return this[prop];
-    } else if (this.rpc.isInternal(prop) && !this.path.length ) {
-      // Handle RPC methods
-      return this.rpc[prop];
-    }
-
-    // We need to create new instance each time to prevent stacking of prop names without call
-    return new Builder(this.rpc, this.path.concat(prop));
-  }
-
-  construct<T>(target: Builder<T>, args: unknown[]): BatchRequest {
-    return buildRequest({ method: this.readyMethod, params: args });
-  }
+  query: string[];
+  body: string[];
+  // Non-object body (array/scalar): the whole request body is the client's `body` arg, not a
+  // field-pick from properties (which an array/scalar schema does not have).
+  wholeBody: boolean;
 }
+function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
+  const components = doc.components?.schemas ?? {};
+  // Recursive/reused body schemas are hoisted to components.schemas — resolve a bare $ref root.
+  const deref = (s: { properties?: Record<string, unknown>; type?: string; $ref?: string } | undefined) => {
+    const ref = s?.$ref;
+    if (typeof ref === 'string' && ref.startsWith('#/components/schemas/')) {
+      return components[ref.slice('#/components/schemas/'.length)] as { properties?: Record<string, unknown>; type?: string } | undefined;
+    }
+    return s;
+  };
+  const routes: Record<string, RestRoute> = {};
+  for (const [endpoint, ops] of Object.entries(doc.paths ?? {})) {
+    for (const [verb, op] of Object.entries(ops)) {
+      if (!op.operationId) continue;
+      const params = op.parameters ?? [];
+      const bodySchema = deref(op.requestBody?.content?.['application/json']?.schema);
+      const isObjectBody = bodySchema?.type === 'object' || bodySchema?.properties !== undefined;
+      routes[op.operationId] = {
+        method: verb.toUpperCase(),
+        endpoint,
+        path: params.filter((p) => p.in === 'path').map((p) => p.name),
+        query: params.filter((p) => p.in === 'query').map((p) => p.name),
+        body: Object.keys(bodySchema?.properties ?? {}),
+        wholeBody: bodySchema !== undefined && !isObjectBody,
+      };
+    }
+  }
+  return {
+    http: {
+      build: (method, input) => {
+        const route = routes[method];
+        if (!route) throw new Error(`No REST route for ${method}`);
+        const flat = (input ?? {}) as Record<string, unknown>;
+        let path = route.endpoint;
+        for (const name of route.path) {
+          const v = flat[name];
+          // Missing path param must not silently become the literal "undefined" in the URL.
+          if (v === undefined) throw new Error(`Missing path parameter "${name}" for ${method}`);
+          path = path.replace(`{${name}}`, encodeURIComponent(String(v)));
+        }
+        const qs = new URLSearchParams();
+        for (const name of route.query) {
+          const v = flat[name];
+          if (v === undefined) continue;
+          // Array query → repeated keys (?tag=a&tag=b), the form the server parses back into an array.
+          if (Array.isArray(v)) for (const item of v) qs.append(name, String(item));
+          else qs.set(name, String(v));
+        }
+        const query = qs.toString();
+        let body: unknown;
+        if (route.wholeBody) {
+          body = flat['body']; // array/scalar body travels under the `body` key
+        } else if (route.body.length) {
+          const obj: Record<string, unknown> = {};
+          for (const name of route.body) if (flat[name] !== undefined) obj[name] = flat[name];
+          body = obj;
+        }
+        return { method: route.method, url: query ? `${path}?${query}` : path, body };
+      },
+      // REST error — HTTP status + {detail}, not a JSON-RPC envelope. Native throw with status;
+      // headers/raw body attached v1-style (an HTML error page stays readable in error.body).
+      parse: (res) => {
+        if (res.status >= 200 && res.status < 300) return res.body;
+        const detail = (res.body as { detail?: string } | undefined)?.detail ?? `HTTP ${res.status}`;
+        throw Object.assign(new Error(detail), { status: res.status, headers: res.headers, body: res.body });
+      },
+    },
+  };
+}
+
+// --- internal: transports (fetch / ws) ---
+// HTTP error handling mirrors v1 defaultTransport, adapted to native throws: network failure →
+// RpcError.serverError; redirect → location.assign in the browser, Error+data in SSR; non-2xx →
+// headers + trimmed preview logged, body decoded best-effort (an HTML error page is not the
+// endpoint format — keep the raw text instead of crashing on decode); 2xx decode failure →
+// RpcError.parseError.
+function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, doFetch: typeof fetch, headers?: Record<string, string>): CallFn {
+  return async (method, input) => {
+    const req = b.build(method, input);
+    // rest profile builds path+query → join UNDER the endpoint (new URL would drop the prefix on
+    // an absolute path and throw on a relative endpoint); jsonrpc (empty url) — the endpoint itself.
+    const url = req.url ? `${endpoint.replace(/\/+$/, '')}${req.url.startsWith('/') ? '' : '/'}${req.url}` : endpoint;
+    let res: Response;
+    try {
+      res = await doFetch(url, {
+        method: req.method,
+        headers: { 'content-type': format.contentType, ...headers },
+        body: req.body === undefined ? undefined : format.encode(req.body),
+      });
+    } catch (e) {
+      // Сетевой сбой (до ответа): нативная ошибка fetch, обёрнутая с сообщением и причиной.
+      throw RpcError.serverError(e instanceof Error ? e.message : String(e), e);
+    }
+    // Редирект: fetch следует ему сам (follow). Редирект на ВАЛИДНЫЙ API-ответ (http→https,
+    // trailing slash, балансировщик) — это обычный ответ: возвращаем результат. Навигация
+    // (location.assign в браузере, ошибка с целью в SSR) — только когда финальный ответ не является
+    // форматом эндпоинта (login-страница, HTML): явный 3xx без тела или decode-сбой redirected 2xx.
+    const navigate = (): never => {
+      if (typeof location !== 'undefined' && typeof location.assign === 'function') location.assign(res.url);
+      throw Object.assign(new Error(`Redirected to ${res.url}`), {
+        status: res.status,
+        data: { status: res.status, location: res.url, redirected: true },
+      });
+    };
+    if (res.status >= 300 && res.status < 400) navigate();
+    const raw = format.unit === 'bytes' ? new Uint8Array(await res.arrayBuffer()) : await res.text();
+    if (!res.ok) {
+      const resHeaders = Object.fromEntries(res.headers.entries());
+      const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
+      const preview = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+      // set-cookie/authorization не пишем в лог (SSR-утечка сессии); в error.data они остаются.
+      const safeHeaders = Object.fromEntries(
+        Object.entries(resHeaders).filter(([k]) => !['set-cookie', 'authorization'].includes(k.toLowerCase())),
+      );
+      console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${url}\nheaders: ${JSON.stringify(safeHeaders)}\npreview: ${preview}`);
+      let value: unknown = text;
+      try {
+        value = raw ? format.decode(raw) : undefined;
+      } catch {
+        // тело — страница ошибки, не формат эндпоинта: сырой текст остаётся значением
+      }
+      return b.parse({ status: res.status, headers: resHeaders, body: value });
+    }
+    let value: unknown;
+    try {
+      value = raw ? format.decode(raw) : undefined;
+    } catch (e) {
+      if (res.redirected) navigate(); // 2xx после редиректа, но тело — не формат эндпоинта
+      throw RpcError.parseError('Invalid response', { status: res.status, cause: e instanceof Error ? e.message : String(e) });
+    }
+    return b.parse({ status: res.status, body: value });
+  };
+}
+
+/** WS: message projection, multiplexed by request id — parallel calls correlate correctly.
+ * An error reply rejects the matching promise (b.parse throws RpcError); a close hook, when the
+ * socket provides one, rejects all pending calls so none hangs forever. */
+function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding, timeout?: number): CallFn {
+  const pending = new Map<string | number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
+  socket.onMessage((data) => {
+    let reply: unknown;
+    try {
+      reply = format.decode(data);
+    } catch {
+      return; // malformed frame: no id to correlate
+    }
+    const id = (reply as { id?: string | number } | null)?.id;
+    if (id == null) return;
+    const slot = pending.get(id);
+    if (!slot) return;
+    pending.delete(id);
+    try {
+      slot.resolve(b.parse(reply));
+    } catch (e) {
+      slot.reject(e);
+    }
+  });
+  socket.onClose?.(() => {
+    for (const slot of pending.values()) slot.reject(new Error('Socket closed'));
+    pending.clear();
+  });
+  return (method, input) =>
+    new Promise((resolve, reject) => {
+      const value = b.build(method, input) as { id: string | number };
+      // Optional per-call timeout: a server that never replies must not hang the caller forever.
+      const timer =
+        timeout !== undefined
+          ? setTimeout(() => {
+              pending.delete(value.id);
+              reject(new Error(`Request timed out after ${timeout}ms`));
+            }, timeout)
+          : undefined;
+      const clear = () => {
+        if (timer !== undefined) clearTimeout(timer);
+      };
+      pending.set(value.id, {
+        resolve: (v) => {
+          clear();
+          resolve(v);
+        },
+        reject: (e) => {
+          clear();
+          reject(e);
+        },
+      });
+      // A throwing send must not leave the slot pending forever (leak) — reject and clean up.
+      try {
+        socket.send(format.encode(value));
+      } catch (e) {
+        pending.delete(value.id);
+        clear();
+        reject(e);
+      }
+    });
+}
+
+// --- internal: typed proxy surface ---
+function proxy(call: CallFn): any {
+  const build = (path: string[]): any =>
+    new Proxy(() => {}, {
+      get: (_, prop) => {
+        // awaiting an uncalled builder must not go to the network as a `...then` call.
+        if (prop === 'then' || typeof prop === 'symbol') return undefined;
+        return build([...path, String(prop)]);
+      },
+      // Проводной контракт: позиционные аргументы — [a, b]; массив-как-значение — [[…]]
+      // (одиночный array-аргумент оборачивается); объект/скаляр — как есть; без аргументов —
+      // params опускается (void/any-методы вызываются как rpc.Svc.ping()).
+      apply: (_, __, args) =>
+        call(
+          path.join('.'),
+          args.length === 0 ? undefined : args.length === 1 ? (Array.isArray(args[0]) ? [args[0]] : args[0]) : args,
+        ),
+    });
+  return build([]);
+}
+
+// --- public constructors: generic = server binding type; format guarded vs endpoint ---
+/** JSON-RPC client. B extends MessageProtocol (protocol guard). Transport: endpoint (fetch) or socket (ws). */
+export function jsonrpc<B extends RpcBinding>(init: ClientInit<BindingFormat<B>>): WireClient<BindingServices<B>, BindingFormat<B>> {
+  const format: Format<any> = init.format ?? json;
+  const profile = jsonRpcProfile();
+  const call =
+    'endpoint' in init
+      ? fetchCall(init.endpoint, format, profile.http, init.fetch ?? fetch, init.headers)
+      : wsCall(init.socket, format, profile.message, init.timeout);
+  return proxy(call) as WireClient<BindingServices<B>, BindingFormat<B>>;
+}
+
+/** REST client. B extends HttpProtocol; http-only (init requires endpoint, no socket → REST × WS impossible).
+ * doc — the OpenAPI manifest (the artifact the server serves at /openapi.json; deliver via load or import). */
+export function rest<B extends RestBinding>(init: FetchClientInit<BindingFormat<B>> & { doc: OpenApiDoc }): WireClient<BindingServices<B>, BindingFormat<B>> {
+  const format: Format<any> = init.format ?? json;
+  const profile = restProfile(init.doc);
+  const call = fetchCall(init.endpoint, format, profile.http, init.fetch ?? fetch, init.headers);
+  return proxy(call) as WireClient<BindingServices<B>, BindingFormat<B>>;
+}
+
+export type {
+  HttpClientBinding, MessageClientBinding, JsonRpcProfile, CallFn,
+  FetchClientInit, WsClientInit, ClientInit, BindingServices, BindingFormat,
+  RpcBinding, RestBinding, WireClient, OpenApiDoc, OpenApiOperation,
+} from './types';

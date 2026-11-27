@@ -1,0 +1,62 @@
+# Baseline официального MCP-рефери для chord endpoint.
+#
+# Набор: `conformance server --requirements 2026-07-28` (заморожен ревизией, 50 сценариев
+# запущено, из них 37 scored; 13 extension/pending не оцениваются). Рефери:
+# @modelcontextprotocol/conformance 0.2.0-alpha.12 — тот же пин, что у апстрима
+# (modelcontextprotocol/typescript-sdk, test/conformance). Пин точный, без диапазона:
+# новый релиз рефери принимается отдельным изменением вместе с пересборкой этого файла.
+#
+# Снято 2026-11-19 против спайк-реализации (design/examples/helpers/{mcp,http}) на
+# fixture-контракте апстрима (fixtures.ts, пин коммита 5ee54ee30ddc00a914a3d981880f87fdce0e6246).
+# Итог: 127 passed / 44 failed checks; 23 из 37 scored-сценариев проходят, 14 в baseline.
+# Первый прогон до fixture-контракта давал 106/62 и 6 чистых сценариев.
+#
+# Рефери падает на STALE-записях: если сценарий из списка начал проходить, строку ОБЯЗАТЕЛЬНО
+# убрать. Поэтому список не может тихо устареть — это ratchet, а не индульгенция.
+#
+# ВАЖНО: pretty-сводка показывает «✓ N passed, 0 failed» для сценариев, у которых проверки
+# имеют статус WARNING (SHOULD-требования), но reconciliation считает WARNING непрохождением
+# и требует записи в baseline. Такие сценарии ниже помечены (WARNING).
+#
+# Проходит целиком (не baselined): tools-list, tools-call-simple-text, tools-call-image,
+# tools-call-audio, tools-call-embedded-resource, tools-call-mixed-content, tools-call-error,
+# completion-complete, resources-list, resources-read-text, resources-read-binary,
+# resources-templates-read, sep-2164-resource-not-found, prompts-list, prompts-get-simple,
+# prompts-get-with-args, prompts-get-embedded-resource, prompts-get-with-image, caching,
+# server-sse-multiple-streams, dns-rebinding-protection,
+# input-required-result-unsupported-methods, input-required-result-ignore-extra-params.
+# http-header-validation — 14/14 (нескорящийся pending).
+
+server:
+    # --- SEP-2322 MRTR: resultType 'input_required', inputRequests, requestState,
+    # multi-round, tampered-state, capability gating. Не реализовано. Fixture-тулы
+    # test_input_required_result_* и test_missing_capability тоже ждут MRTR. ---
+    - input-required-result-basic-elicitation
+    - input-required-result-basic-sampling
+    - input-required-result-basic-list-roots
+    - input-required-result-request-state
+    - input-required-result-multiple-input-requests
+    - input-required-result-multi-round
+    - input-required-result-result-type
+    - input-required-result-tampered-state
+    - input-required-result-capability-check
+    - input-required-result-non-tool-request   # MRTR на prompts/get
+    - input-required-result-missing-input-response  # WARNING: должен переспрашивать missing info
+    - input-required-result-validate-input          # WARNING: SHOULD валидировать inputResponses
+
+    # --- SEP-2575: -32021 MissingRequiredClientCapability. Не гейтим по заявленным
+    # capabilities клиента; тул test_missing_capability исполняется вместо отказа.
+    # Обе проверки сценария упираются в это (вторая — в MRTR-форму тула). ---
+    - server-stateless
+
+    # --- Request-scoped notifications/progress на потоке ответа tools/call.
+    # Канал подписок есть, но progress к конкретному запросу не привязан. ---
+    - tools-call-with-progress
+
+    # --- Не scored при --requirements 2026-07-28 (extension/pending), в baseline НЕ входят,
+    # иначе рефери пометит их stale: tasks-* (SEP-2663, 10 сценариев),
+    # json-schema-2020-12 (pending, нужен тул json_schema_2020_12_tool с hand-authored
+    # JSON Schema 2020-12 — zod такие ключевые слова не эмитит),
+    # http-header-validation (pending, 14/14 проходит),
+    # http-custom-header-server-validation (pending, SEP-2243 x-mcp-header — ни один тул
+    # не аннотирован, поэтому not testable). ---

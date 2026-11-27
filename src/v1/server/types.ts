@@ -1,0 +1,99 @@
+// @ts-nocheck
+import type { Composer } from '.';
+import type { ValidateAdapter } from '../validators/types';
+import * as JSONRPC from '../specs/JSONRPC_V2/types';
+
+export interface MethodDescription {
+  key: PropKey;
+  descriptor: PropertyDescriptor;
+  target: Target;
+  validators: Validators;
+  argNames: string[];
+  metadata: MethodMetadata;
+  use: Middleware<Event, Context, {}>[];
+}
+
+export interface PartialMethodDescription {
+  key: PropKey;
+  descriptor?: PropertyDescriptor;
+  target: Target;
+  validators?: Validators;
+  argNames?: string[];
+  metadata?: MethodMetadata;
+  use?: Middleware<Event, Context, {}>[];
+}
+
+export interface Validators {
+  in?: { [k: number]: unknown };
+  out?: unknown;
+}
+
+export interface MethodConfig extends Validators {
+  use?: Middleware<Event, Context, {}> | Middleware<Event, Context, {}>[];
+}
+
+export interface PropertyDescription {
+  key: PropKey;
+  target: Target;
+}
+
+export interface MethodMetadata {
+  returnType?: string;
+  argsType?: string[];
+}
+
+export interface Schema {
+  route: string;
+  methods: Record<string, MethodMetadata>;
+  models: string[];
+}
+
+export interface ComposerConfig {
+  route?: string;
+  onError?: ErrorCallback;
+  validator?: ValidateAdapter;
+}
+
+export interface Target {
+  constructor: { name: string };
+}
+
+export type PropKey = string | symbol;
+export type ClassConstructor<T extends object> = new (...params: unknown[]) => T;
+
+export type Middleware<Event, Ctx, Extension> = (
+  event: Event,
+  ctx: Ctx,
+  next: CallableFunction
+) => Promise<(Ctx & Extension) | void>;
+
+// export type InjectedModels<T> = {
+//   [Property in keyof T]: ModifiedMethods<T[Property]>;
+// };
+
+export type Composed<T extends { [s: string]: object }> = Composer<T> &
+  T &
+  Record<keyof T, InstanceType<T[keyof T]>>;
+
+export type Event =
+  | {
+      request: Request;
+      [key: string]: unknown;
+    }
+  | Request;
+
+export type Context = { body: JSONRPC.Request<JSONRPC.Parameters> } & Record<string, unknown>;
+
+export type ModifiedContext<T> = T extends (infer Mw extends (...args: unknown[]) => unknown)[]
+  ? Awaited<ReturnType<Mw>>
+  : T;
+
+// type Constructor = new (...args: any[]) => any;
+
+// export type ConstructorOf<T extends Constructor = Constructor> = new (...args: any[]) => T;
+// export type RPCService = ConstructorOf | Constructor;
+
+// export type OutServiceMap<T extends Record<string, RPCService>> = {
+//   [K in keyof T]: T[K] extends Constructor ? InstanceType<T[K]> : T[K];
+// };
+

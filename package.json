@@ -1,9 +1,9 @@
 {
-  "type": "commonjs",
+  "type": "module",
   "name": "@chord-ts/rpc",
-  "version": "1.0.0-beta.32",
+  "version": "2.0.0-beta.1",
   "author": "Din Dmitriy @dmdin",
-  "description": "💎 Cutting edge transport framework vanishing borders between frontend and backend",
+  "description": "💎 Remote call & local feel — contracts keep it hyper real",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/chord-ts/rpc.git"
@@ -13,69 +13,175 @@
     "Client Server",
     "Transport"
   ],
-  "license": "Apache License 2.0",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20"
+  },
   "files": [
     "dist"
   ],
   "exports": {
-    ".": "./dist/index.js",
-    "./client": "./dist/client/index.js",
-    "./middlewares/*": "./dist/middlewares/*.js",
-    "./middlewares": "./dist/middlewares/index.js",
-    "./validators": "./dist/validators/index.js",
-    "./specs": "./dist/specs/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./schemas/zod": {
+      "types": "./dist/schemas/zod.d.ts",
+      "import": "./dist/schemas/zod.js"
+    },
+    "./mcp-handler": {
+      "types": "./dist/mcp-handler/index.d.ts",
+      "import": "./dist/mcp-handler/index.js"
+    },
+    "./jsonrpc": {
+      "types": "./dist/jsonrpc.d.ts",
+      "import": "./dist/jsonrpc.js"
+    },
+    "./rest": {
+      "types": "./dist/rest.d.ts",
+      "import": "./dist/rest.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.js"
+    },
+    "./tools": {
+      "types": "./dist/tools.d.ts",
+      "import": "./dist/tools.js"
+    },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js"
+    },
+    "./transport/sveltekit": {
+      "types": "./dist/transport/sveltekit.d.ts",
+      "import": "./dist/transport/sveltekit.js"
+    },
+    "./transport/express": {
+      "types": "./dist/transport/express.d.ts",
+      "import": "./dist/transport/express.js"
+    },
+    "./middlewares": {
+      "types": "./dist/v1/middlewares/index.d.ts",
+      "import": "./dist/v1/middlewares/index.js"
+    },
+    "./middlewares/*": {
+      "types": "./dist/v1/middlewares/*.d.ts",
+      "import": "./dist/v1/middlewares/*.js"
+    },
+    "./validators": {
+      "types": "./dist/v1/validators/index.d.ts",
+      "import": "./dist/v1/validators/index.js"
+    },
+    "./specs": {
+      "types": "./dist/v1/specs/index.d.ts",
+      "import": "./dist/v1/specs/index.js"
+    }
   },
   "types": "./dist/index.d.ts",
   "typesVersions": {
     "*": {
+      "client": [
+        "dist/client/index.d.ts"
+      ],
+      "core": [
+        "dist/core/index.d.ts"
+      ],
+      "schemas/zod": [
+        "dist/schemas/zod.d.ts"
+      ],
+      "mcp-handler": [
+        "dist/mcp-handler/index.d.ts"
+      ],
+      "jsonrpc": [
+        "dist/jsonrpc.d.ts"
+      ],
+      "rest": [
+        "dist/rest.d.ts"
+      ],
+      "mcp": [
+        "dist/mcp.d.ts"
+      ],
+      "tools": [
+        "dist/tools.d.ts"
+      ],
+      "events": [
+        "dist/events.d.ts"
+      ],
+      "transport/sveltekit": [
+        "dist/transport/sveltekit.d.ts"
+      ],
+      "transport/express": [
+        "dist/transport/express.d.ts"
+      ],
       "middlewares": [
-        "./dist/middlewares/index.d.ts"
+        "dist/v1/middlewares/index.d.ts"
       ],
       "middlewares/*": [
-        "./dist/middlewares/*.d.ts"
-      ],
-      "client": [
-        "./dist/client.d.ts"
-      ],
-      "specs": [
-        "./dist/specs/index.d.ts"
+        "dist/v1/middlewares/*.d.ts"
       ],
       "validators": [
-        "./dist/validators/index.d.ts"
+        "dist/v1/validators/index.d.ts"
+      ],
+      "specs": [
+        "dist/v1/specs/index.d.ts"
       ]
+    }
+  },
+  "peerDependencies": {
+    "zod": "^4"
+  },
+  "peerDependenciesMeta": {
+    "zod": {
+      "optional": true
     }
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "dev": "nodemon --exec npx ts-node src/tests.ts",
+    "dev": "vitest",
     "format": "prettier --write ./src/**/*.{js,json,html,ts}",
-    "lint": "eslint --fix ./src",
+    "lint": "eslint ./src",
+    "lint:fix": "eslint --fix ./src",
     "test": "vitest",
+    "test:mcp": "vitest run src/mcp/tests",
+    "test:mcp:report": "MCP_CONFORMANCE_REPORT=1 vitest run src/mcp/tests",
     "coverage": "vitest run --coverage",
-    "build": "tsc",
-    "minify": "terser --compress --module -o ./dist/client/index.js -- ./dist/client/index.js && terser --compress --module -o ./dist/specs/JSONRPC_V2/index.js -- ./dist/specs/JSONRPC_V2/index.js",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && tsdown",
+    "build:dts": "tsdown",
+    "minify": "terser --compress --module -o ./dist/v1/client/index.js -- ./dist/v1/client/index.js && terser --compress --module -o ./dist/v1/specs/index.js -- ./dist/v1/specs/index.js",
     "patch": "pnpm run build && pnpm version patch --no-git-tag-version"
   },
   "devDependencies": {
-    "@anatine/zod-mock": "^3.13.3",
+    "@modelcontextprotocol/conformance": "0.2.0-alpha.12",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@open-rpc/meta-schema": "^1.14.6",
+    "@types/node": "^24.19.2",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@vitest/coverage-v8": "^1.6.0",
+    "arktype": "^2.2.9",
     "eslint": "^8.54.0",
     "eslint-config-prettier": "^9.0.0",
+    "mcp-handler": "^2.4.0",
     "prettier": "^3.1.0",
     "terser": "^5.26.0",
+    "tsdown": "^0.23.7",
     "tslib": "^2.6.2",
     "typescript": "5.5.3",
     "unplugin-swc": "^1.4.5",
-    "vitest": "^1.6.0"
-  },
-  "peerDependencies": {
-  },
-  "dependencies": {
-    "reflect-metadata": "^0.1.13",
-    "zod": "^3.23.8"
+    "valibot": "^1.5.0",
+    "vitest": "^1.6.0",
+    "yup": "^1.7.1",
+    "zod": "^4"
   }
 }

@@ -1,1 +1,1 @@
-export {ZodAdapter} from './zod'
+export { yup } from './yup';

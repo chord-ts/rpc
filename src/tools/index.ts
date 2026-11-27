@@ -1,0 +1,35 @@
+// Tools layer: agent tools for in-process reuse (LangChain etc.), no wire. Imports generate
+// (mcpTools descriptors) + schemas (flatToolSchema/packToolArgs) + core gasket. Not a core method —
+// agentTools(composer) is a standalone function, keeping core free of generation/tools.
+
+import type { AgentTool } from './types';
+import type { AnySchema } from '../types';
+import type { Core } from '../core/types';
+import { mcpTools, type GenOptions } from '../generate';
+import { resolveSchemas, flatToolSchema, packToolArgs } from '../schemas';
+
+export function agentTools(core: Core<any>, opts: GenOptions = {}): AgentTool[] {
+  const schemas = resolveSchemas(core, opts.jsonSchema);
+  // Bound call + 'input' side (same as flatToolSchema): a detached method loses `this` on class
+  // adapters, and the output side misdescribes transform/default inputs when packing args.
+  const toJson = (s: AnySchema) => schemas.jsonSchema(s, 'input');
+  const descriptors = mcpTools(core, opts).document.tools as Array<Omit<AgentTool, 'schema' | 'invoke' | 'func'>>;
+  // Unary only: stream-эндпоинты не тулы (mcpTools их тоже исключает — индексы сходятся).
+  const endpoints = core.endpoints().filter((e) => e.contract && !e.contract.event);
+
+  return endpoints.map((e, i) => {
+    const c = e.contract!;
+    const name = `${e.service}.${e.method}`;
+    // Same packing seam as the mcp binding: REST → slices, fn scalar → { value }.
+    // Ошибки — нативный throw (CoreError / ошибка обработчика), фреймворк решает сам.
+    const invoke = (args: unknown, ctx?: unknown): Promise<unknown> =>
+      core.call(name, packToolArgs(c, args, toJson), { ctx });
+    return {
+      ...descriptors[i],
+      schema: flatToolSchema(c, schemas),
+      invoke,
+      // JSON.stringify(undefined) === undefined — void/204 must still yield a string (Promise<string>).
+      func: async (args: unknown) => JSON.stringify(await invoke(args)) ?? '',
+    };
+  });
+}
