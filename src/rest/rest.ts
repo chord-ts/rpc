@@ -3,10 +3,27 @@
 // Format codecs only the HTTP body; status/headers/path are protocol+transport, not Format.
 
 import { fn } from '@/core';
-import { CoreError, type Core, type MaybeArray, type Middleware, type ServiceMap } from '@/core/types';
+import { CoreError, STATUS_ERROR, type Core, type MaybeArray, type Middleware, type ServiceMap } from '@/core/types';
 import type { AnySchema, Binding, HttpProtocol, RestMeta, ServiceTag } from '@/types';
 import type { Format, FormatTag, WireFn, JsonWire } from '@/format/types';
 import { json } from '@/format';
+import { resolveSchemas } from '@/schemas';
+
+/** Intentional HTTP failure for REST handlers: status + optional body (data). The REST binding
+ * trusts the status only from branded errors (HttpError / RpcError) — a foreign SDK's
+ * `Error+status` must not leak. `data`, when present, is the response body (matches a resp-map
+ * schema for that status); otherwise the body is `{ detail: message }`. */
+export class HttpError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+    public data?: unknown,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+    (this as unknown as Record<symbol, unknown>)[STATUS_ERROR] = true;
+  }
+}
 
 // --- declaration sugar: parts instead of flat in ---
 
@@ -94,8 +111,14 @@ function composite(c: RestContract, endpoint: string): AnySchema<any> {
         const slices = (value ?? {}) as Record<string, unknown>;
         const merged: Record<string, unknown> = {};
         const issues: unknown[] = [];
+        // Keys contributed by body/query: a same-named key in both slices is a collision — reject
+        // (422) rather than let an unvalidated query value overwrite a validated body field
+        // (z.looseObject / arktype pass extra keys through). Path stays authoritative (merged last).
+        const bodyKeys = new Set<string>();
+        const queryKeys = new Set<string>();
         for (const [name, schema] of parts) {
-          const slice = slices[name] ?? {};
+          const raw = slices[name];
+          const slice = raw === undefined ? {} : raw; // preserve an explicit null body
           if (!schema) {
             if (name === 'path' && slice !== null && typeof slice === 'object') {
               const picked: Record<string, unknown> = {};
@@ -105,11 +128,24 @@ function composite(c: RestContract, endpoint: string): AnySchema<any> {
             continue;
           }
           const r = await schema['~standard'].validate(slice);
-          if ('issues' in r) issues.push(...r.issues);
-          else if (name === 'body' && (Array.isArray(r.value) || r.value === null || typeof r.value !== 'object')) {
+          if ('issues' in r) {
+            issues.push(...r.issues);
+            continue;
+          }
+          if (name === 'body' && (Array.isArray(r.value) || r.value === null || typeof r.value !== 'object')) {
             // Non-object body → the `body` slot (mirrors the RestIn type); object body merges flat.
+            if (queryKeys.has('body')) issues.push({ message: 'Field "body" is present in both body and query' });
+            bodyKeys.add('body');
             mergeSafe(merged, { body: r.value });
-          } else mergeSafe(merged, r.value);
+          } else {
+            const keys = Object.keys(r.value as Record<string, unknown>);
+            for (const k of keys) {
+              if (name === 'query' && bodyKeys.has(k)) issues.push({ message: `Field "${k}" is present in both body and query` });
+              if (name === 'body' && queryKeys.has(k)) issues.push({ message: `Field "${k}" is present in both body and query` });
+              (name === 'body' ? bodyKeys : name === 'query' ? queryKeys : null)?.add(k);
+            }
+            mergeSafe(merged, r.value);
+          }
         }
         return issues.length > 0 ? { issues } : { value: merged };
       },
@@ -136,31 +172,84 @@ export const del = <P extends string, C extends RestContract>(endpoint: P, c: C)
 interface RestRoute extends RestMeta {
   service: string;
   handler: string; // service method name; `method` is the HTTP verb from RestMeta
-  regex: RegExp;
+  match: (pathname: string) => Record<string, string> | null;
   pathParams: string[];
+  arrayQuery: Set<string>; // query fields declared as arrays → always parsed as arrays (incl. empty)
 }
 
-function compilePath(template: string): { regex: RegExp; params: string[] } {
-  // Adjacent placeholders ({a}{b}) compile to neighbouring ([^/]+) groups — catastrophic
-  // backtracking on a non-matching path (ReDoS), and the split is ambiguous anyway. Reject early.
+type SegToken = { lit: string } | { name: string };
+
+// Linear-time segment match: literals are anchored with startsWith/indexOf/slice, placeholders
+// capture the span up to the next literal. No regex ⇒ no catastrophic backtracking on a long
+// non-matching path (the old `([^/]+)` groups with several placeholders per segment were ReDoS).
+function matchSegment(tokens: SegToken[], s: string, out: Record<string, string>): boolean {
+  let pos = 0;
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if ('lit' in t) {
+      if (i === 0) {
+        if (!s.startsWith(t.lit)) return false;
+        pos = t.lit.length;
+      } else if (i === tokens.length - 1) {
+        if (s.slice(pos) !== t.lit) return false;
+        pos = s.length;
+      } else {
+        const idx = s.indexOf(t.lit, pos);
+        if (idx === -1) return false;
+        pos = idx + t.lit.length;
+      }
+    } else {
+      if (i === tokens.length - 1) {
+        const cap = s.slice(pos);
+        if (cap.length === 0) return false;
+        out[t.name] = cap;
+        pos = s.length;
+      } else {
+        const next = tokens[i + 1];
+        if (!('lit' in next)) return false; // adjacent placeholders rejected at compile
+        const idx = s.indexOf(next.lit, pos);
+        if (idx === -1) return false;
+        const cap = s.slice(pos, idx);
+        if (cap.length === 0) return false;
+        out[t.name] = cap;
+        pos = idx;
+      }
+    }
+  }
+  return pos === s.length;
+}
+
+function compilePath(template: string): { match: (pathname: string) => Record<string, string> | null; params: string[] } {
+  // Adjacent placeholders ({a}{b}) are ambiguous (no literal to split on) — reject early.
   if (/\}\{/.test(template)) {
     throw new Error(`[chord] REST endpoint "${template}": adjacent placeholders are ambiguous — separate them with a literal segment (e.g. {a}/{b})`);
   }
   const params: string[] = [];
-  // Literal segments are regex-escaped; only {name} placeholders become capture groups.
-  // Without escaping, '/items.json' would also match '/itemsXjson'.
-  const pattern = template
-    .split(/(\{[^}]+\})/g)
-    .map((seg) => {
-      const m = seg.match(/^\{([^}]+)\}$/);
-      if (m) {
-        params.push(m[1]);
-        return '([^/]+)';
+  const segments = template.split('/').map((seg) =>
+    seg
+      .split(/(\{[^}]+\})/g)
+      .filter((p) => p !== '')
+      .map((p): SegToken => {
+        const m = p.match(/^\{([^}]+)\}$/);
+        if (m) {
+          params.push(m[1]);
+          return { name: m[1] };
+        }
+        return { lit: p };
+      }),
+  );
+  return {
+    params,
+    match(pathname) {
+      const parts = pathname.split('/');
+      if (parts.length !== segments.length) return null;
+      const out: Record<string, string> = {};
+      for (let i = 0; i < segments.length; i++) {
+        if (!matchSegment(segments[i], parts[i], out)) return null;
       }
-      return seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    })
-    .join('');
-  return { regex: new RegExp(`^${pattern}$`), params };
+      return out;
+    },
+  };
 }
 
 /** REST: routes from endpoints().rest; params packed as slices { path, query, body } (composite `in`
@@ -171,15 +260,33 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
   core: Core<S>,
   opts?: {
     format?: Format<any, F>;
+    /** Mount prefix stripped before routing (e.g. '/api' when mounted on api/[...path]).
+     * Endpoints stay declared relative to the binding root. */
+    basePath?: string;
   },
 ): HttpProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
   const format = (opts?.format ?? json) as Format<any, F>;
+  const basePath = opts?.basePath ? `/${opts.basePath.replace(/^\/+|\/+$/g, '')}` : '';
+  const schemas = resolveSchemas(core);
   const routes: RestRoute[] = [];
   for (const e of core.endpoints()) {
     const meta = e.contract?.rest as RestMeta | undefined;
     if (!meta) continue;
-    const { regex, params } = compilePath(meta.endpoint);
-    routes.push({ ...meta, service: e.service, handler: e.method, regex, pathParams: params });
+    const { match, params } = compilePath(meta.endpoint);
+    // Array-typed query fields (from the query JSON Schema) always parse as arrays — a single
+    // ?tag=a becomes ['a'], an absent key becomes [] — so the client's array round-trips.
+    const arrayQuery = new Set<string>();
+    if (e.contract?.query) {
+      try {
+        const qj = schemas.jsonSchema(e.contract.query as AnySchema, 'input') as { properties?: Record<string, { type?: string }> };
+        for (const [name, prop] of Object.entries(qj?.properties ?? {})) {
+          if (prop?.type === 'array') arrayQuery.add(name);
+        }
+      } catch {
+        // no converter → fall back to repeated-key heuristic
+      }
+    }
+    routes.push({ ...meta, service: e.service, handler: e.method, match, pathParams: params, arrayQuery });
   }
   // Specificity first: fewer path params, then more literal characters — '/items/new' wins over
   // '/items/{id}' regardless of registration order.
@@ -190,6 +297,15 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
   const http: Binding = {
     async handle(req, ctx) {
       const url = new URL(req.url);
+      let pathname = url.pathname;
+      if (basePath) {
+        if (pathname !== basePath && !pathname.startsWith(`${basePath}/`)) {
+          return { status: 404, body: { detail: 'Not found' } };
+        }
+        pathname = pathname.slice(basePath.length) || '/';
+      }
+      // HEAD shares GET routing (RFC 9110); the transport drops the body.
+      const verb = req.method === 'HEAD' ? 'GET' : req.method;
 
       let route: RestRoute | undefined;
       let pathValues: Record<string, string> = {};
@@ -197,14 +313,14 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
       let decodeFailed = false;
       const allowed = new Set<string>();
       for (const r of routes) {
-        const m = url.pathname.match(r.regex);
+        const m = r.match(pathname);
         if (!m) continue;
         pathMatched = true;
         allowed.add(r.method);
-        if (r.method !== req.method) continue;
+        if (r.method !== verb) continue;
         route = r;
         try {
-          pathValues = Object.fromEntries(r.pathParams.map((n, i) => [n, decodeURIComponent(m[i + 1])]));
+          pathValues = Object.fromEntries(Object.entries(m).map(([n, v]) => [n, decodeURIComponent(v)]));
         } catch {
           decodeFailed = true; // malformed percent-encoding must not throw out of handle
         }
@@ -218,17 +334,18 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
           : { status: 404, body: { detail: 'Not found' } };
       }
 
-      // Repeated query keys (?tag=a&tag=b) become an array; a single key stays a string.
+      // Declared array query fields are always arrays (single ?tag=a → ['a'], absent → []);
+      // other repeated keys (?tag=a&tag=b) become arrays, a single key stays a string.
       // Null prototype: ?__proto__=… must create an own key, not set the object's prototype.
       const query: Record<string, unknown> = Object.create(null);
       for (const k of new Set(url.searchParams.keys())) {
         const all = url.searchParams.getAll(k);
-        query[k] = all.length > 1 ? all : all[0];
+        query[k] = route.arrayQuery.has(k) ? all : all.length > 1 ? all : all[0];
       }
+      for (const k of route.arrayQuery) if (!(k in query)) query[k] = [];
       // body — уже распарсенное значение (адаптер × Format или раннее извлечение). Decode не нужен.
-      // Slices, not merge: each part validated by its schema (composite `in`).
-      // query from URL is strings; numeric query fields declared with z.coerce.number().
-      const params = { path: pathValues, query, body: req.body ?? {} };
+      // An explicit null body is preserved (z.null() / nullable schemas); only absence defaults to {}.
+      const params = { path: pathValues, query, body: req.body === undefined ? {} : req.body };
       try {
         const value = await core.call(`${route.service}.${route.handler}`, params, { ctx });
         return { status: route.status ?? 200, body: value };
@@ -238,11 +355,14 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
           const body = e.data === undefined ? { detail: e.message } : { detail: e.message, issues: e.data };
           return { status: 422, body };
         }
-        // Handler-declared HTTP status (RpcError.status / Error+status, e.g. a resp-map 404/409):
-        // an explicit status marks the error as intentional, so its message is safe to expose.
+        // Handler-declared HTTP status — trusted ONLY from branded errors (HttpError / RpcError).
+        // A foreign SDK's Error+status must not leak its message/status. `data` is the response
+        // body (matches a resp-map schema for that status); otherwise { detail: message }.
+        const branded = (e as Record<symbol, unknown> | null)?.[STATUS_ERROR] === true;
         const status = (e as { status?: unknown } | null)?.status;
-        if (typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599) {
-          return { status, body: { detail: e instanceof Error ? e.message : 'Error' } };
+        if (branded && typeof status === 'number' && Number.isInteger(status) && status >= 400 && status <= 599) {
+          const data = (e as { data?: unknown }).data;
+          return { status, body: data !== undefined ? data : { detail: e instanceof Error ? e.message : 'Error' } };
         }
         // CoreError messages are intentional (validation); unexpected handler errors → generic,
         // so internal detail (connection strings, stacks) never leaks to the client.

@@ -17,7 +17,7 @@
 // Фрейминг, заголовки транспорта и жизненный цикл потока — здесь. Семантика MCP (405/403/
 // сверка заголовков/коды) — в профиле helpers/mcp, который отдаёт готовый http-биндинг.
 
-import { json } from '../../../src/format';
+import { json, formdata } from '../../../src/format';
 import type { Format } from '../../../src/format/types';
 import type { HttpProtocol, TransportRequest, TransportResponse } from '../../../src';
 
@@ -27,11 +27,9 @@ export interface HttpRequest extends TransportRequest {
   signal?: AbortSignal;
 }
 
-type ReadMode = 'format' | 'formdata';
 type FetchEvent = { request: Request; locals?: unknown };
 export interface HttpOptions {
   format?: Format<any>;
-  as?: ReadMode;
   body?: unknown;
   keepAliveMs?: number;
 }
@@ -51,14 +49,9 @@ function headersOf(request: Request): Record<string, string> {
   return out;
 }
 
-async function readBody(request: Request, format: Format<any>, as: ReadMode): Promise<unknown> {
-  if (as === 'formdata') {
-    const obj: Record<string, unknown> = {};
-    (await request.formData()).forEach((v, k) => {
-      obj[k] = v;
-    });
-    return obj;
-  }
+async function readBody(request: Request, format: Format<any>): Promise<unknown> {
+  // formdata — нативный кодек: multipart парсит платформа, FormData → плоское значение.
+  if (format.unit === 'form') return formdata.decode(await request.formData());
   if (format.unit === 'bytes') {
     const buf = new Uint8Array(await request.arrayBuffer());
     return buf.length ? format.decode(buf) : undefined;
@@ -130,9 +123,10 @@ function sse(res: TransportResponse, ac: AbortController, keepAliveMs: number): 
 }
 
 function respond(res: TransportResponse, format: Format<any>): Response {
-  const headers = { 'content-type': format.contentType, ...res.headers };
   // null = значения нет → тела нет (202/204). Иначе raw-escape или кодек.
   const out = res.body == null ? null : res.raw ? (res.body as string | Uint8Array) : format.encode(res.body);
+  // FormData: content-type с boundary ставит платформа — ручной заголовок ломает multipart.
+  const headers = out instanceof FormData ? { ...res.headers } : { 'content-type': format.contentType, ...res.headers };
   return new Response(out, { status: res.status, headers });
 }
 
@@ -140,7 +134,7 @@ async function handle(protocol: HttpProtocol, event: FetchEvent, opts: HttpOptio
   const format = opts.format ?? json;
   let body: unknown;
   try {
-    body = opts.body !== undefined ? opts.body : await readBody(event.request, format, opts.as ?? 'format');
+    body = opts.body !== undefined ? opts.body : await readBody(event.request, format);
   } catch {
     return new Response(JSON.stringify({ detail: 'Parse error' }), {
       status: 400,

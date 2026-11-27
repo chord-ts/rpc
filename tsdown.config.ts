@@ -30,12 +30,17 @@ export default defineConfig({
     'v1/validators/index': 'src/v1/validators/index.ts',
     'v1/specs/index': 'src/v1/specs/index.ts',
   },
-  format: ['esm'],
+  // Dual ESM+CJS: v1 был CommonJS, require('@chord-ts/rpc') должен продолжать работать.
+  // .js — ESM ("type":"module"), .cjs — CJS; декларации .d.ts / .d.cts под каждый формат.
+  format: ['esm', 'cjs'],
   alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   dts: true, // dts генерится tsdown под забандленный js — структура совпадает (attw internal resolution)
   outDir: 'dist',
   clean: true,
   sourcemap: true,
   target: 'es2022',
-  outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
+  outExtensions: ({ format }) => ({
+    js: format === 'cjs' ? '.cjs' : '.js',
+    dts: format === 'cjs' ? '.d.cts' : '.d.ts',
+  }),
 });

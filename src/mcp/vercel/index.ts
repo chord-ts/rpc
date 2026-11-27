@@ -11,6 +11,7 @@
 //   - декорация mcp-меты приоритетнее нейтральной; свои тулы пользователь регистрирует рядом (в своём initialize).
 
 import { fn as coreFn } from '@/core';
+import { CoreError, STATUS_ERROR } from '@/core/types';
 import { flatToolSchema, packToolArgs, resolveSchemas } from '@/schemas';
 import type { AnySchema, McpMeta as McpMetaBase, McpAnnotations } from '@/types';
 import type { Contract, Out, Fn, Core } from '@/core/types';
@@ -92,7 +93,7 @@ export function registerMcpTools(server: McpServerLike, core: Core<any>, opts: R
     // Единый метод схемы (validate + jsonSchema Converter из адаптера) — registerTool принимает напрямую.
     const inputSchema = flatToolSchema(contract, schemas);
     server.registerTool(
-      meta.name ?? path,
+      meta.name ?? `${e.service}_${e.method}`,
       {
         title: meta.title,
         description: meta.desc ?? (contract.desc as string) ?? '',
@@ -102,11 +103,20 @@ export function registerMcpTools(server: McpServerLike, core: Core<any>, opts: R
         _meta: meta._meta,
       },
       async (args, ctx) => {
-        const req = ctx.http?.req;
-        const chordCtx = opts.ctx && req ? opts.ctx(req) : {};
-        const params = packToolArgs(contract, args, toJson);
-        const value = await core.call(path, params, { ctx: chordCtx });
-        return toCallToolResult(value, meta);
+        try {
+          const req = ctx.http?.req;
+          const chordCtx = opts.ctx && req ? opts.ctx(req) : {};
+          const params = packToolArgs(contract, args, toJson);
+          const value = await core.call(path, params, { ctx: chordCtx });
+          return toCallToolResult(value, meta);
+        } catch (e) {
+          // Sanitize like jsonrpc/rest: CoreError and branded errors (RpcError/HttpError) carry
+          // intentional, safe messages; an unexpected handler failure must not leak internal
+          // detail through the SDK's raw error.message → isError path.
+          const safe = e instanceof CoreError || (e as Record<symbol, unknown> | null)?.[STATUS_ERROR] === true;
+          const text = safe && e instanceof Error ? e.message : 'Internal error';
+          return { content: [{ type: 'text', text }], isError: true };
+        }
       },
     );
   }

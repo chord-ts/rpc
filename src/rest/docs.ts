@@ -44,6 +44,15 @@ export function openapi(core: Core<any>, opts: GenOptions = {}): Spec {
         content: { 'application/json': { schema: embed(toJson(schema, 'output')) } },
       };
     }
+    // The success response is always advertised, even without a resp map: schema from `out`
+    // (set by http() from the success-status resp schema) or an open schema when undeclared.
+    const successStatus = String((c.status as number) ?? 200);
+    if (!responses[successStatus]) {
+      responses[successStatus] = {
+        description: reasonPhrase(+successStatus),
+        content: { 'application/json': { schema: c.out ? embed(toJson(c.out as AnySchema, 'output')) : {} } },
+      };
+    }
     responses.default = {
       description: 'Error',
       content: { 'application/json': { schema: { type: 'object', properties: { detail: { type: 'string' } } } } },

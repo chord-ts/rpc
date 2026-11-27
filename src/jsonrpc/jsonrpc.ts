@@ -3,7 +3,7 @@
 // the generated OpenRPC document. mcp (sibling) is a JSON-RPC profile — it imports this model.
 // Public surface of the family: ./index.ts.
 
-import { CoreError, type Core, type CoreErrorKind, type ServiceMap } from '@/core/types';
+import { CoreError, STATUS_ERROR, type Core, type CoreErrorKind, type ServiceMap } from '@/core/types';
 import type { AnySchema, MessageBinding, MessageProtocol, ServiceTag } from '@/types';
 import type { Format, FormatTag, WireFn, JsonWire } from '@/format/types';
 import { json } from '@/format';
@@ -34,6 +34,8 @@ export class RpcError extends Error {
   ) {
     super(message);
     this.name = 'RpcError';
+    // Brand: REST trusts the transport status only from intentional errors (see STATUS_ERROR).
+    (this as unknown as Record<symbol, unknown>)[STATUS_ERROR] = true;
   }
 
   static parseError(message = 'Parse error', data?: unknown): RpcError {
@@ -102,9 +104,15 @@ const invalidRequest = (id: RPCId): RPCResponse => ({
  * Parse errors (raw decode) belong to the adapter. */
 export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
   core: Core<S>,
-  opts?: { format?: Format<any, F>; jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown; info?: { title: string; version: string; description?: string } },
+  opts?: { format?: Format<any, F>; includeRest?: boolean; jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown; info?: { title: string; version: string; description?: string } },
 ): MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
   const format = (opts?.format ?? json) as Format<any, F>;
+  // Binding boundary: jsonrpc serves its own (fn/stream) endpoints. REST-declared methods are
+  // reachable by name only with explicit includeRest — otherwise a /rpc call would bypass the
+  // guards/proxy mounted on the REST route. OpenRPC already lists only fn endpoints.
+  const restMethods = new Set(
+    core.endpoints().filter((e) => e.contract?.rest).map((e) => `${e.service}.${e.method}`),
+  );
   let discovery: object | undefined; // lazy, generated once
   // One Request → response (or null for a notification). Structure is validated before dispatch;
   // every read of the item happens inside try, so a malformed batch (e.g. [null]) can never throw
@@ -128,6 +136,9 @@ export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
     let v: unknown;
     let error: ErrorObject | undefined;
     try {
+      if (method !== 'rpc.discover' && !opts?.includeRest && restMethods.has(method)) {
+        throw new CoreError('not-found', `Method not found: ${method}`);
+      }
       v =
         method === 'rpc.discover'
           ? await core.run({ ...baseCtx }, async () => (discovery ??= openrpc(core, { jsonSchema: opts?.jsonSchema, info: opts?.info }).document))
@@ -145,11 +156,10 @@ export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
       // Empty batch → a single Invalid Request error object (spec §6), not null.
       if (isBatch && value.length === 0) return invalidRequest(null);
       const items = isBatch ? value : [value];
-      const out: RPCResponse[] = [];
-      for (const item of items) {
-        const res = await handleOne(item, baseCtx);
-        if (res) out.push(res);
-      }
+      // Concurrent dispatch (spec §6 allows any response order); Promise.all preserves request
+      // order in the output array. A slow call no longer serializes the whole batch.
+      const results = await Promise.all(items.map((item) => handleOne(item, baseCtx)));
+      const out = results.filter((r): r is RPCResponse => r !== null);
       // A batch of only notifications gets no response (not an empty array).
       if (isBatch) return out.length ? out : null;
       return out[0] ?? null;

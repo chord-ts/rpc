@@ -67,12 +67,21 @@ export function stream<C extends StreamContract>(c: C): StreamFn<C> {
 // Minified bundles mangle parameter names — depKeys() then falls back to the explicit
 // `static $constructor` annotation; compose guards and points to it on mismatch.
 export function paramNames(ctor: AnyCtor): string[] {
-  const src: string = ctor.toString();
-  const m = /(?:^|[^\w$])constructor\s*\(/.exec(src);
-  if (!m) return [];
-  const start = m.index + m[0].length;
-  const head = src.slice(start, src.indexOf(')', start));
-  return head.match(/([^\s,]+)/g) ?? [];
+  // Walk the prototype chain: a subclass without its own constructor (`class Child extends Base {}`)
+  // inherits Base's deps — parse the nearest ancestor that declares one. ES5-downlevelled classes
+  // (functions, no `constructor` keyword) yield [] → the compose guard reports the mismatch.
+  let cur: unknown = ctor;
+  while (typeof cur === 'function') {
+    const src: string = (cur as AnyCtor).toString();
+    const m = /(?:^|[^\w$])constructor\s*\(/.exec(src);
+    if (m) {
+      const start = m.index + m[0].length;
+      const head = src.slice(start, src.indexOf(')', start));
+      return head.match(/([^\s,]+)/g) ?? [];
+    }
+    cur = Object.getPrototypeOf(cur);
+  }
+  return [];
 }
 
 // DI keys: explicit `static $constructor = ['user', ...]` wins over parameter-name parsing.
@@ -104,8 +113,7 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
       }
       if ((contract as { rest?: unknown }).rest) hasRest = true;
       else hasRpc = true;
-      // Handler presence is verified by warnMissingHandlers (probe instance) at compose;
-      // invoke also guards at call time. Arrow-field handlers aren't on the prototype.
+      // Handler presence is verified by invoke at call time. Arrow-field handlers aren't on the prototype.
       const method = key.slice(1);
       routes.set(`${service}.${method}`, {
         service,
@@ -133,30 +141,10 @@ function buildRoutes<S extends ServiceMap>(services: S): Map<string, MethodDesc>
   return routes;
 }
 
-// DX warning: a `$method` schema declared without a matching handler. Arrow-field handlers are
-// instance properties (not on the prototype), so verify via a probe instance with a permissive
-// dummy ctx. Best-effort: if deps need a real ctx the probe fails silently — invoke still guards.
-function warnMissingHandlers<S extends ServiceMap>(
-  services: S,
-  routes: Map<string, MethodDesc>,
-  inject: Record<string, (ctx: any) => any>,
-): void {
-  const dummy: any = new Proxy(function () {}, { get: () => dummy, apply: () => dummy });
-  for (const [service, Ctor] of Object.entries(services)) {
-    try {
-      const deps = depKeys(Ctor as AnyCtor).map((name) => inject[name]?.(dummy));
-      const instance = new (Ctor as AnyCtor)(...deps);
-      for (const [key, desc] of routes) {
-        if (desc.service !== service || !desc.contract) continue;
-        if (typeof instance[desc.method] !== 'function') {
-          console.warn(`[chord] ${key}: schema $${desc.method} declared but handler "${desc.method}" is missing on ${service}`);
-        }
-      }
-    } catch {
-      // probe needs a real ctx — skip; call-time guard remains
-    }
-  }
-}
+// DX warning: a `$method` schema declared without a matching handler is reported at call time
+// (invoke guards `typeof handler !== 'function'`). No compose-time probe: instantiating services
+// with a dummy ctx ran inject factories/constructors for real — an async factory rejecting on the
+// stub became an unhandled rejection that crashed the process after compose() returned.
 
 function runChain(
   ctx: unknown,
@@ -191,6 +179,16 @@ export function compose<S extends ServiceMap>(
     try {
       const json = classifier.jsonSchema(desc.contract.in) as { type?: string; prefixItems?: unknown[] };
       if (json && json.type === 'array') desc.positional = Array.isArray(json.prefixItems);
+      // $schema is a meta annotation, not a shape keyword — ignore it when detecting a void schema.
+      const shapeKeys = json ? Object.keys(json).filter((k) => k !== '$schema') : [];
+      desc.inputKind =
+        shapeKeys.length === 0
+          ? 'void'
+          : json.type === 'object'
+            ? 'object'
+            : json.type === 'array'
+              ? 'array'
+              : 'other';
     } catch {
       // no converter / synthetic schema → fall back at call time
     }
@@ -200,20 +198,31 @@ export function compose<S extends ServiceMap>(
   // is almost always a minified bundle mangling constructor parameter names. The error
   // points to the optional `static $constructor` annotation instead of an opaque TypeError.
   for (const [service, Ctor] of Object.entries(services)) {
-    for (const name of depKeys(Ctor as AnyCtor)) {
+    const keys = depKeys(Ctor as AnyCtor);
+    // Fewer parsed keys than constructor params ⇒ the source lost its parameter names (ES5
+    // downlevel, mangling, or an exotic constructor). Default/rest params parse to MORE tokens
+    // than Ctor.length, so this only fires on a genuine deficit, not on `constructor(a, b = 0)`.
+    if (keys.length < (Ctor as AnyCtor).length) {
+      throw new Error(
+        `[chord] ${service}: constructor expects ${(Ctor as AnyCtor).length} parameter(s) but only ` +
+          `${keys.length} dependency key(s) were parsed from its source. The class may be downlevelled ` +
+          `to ES5 or minified — add explicit keys: static $constructor = ['key1', 'key2'] ` +
+          `(inject keys in constructor parameter order).`,
+      );
+    }
+    for (const name of keys) {
       if (typeof inject[name] !== 'function') {
-        const keys = Object.keys(inject);
+        const keys2 = Object.keys(inject);
         throw new Error(
           `[chord] ${service}: no inject factory for dependency "${name}" (from constructor parameter names). ` +
             `Minifiers mangle parameter names — if this bundle is minified, add explicit keys to the class: ` +
             `static $constructor = ['key1', 'key2'] (inject keys in constructor parameter order). ` +
-            `Available inject keys: ${keys.length ? keys.join(', ') : '(none)'}`,
+            `Available inject keys: ${keys2.length ? keys2.join(', ') : '(none)'}`,
         );
       }
     }
   }
 
-  warnMissingHandlers(services, routes, inject);
   const registry: Endpoint[] = [...routes.values()].map((d) => ({
     service: d.service,
     method: d.method,
@@ -243,6 +252,19 @@ export function compose<S extends ServiceMap>(
     }
 
     if (desc.contract) {
+      // JSON-RPC params tolerance (§4.2): a void schema accepts omitted / [] / {} equivalently;
+      // an object schema treats omitted / [] as {} (standard clients send [] for no-arg methods).
+      if (desc.inputKind === 'void') {
+        if (
+          params === undefined ||
+          (Array.isArray(params) && params.length === 0) ||
+          (params !== null && typeof params === 'object' && !Array.isArray(params) && Object.keys(params).length === 0)
+        ) {
+          params = undefined;
+        }
+      } else if (desc.inputKind === 'object') {
+        if (params === undefined || (Array.isArray(params) && params.length === 0)) params = {};
+      }
       let parsedIn = await desc.contract.in['~standard'].validate(params);
       // Проводной контракт (JSON-RPC §4.2): tuple → позиционные [a, b]; массив-как-значение →
       // [[…]] или голый […] (один аргумент-массив); скаляр → [value] или голый (chord-клиент).
@@ -294,14 +316,15 @@ export function compose<S extends ServiceMap>(
       return value;
     }
 
-    // Simple endpoint (no schema): pass params straight to the handler.
-    // Позиционный контракт: [value] → один аргумент (стандартный JSON-RPC клиент), [[…]] →
-    // массив-как-значение (chord-клиент); голый многоэлементный […] — значение для 1-аргументного.
-    return handler.length <= 1
-      ? handler.call(instance, Array.isArray(params) && params.length === 1 ? params[0] : params)
-      : Array.isArray(params)
-        ? handler.call(instance, ...params)
-        : handler.call(instance, params);
+    // Simple endpoint (no schema): positional wire contract, independent of handler.length
+    // (default/rest params make length unreliable). Multi-element array → spread ([1,2] → (1,2));
+    // single-element → unwrap ([value] → value, [[…]] → array-as-value); non-array → as-is.
+    if (Array.isArray(params)) {
+      return params.length === 1
+        ? handler.call(instance, params[0])
+        : handler.call(instance, ...params);
+    }
+    return handler.call(instance, params);
   }
 
   async function dispatch(call: Call, ctx: unknown): Promise<unknown> {

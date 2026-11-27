@@ -1,4 +1,4 @@
-import { expect, test, vi } from 'vitest';
+import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { fn, compose, paramNames, CoreError, type Middleware } from '../index';
 import { get } from '@/rest';
@@ -117,15 +117,15 @@ test('exec batch: ctx isolated per call (no mutation leak)', async () => {
   ]);
 });
 
-test('compose warns when a schema is declared without a handler', () => {
-  const spy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+test('a schema declared without a handler fails at call time (no compose-time probe)', async () => {
   class Broken {
     static $ghost = fn({ in: z.unknown(), out: z.unknown() });
     // обработчик ghost забыли
   }
-  compose({ Broken });
-  expect(spy).toHaveBeenCalledWith(expect.stringContaining('Broken.ghost'));
-  spy.mockRestore();
+  // compose must not instantiate services with a dummy ctx (an async inject factory rejecting
+  // on the stub used to crash the process after compose returned). The guard lives at call time.
+  const core = compose({ Broken });
+  await expect(core.call('Broken.ghost', undefined)).rejects.toThrow('Method not found: Broken.ghost');
 });
 
 test('compose rejects mixing REST and RPC styles in one class', () => {

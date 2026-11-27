@@ -92,9 +92,12 @@ facade       корневой index.ts: публичная поверхност�
   платформы и кодека (паттерн v1 `backendAdapter`), читает тело нативно (`text()`/`arrayBuffer()`/
   `formData()` по `unit`), декодирует в значение, зовёт биндинг, кодирует ответ. Пользователь втыкает
   свой кодек (devalue/msgpack/cbor) сменой кодека — **без матрицы протокол×формат**. **Format** —
-  симметричный кодек значений над единицей (`unit: text/bytes`), не знает платформы/протокола.
-  formdata — read-режим (`as`, multipart парсит платформа, асимметричен); docs (`text/html`,
-  openapi.json) — raw-escape (`TransportResponse.raw`), мимо negotiated кодека. **Перенесено в src**
+  симметричный кодек значений над единицей (`unit: text/bytes/form`), не знает платформы/протокола.
+  formdata — нативный кодек (`unit: form`, `Format<FormData>`, экспорт `formdata`): multipart парсит
+  платформа (`formData()`), FormData ↔ плоское значение (скаляры → строки, Blob/File как есть,
+  вложенные объекты → JSON-строка, повторяющиеся поля → массив); read-режим `as` удалён, запрос и
+  ответ симметричны. docs (`text/html`, openapi.json) — raw-escape (`TransportResponse.raw`), мимо
+  negotiated кодека. **Перенесено в src**
   (2026-11-17): шов значение-уровневый (`TransportRequest.body: unknown`), `Format.unit`,
   format-ручка у generic-адаптеров `fromSvelteKit`/`fromExpress` (сырое тело + раннее извлечение),
   биндинги над значениями. Реальные бинарные кодеки (msgpack/cbor) — следующий шаг.

@@ -299,7 +299,7 @@ describe('v1-parity: HTTP transport errors', () => {
     }
   });
 
-  it('HTTP 500 HTML page → raw body in data, logged preview without tags (no decode crash)', async () => {
+  it('HTTP 500 HTML page → raw body in data, log carries only the status (no body/URL leak)', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const html = '<html><body><h1>500</h1><p>db-host-1 failed</p></body></html>';
@@ -310,8 +310,10 @@ describe('v1-parity: HTTP transport errors', () => {
       await expect(call(rpc)).rejects.toMatchObject({ status: 500, message: 'HTTP 500', data: { body: html } });
       const logged = String(spy.mock.calls[0]?.[0]);
       expect(logged).toContain('HTTP 500 Internal Server Error');
-      expect(logged).toContain('db-host-1 failed');
+      // SSR-safe: the body preview, host detail and URL must not reach the log.
+      expect(logged).not.toContain('db-host-1 failed');
       expect(logged).not.toContain('<h1>');
+      expect(logged).not.toContain('localhost');
     } finally {
       spy.mockRestore();
     }

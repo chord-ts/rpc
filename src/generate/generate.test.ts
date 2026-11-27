@@ -125,12 +125,12 @@ test('mcpTools: mcp-мета приоритетнее нейтральной (ti
 
 test('mcpTools: all endpoints, REST flattened + auto-path, fn scalar wrapped', () => {
   const { tools } = mcpTools(composer).document as any;
-  const getItem = tools.find((t: any) => t.name === 'Catalog.getItem');
+  const getItem = tools.find((t: any) => t.name === 'Catalog_getItem');
   expect(Object.keys(getItem.inputSchema.properties)).toEqual(expect.arrayContaining(['item_id', 'q']));
   expect(getItem.inputSchema.required).toContain('item_id');
   expect(getItem.annotations.readOnlyHint).toBe(true);
 
-  const count = tools.find((t: any) => t.name === 'Math.count');
+  const count = tools.find((t: any) => t.name === 'Math_count');
   expect(count.inputSchema).toMatchObject({ type: 'object', properties: { value: { type: 'number' } } });
 });
 

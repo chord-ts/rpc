@@ -41,16 +41,24 @@ function uid(): string {
 }
 function jsonRpcProfile(): JsonRpcProfile {
   const envelope = (method: string, input: unknown) => ({ jsonrpc: '2.0', method, params: input, id: uid() });
+  // A 2xx reply must be a JSON-RPC envelope with a result member — an empty body or a foreign
+  // JSON object ({"foo":1}) must not resolve as an undefined result.
+  const resultOf = (body: { jsonrpc?: unknown; result?: unknown } | null): unknown => {
+    if (!body || body.jsonrpc !== '2.0' || !('result' in body)) {
+      throw RpcError.parseError('Invalid JSON-RPC response', { body });
+    }
+    return body.result;
+  };
   const unwrap = (value: unknown): unknown => {
-    const body = value as { result?: unknown; error?: { code: number; message: string; data?: unknown } } | null;
+    const body = value as { error?: { code: number; message: string; data?: unknown } } | null;
     if (body?.error) throw new RpcError(body.error.code, body.error.message, body.error.data);
-    return body?.result;
+    return resultOf(value as { jsonrpc?: unknown; result?: unknown } | null);
   };
   return {
     http: {
       build: (method, input) => ({ method: 'POST', url: '', body: envelope(method, input) }),
       parse: (res) => {
-        const body = res.body as { result?: unknown; error?: { code: number; message: string; data?: unknown }; detail?: string; message?: string } | null;
+        const body = res.body as { error?: { code: number; message: string; data?: unknown }; detail?: string; message?: string } | null;
         if (body?.error) throw new RpcError(body.error.code, body.error.message, body.error.data);
         // Non-2xx without an envelope (adapter parse error, auth on the user's route, HTML error
         // page) is still a failure — never resolve it as an undefined result. data mirrors v1:
@@ -59,7 +67,7 @@ function jsonRpcProfile(): JsonRpcProfile {
           const detail = body?.detail ?? body?.message ?? `HTTP ${res.status}`;
           throw new RpcError(ErrorCode.InternalError, detail, { status: res.status, headers: res.headers, body: res.body }, res.status);
         }
-        return body?.result;
+        return resultOf(res.body as { jsonrpc?: unknown; result?: unknown } | null);
       },
     },
     message: {
@@ -75,35 +83,44 @@ interface RestRoute {
   endpoint: string;
   path: string[];
   query: string[];
-  body: string[];
-  // Non-object body (array/scalar): the whole request body is the client's `body` arg, not a
-  // field-pick from properties (which an array/scalar schema does not have).
-  wholeBody: boolean;
+  // Body mode mirrors the server composite: 'whole' (array/scalar) travels under the `body` key;
+  // 'flat' (object-like: object/record/union/intersection) picks every input field not consumed by
+  // path/query; 'none' — no request body.
+  bodyMode: 'none' | 'whole' | 'flat';
 }
 function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
   const components = doc.components?.schemas ?? {};
   // Recursive/reused body schemas are hoisted to components.schemas — resolve a bare $ref root.
-  const deref = (s: { properties?: Record<string, unknown>; type?: string; $ref?: string } | undefined) => {
+  const deref = (s: Record<string, unknown> | undefined): Record<string, unknown> | undefined => {
     const ref = s?.$ref;
     if (typeof ref === 'string' && ref.startsWith('#/components/schemas/')) {
-      return components[ref.slice('#/components/schemas/'.length)] as { properties?: Record<string, unknown>; type?: string } | undefined;
+      return components[ref.slice('#/components/schemas/'.length)] as Record<string, unknown> | undefined;
     }
     return s;
+  };
+  // A body is non-object (whole mode) only when its schema is definitely array/scalar. Object-like
+  // schemas — type:object, properties, additionalProperties (record), or a union/intersection of
+  // objects — flat-merge on the server, so the client must send flat fields, not a `body` wrapper.
+  const isNonObject = (s: Record<string, unknown> | undefined): boolean => {
+    const d = deref(s);
+    if (!d) return false;
+    if (typeof d.type === 'string' && d.type !== 'object') return true;
+    const branches = (d.anyOf ?? d.oneOf) as Record<string, unknown>[] | undefined;
+    if (branches) return branches.every(isNonObject);
+    return false;
   };
   const routes: Record<string, RestRoute> = {};
   for (const [endpoint, ops] of Object.entries(doc.paths ?? {})) {
     for (const [verb, op] of Object.entries(ops)) {
       if (!op.operationId) continue;
       const params = op.parameters ?? [];
-      const bodySchema = deref(op.requestBody?.content?.['application/json']?.schema);
-      const isObjectBody = bodySchema?.type === 'object' || bodySchema?.properties !== undefined;
+      const bodySchema = deref(op.requestBody?.content?.['application/json']?.schema as Record<string, unknown> | undefined);
       routes[op.operationId] = {
         method: verb.toUpperCase(),
         endpoint,
         path: params.filter((p) => p.in === 'path').map((p) => p.name),
         query: params.filter((p) => p.in === 'query').map((p) => p.name),
-        body: Object.keys(bodySchema?.properties ?? {}),
-        wholeBody: bodySchema !== undefined && !isObjectBody,
+        bodyMode: bodySchema === undefined ? 'none' : isNonObject(bodySchema) ? 'whole' : 'flat',
       };
     }
   }
@@ -124,17 +141,21 @@ function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
         for (const name of route.query) {
           const v = flat[name];
           if (v === undefined) continue;
-          // Array query → repeated keys (?tag=a&tag=b), the form the server parses back into an array.
+          // Array query → repeated keys (?tag=a&tag=b); the server parses declared array fields
+          // back into arrays (single value included). An empty array sends no key → server [].
           if (Array.isArray(v)) for (const item of v) qs.append(name, String(item));
           else qs.set(name, String(v));
         }
         const query = qs.toString();
         let body: unknown;
-        if (route.wholeBody) {
+        if (route.bodyMode === 'whole') {
           body = flat['body']; // array/scalar body travels under the `body` key
-        } else if (route.body.length) {
+        } else if (route.bodyMode === 'flat') {
+          // Mirror the server: every input field not consumed by path/query is body. Picking only
+          // declared `properties` silently dropped record/union bodies (no properties in schema).
+          const consumed = new Set([...route.path, ...route.query]);
           const obj: Record<string, unknown> = {};
-          for (const name of route.body) if (flat[name] !== undefined) obj[name] = flat[name];
+          for (const [k, v] of Object.entries(flat)) if (!consumed.has(k) && v !== undefined) obj[k] = v;
           body = obj;
         }
         return { method: route.method, url: query ? `${path}?${query}` : path, body };
@@ -166,7 +187,8 @@ function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, 
     try {
       res = await doFetch(url, {
         method: req.method,
-        headers: { 'content-type': format.contentType, ...headers },
+        // form: multipart boundary ставит платформа — ручной content-type ломает тело.
+        headers: { ...(format.unit === 'form' ? {} : { 'content-type': format.contentType }), ...headers },
         body: req.body === undefined ? undefined : format.encode(req.body),
       });
     } catch (e) {
@@ -185,16 +207,22 @@ function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, 
       });
     };
     if (res.status >= 300 && res.status < 400) navigate();
-    const raw = format.unit === 'bytes' ? new Uint8Array(await res.arrayBuffer()) : await res.text();
+    // form: multipart парсит платформа (res.formData()). Не-multipart тело (страница ошибки
+    // прокси/редиректа) читаем текстом — по content-type, чтобы не disturbить тело неудачным formData().
+    const raw =
+      format.unit === 'bytes'
+        ? new Uint8Array(await res.arrayBuffer())
+        : format.unit === 'form'
+          ? (res.headers.get('content-type') ?? '').includes('multipart/form-data')
+            ? await res.formData()
+            : await res.text()
+          : await res.text();
     if (!res.ok) {
       const resHeaders = Object.fromEntries(res.headers.entries());
-      const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
-      const preview = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
-      // set-cookie/authorization не пишем в лог (SSR-утечка сессии); в error.data они остаются.
-      const safeHeaders = Object.fromEntries(
-        Object.entries(resHeaders).filter(([k]) => !['set-cookie', 'authorization'].includes(k.toLowerCase())),
-      );
-      console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${url}\nheaders: ${JSON.stringify(safeHeaders)}\npreview: ${preview}`);
+      const text = typeof raw === 'string' ? raw : raw instanceof Uint8Array ? new TextDecoder().decode(raw) : '';
+      // Log only the status by default: URL (query secrets), response headers and body preview
+      // must not reach server logs (SSR). Full detail stays in error.data for the caller.
+      console.error(`[chord] HTTP ${res.status} ${res.statusText}`);
       let value: unknown = text;
       try {
         value = raw ? format.decode(raw) : undefined;
@@ -219,6 +247,7 @@ function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, 
  * socket provides one, rejects all pending calls so none hangs forever. */
 function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding, timeout?: number): CallFn {
   const pending = new Map<string | number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
+  let closed = false;
   socket.onMessage((data) => {
     let reply: unknown;
     try {
@@ -238,11 +267,18 @@ function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding, ti
     }
   });
   socket.onClose?.(() => {
+    closed = true;
     for (const slot of pending.values()) slot.reject(new Error('Socket closed'));
     pending.clear();
   });
   return (method, input) =>
     new Promise((resolve, reject) => {
+      // A call after close must reject immediately — send on a closed socket may be a silent
+      // no-op, leaving the promise pending forever (timeout is off by default).
+      if (closed) {
+        reject(new Error('Socket closed'));
+        return;
+      }
       const value = b.build(method, input) as { id: string | number };
       // Optional per-call timeout: a server that never replies must not hang the caller forever.
       const timer =

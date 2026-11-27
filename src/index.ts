@@ -21,5 +21,5 @@ export type { ErrorObject, RPCId, RPCRequest, RPCResponse, RPCBody } from './jso
 export { fromSvelteKit, fromExpress, type Socket } from './transport';
 // v2 Format перебивает v1-тип из star: свои форматы (MIGRATION) пишутся против v2-контракта,
 // кодек json — дефолт эндпоинтов, доступен с корня.
-export type { Format, WireFn, JsonWire, ApplyWire } from './format/types';
-export { json } from './format';
+export type { Format, WireFn, JsonWire, FormWire, ApplyWire } from './format/types';
+export { json, formdata } from './format';

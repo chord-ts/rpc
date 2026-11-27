@@ -5,8 +5,6 @@ import type { HttpProtocol, TransportResponse } from '../types';
 import type { Format } from '../format/types';
 import { json } from '../format';
 
-type ReadMode = 'format' | 'formdata';
-
 interface FetchRequest {
   method: string;
   url: string;
@@ -15,14 +13,9 @@ interface FetchRequest {
   formData?(): Promise<FormData>;
 }
 
-async function readBody(request: FetchRequest, format: Format<any>, as: ReadMode): Promise<unknown> {
-  if (as === 'formdata') {
-    const obj: Record<string, unknown> = {};
-    (await request.formData!()).forEach((v, k) => {
-      obj[k] = v; // multipart парсит платформа, поля — значением, без decode
-    });
-    return obj;
-  }
+async function readBody(request: FetchRequest, format: Format<any>): Promise<unknown> {
+  // formdata: multipart парсит платформа, кодек получает готовый FormData.
+  if (format.unit === 'form') return format.decode(await request.formData!());
   // Пустое тело (GET/HEAD, docs) — undefined, без decode.
   if (format.unit === 'bytes') {
     const buf = new Uint8Array(await request.arrayBuffer!());
@@ -35,12 +28,12 @@ async function readBody(request: FetchRequest, format: Format<any>, as: ReadMode
 export async function fromSvelteKit(
   binding: HttpProtocol & { format?: Format<any> },
   event: { request: FetchRequest; locals?: unknown },
-  opts: { format?: Format<any>; as?: ReadMode; body?: unknown } = {},
+  opts: { format?: Format<any>; body?: unknown } = {},
 ): Promise<Response> {
   const format = opts.format ?? binding.format ?? json; // эндпоинт — источник формата; opts — override
   let body: unknown;
   try {
-    body = opts.body !== undefined ? opts.body : await readBody(event.request, format, opts.as ?? 'format');
+    body = opts.body !== undefined ? opts.body : await readBody(event.request, format);
   } catch {
     // Parse-error — граница адаптера. JSON-RPC-семейство (message-проекция) получает конверт
     // спеки (-32700, id:null); остальные протоколы — {detail}.
@@ -51,11 +44,14 @@ export async function fromSvelteKit(
     return new Response(JSON.stringify(body), { status: 400, headers: { 'content-type': 'application/json' } });
   }
   const res = await binding.http.handle({ method: event.request.method, url: event.request.url, body }, event.locals);
-  return respond(res, format);
+  return respond(res, format, event.request.method === 'HEAD');
 }
 
-function respond(res: TransportResponse, format: Format<any>): Response {
-  const headers = { 'content-type': format.contentType, ...res.headers };
-  const out = res.raw ? (res.body as string | Uint8Array | null) : format.encode(res.body);
-  return new Response(res.status === 204 ? null : out, { status: res.status, headers });
+function respond(res: TransportResponse, format: Format<any>, head = false): Response {
+  // HEAD (and 204) carry no body; skip encoding entirely for HEAD.
+  const out = head || res.status === 204 ? null : res.raw ? (res.body as string | Uint8Array | null) : format.encode(res.body);
+  // FormData: the platform sets multipart/form-data WITH the boundary — a manual content-type
+  // header (no boundary) would break parsing. Let the Response constructor derive it.
+  const headers = out instanceof FormData ? { ...res.headers } : { 'content-type': format.contentType, ...res.headers };
+  return new Response(out, { status: res.status, headers });
 }

@@ -22,68 +22,68 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
+      "require": { "types": "./dist/index.d.cts", "default": "./dist/index.cjs" }
     },
     "./client": {
-      "types": "./dist/client/index.d.ts",
-      "import": "./dist/client/index.js"
+      "import": { "types": "./dist/client/index.d.ts", "default": "./dist/client/index.js" },
+      "require": { "types": "./dist/client/index.d.cts", "default": "./dist/client/index.cjs" }
     },
     "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
+      "import": { "types": "./dist/core/index.d.ts", "default": "./dist/core/index.js" },
+      "require": { "types": "./dist/core/index.d.cts", "default": "./dist/core/index.cjs" }
     },
     "./schemas/zod": {
-      "types": "./dist/schemas/zod.d.ts",
-      "import": "./dist/schemas/zod.js"
+      "import": { "types": "./dist/schemas/zod.d.ts", "default": "./dist/schemas/zod.js" },
+      "require": { "types": "./dist/schemas/zod.d.cts", "default": "./dist/schemas/zod.cjs" }
     },
     "./mcp-handler": {
-      "types": "./dist/mcp-handler/index.d.ts",
-      "import": "./dist/mcp-handler/index.js"
+      "import": { "types": "./dist/mcp-handler/index.d.ts", "default": "./dist/mcp-handler/index.js" },
+      "require": { "types": "./dist/mcp-handler/index.d.cts", "default": "./dist/mcp-handler/index.cjs" }
     },
     "./jsonrpc": {
-      "types": "./dist/jsonrpc.d.ts",
-      "import": "./dist/jsonrpc.js"
+      "import": { "types": "./dist/jsonrpc.d.ts", "default": "./dist/jsonrpc.js" },
+      "require": { "types": "./dist/jsonrpc.d.cts", "default": "./dist/jsonrpc.cjs" }
     },
     "./rest": {
-      "types": "./dist/rest.d.ts",
-      "import": "./dist/rest.js"
+      "import": { "types": "./dist/rest.d.ts", "default": "./dist/rest.js" },
+      "require": { "types": "./dist/rest.d.cts", "default": "./dist/rest.cjs" }
     },
     "./mcp": {
-      "types": "./dist/mcp.d.ts",
-      "import": "./dist/mcp.js"
+      "import": { "types": "./dist/mcp.d.ts", "default": "./dist/mcp.js" },
+      "require": { "types": "./dist/mcp.d.cts", "default": "./dist/mcp.cjs" }
     },
     "./tools": {
-      "types": "./dist/tools.d.ts",
-      "import": "./dist/tools.js"
+      "import": { "types": "./dist/tools.d.ts", "default": "./dist/tools.js" },
+      "require": { "types": "./dist/tools.d.cts", "default": "./dist/tools.cjs" }
     },
     "./events": {
-      "types": "./dist/events.d.ts",
-      "import": "./dist/events.js"
+      "import": { "types": "./dist/events.d.ts", "default": "./dist/events.js" },
+      "require": { "types": "./dist/events.d.cts", "default": "./dist/events.cjs" }
     },
     "./transport/sveltekit": {
-      "types": "./dist/transport/sveltekit.d.ts",
-      "import": "./dist/transport/sveltekit.js"
+      "import": { "types": "./dist/transport/sveltekit.d.ts", "default": "./dist/transport/sveltekit.js" },
+      "require": { "types": "./dist/transport/sveltekit.d.cts", "default": "./dist/transport/sveltekit.cjs" }
     },
     "./transport/express": {
-      "types": "./dist/transport/express.d.ts",
-      "import": "./dist/transport/express.js"
+      "import": { "types": "./dist/transport/express.d.ts", "default": "./dist/transport/express.js" },
+      "require": { "types": "./dist/transport/express.d.cts", "default": "./dist/transport/express.cjs" }
     },
     "./middlewares": {
-      "types": "./dist/v1/middlewares/index.d.ts",
-      "import": "./dist/v1/middlewares/index.js"
+      "import": { "types": "./dist/v1/middlewares/index.d.ts", "default": "./dist/v1/middlewares/index.js" },
+      "require": { "types": "./dist/v1/middlewares/index.d.cts", "default": "./dist/v1/middlewares/index.cjs" }
     },
     "./middlewares/*": {
-      "types": "./dist/v1/middlewares/*.d.ts",
-      "import": "./dist/v1/middlewares/*.js"
+      "import": { "types": "./dist/v1/middlewares/*.d.ts", "default": "./dist/v1/middlewares/*.js" },
+      "require": { "types": "./dist/v1/middlewares/*.d.cts", "default": "./dist/v1/middlewares/*.cjs" }
     },
     "./validators": {
-      "types": "./dist/v1/validators/index.d.ts",
-      "import": "./dist/v1/validators/index.js"
+      "import": { "types": "./dist/v1/validators/index.d.ts", "default": "./dist/v1/validators/index.js" },
+      "require": { "types": "./dist/v1/validators/index.d.cts", "default": "./dist/v1/validators/index.cjs" }
     },
     "./specs": {
-      "types": "./dist/v1/specs/index.d.ts",
-      "import": "./dist/v1/specs/index.js"
+      "import": { "types": "./dist/v1/specs/index.d.ts", "default": "./dist/v1/specs/index.js" },
+      "require": { "types": "./dist/v1/specs/index.d.cts", "default": "./dist/v1/specs/index.cjs" }
     }
   },
   "types": "./dist/index.d.ts",

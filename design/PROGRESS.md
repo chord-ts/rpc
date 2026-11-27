@@ -5,6 +5,58 @@
 > намерениям. Два трека: **src** — фактический рантайм; **спайк** — compile-checked примеры в
 > `design/` (проверены `tsc --strict` и живым прогоном, но в src не перенесены, форма не одобрена).
 
+## Ревью раунд 4 — закрытые находки (2026-11-27)
+
+По `REVIEW_CLAUDE_R4.md` (коммит `d5d6550`). Спорные моменты согласованы с пользователем до правок.
+Регрессии — в `src/*/review4.test.ts` (co-located по слоям). Гейты: typecheck чистый,
+**234/234** unit (без MCP), MCP-conformance baseline passed, lint **160** (baseline 162, новых
+нарушений нет), dual-сборка собрана, **publint «All good»**, **attw «No problems»** (node10 /
+node16-from-CJS / node16-from-ESM / bundler — все 🟢), `require('@chord-ts/rpc')` smoke прошёл.
+
+**Блокеры (исправлено):**
+- **#2 граница биндинга:** `jsonrpc` диспатчит только fn/stream; REST-метод по имени → `-32601`,
+  явный opt-in `jsonrpc(composer, { includeRest: true })`. MIGRATION приведён в соответствие.
+- **#3 клиентское тело:** record/union/intersection body (без `properties`) шлётся плоско — все поля
+  входа минус path/query; обёртка `body` только для массивов/скаляров (`bodyMode: none|whole|flat`).
+- **#4 коллизии body×query:** одинаковый ключ в обоих срезах → 422 (не перетирает проверенное body).
+  Path остаётся авторитетным (мержится последним).
+- **#5 утечка чужих ошибок:** статус доверяется только branded-ошибкам (`HttpError` / `RpcError`,
+  бренд `STATUS_ERROR` в core/types — rest не импортит jsonrpc). `data` → тело ответа (под resp-схему).
+  Чужой `Error+status` → generic 500. Добавлен `HttpError(status, message, data?)` в `./rest`.
+- **#6 probe удалён:** `warnMissingHandlers` больше не инстанцирует сервисы на compose (async-inject
+  не роняет процесс). Гард отсутствия обработчика — на вызове.
+- **#7 array-query:** объявленные array-поля query всегда массив (`?tag=a` → `['a']`, absent → `[]`).
+- **#8 CJS:** двойная сборка ESM+CJS (tsdown `format: ['esm','cjs']`, `.cjs`/`.d.cts`), exports
+  `import`/`require` с types под каждый формат. `require` v1-потребителей сохранён.
+- **#18 ReDoS роутера:** посегментный линейный матчинг (startsWith/indexOf/slice) вместо regex
+  с несколькими `([^/]+)` на сегмент. `{a}-{b}-{c}` больше не катастрофичен.
+
+**Средние/низкие (исправлено):** #9 DI наследование (paramNames идёт по цепочке прототипов) +
+compose-гард `keys.length < Ctor.length` (ES5/minify); #11 void-схема принимает omitted/`[]`/`{}`,
+object-схема omitted/`[]` → `{}` (классификация `inputKind`, `$schema` игнорируется); #12c методы без
+схемы — позиционный контракт вместо `handler.length`; #13 клиент проверяет конверт (`jsonrpc:'2.0'` +
+`result`), WS-вызов после close сразу reject; #16 OpenAPI рекламирует успешный ответ даже без `resp`;
+#17 батч исполняется параллельно (`Promise.all`, порядок сохранён); #19 лог клиента — только статус
+(без URL/заголовков/тела); #22 HEAD → GET-роутинг, транспорт без тела; #23 formdata null-proto +
+повторяющиеся поля → массив; #24 explicit null body сохраняется; #15 MCP: санитизация ошибок моста,
+подсказки (POST destructive), outputSchema только object, имена тулов `Service_method`; #21 `basePath`.
+
+**Решения пользователя:** #14 `validateOut` оставлен opt-in (не включать по умолчанию); #15 имена
+тулов — подчёркивание; #21 — опция basePath; #8 — двойная сборка; #4 — отклонять коллизии;
+#7 — absent → `[]`; #2 — только свои эндпоинты + opt-in.
+
+**Отложено в долг (дизайн-уровень, согласовано «отложить»):**
+- **#10 middleware стрима:** onion вокруг создания итератора закрывается до первого события; ctx без
+  method/params. Требует отдельной дизайн-сессии (обёртка вокруг iterable vs per-event).
+- **#12a/b типы клиента:** arg типизируется после `transform` (нужен входной тип в `AnySchema`);
+  tuple с rest-элементом (`z.tuple([…], rest)`) — тип обработчика расходится с рантаймом.
+- **#17 лимиты батча/тела и BigInt-сериализация:** per-item сбой сериализации (BigInt) роняет весь
+  ответ батча на уровне транспорта; лимиты не введены.
+- **#20 v1 cacheMiddleware (H5), #25 location.assign в data-клиенте, #26 docs-сайт (только v1),
+  #27 MCP-harness на спайк-хелперах / fromExpress без настоящего Express, #28 lint-долг 160.**
+- Пункт 1 отчёта (явная регистрация методов / opt-in прототипа) в файле отсутствовал — числится
+  долгом «opt-in прототипа», не разбирался в этом раунде.
+
 ## Клиент: id запроса через uid без зависимостей (2026-11-27)
 
 По запросу пользователя («id генерировать через uid», «без зависимостей») модульный счётчик
@@ -496,9 +548,16 @@ vercel-мост `./vercel`), тесты импортируют спайк `desig
       generic SSE-адаптер.
 - [x] **Значение-уровневый шов + format-ручка перенесены в src** (2026-11-17, 44 теста):
       `TransportRequest.body: unknown` / `TransportResponse.body: unknown + raw`, `Format.unit`
-      (text/bytes); generic-адаптеры `fromSvelteKit`/`fromExpress` с format-ручкой (default json,
-      сырое тело + раннее извлечение + formdata read-режим + docs raw-escape); биндинги
+      (text/bytes/form); generic-адаптеры `fromSvelteKit`/`fromExpress` с format-ручкой (default json,
+      сырое тело + раннее извлечение + formdata нативный кодек + docs raw-escape); биндинги
       jsonrpc/rest/mcp над значениями (формат убран из биндингов, конверт toWire/toError сохранён).
+- [x] **formdata — нативный формат** (2026-11-27): `formdata: Format<FormData, FormWire>` (unit `form`,
+      экспорт с корня рядом с `json`). Симметричный кодек FormData ↔ плоское значение: скаляры → строки,
+      Blob/File как есть, вложенные объекты → JSON-строка, повторяющиеся поля → массив, `__proto__`-safe
+      (null-proto). multipart парсит платформа (`request.formData()`/`res.formData()`); content-type с
+      boundary ставит платформа (адаптер/клиент не задают вручную). read-режим `as: 'formdata'` удалён —
+      format-ручка единый механизм. Клиент end-to-end: отправка multipart + декодирование ответа, wire-эффект
+      `FormWire` течёт в тип возврата (скаляры → string). 15 тестов (кодек + клиент e2e + транспорт-регрессия).
 - [ ] Форматы: реальные бинарные кодеки MessagePack/CBOR/NDJSON (`Format<Uint8Array>`, unit bytes)
       + devalue — пока mock-кодеки в спайке `v2-value.*`. Байтовый спайк `v2-bytes.*` удалён (superseded).
 - [x] Клиентский рантайм: `src/client` (2026-11-20), конструкторы `jsonrpc`/`rest` из `./client`,
@@ -568,9 +627,9 @@ compile-checked и прогнаны живьём.
   docs — отдельные GET-binding'и (openapi/swagger/redoc), не внутри rest.
 - 03 мультипротокол — один compose → rest/jsonrpc/mcp + agentTools (один реестр).
 - 04 форматы — **значение-уровневый шов + format-ручка generic-адаптера (перенесено в src)**:
-  json → devalue/msgpack сменой кодека (протокол один, без матрицы протокол×формат), formdata
-  read-режим, раннее извлечение тела (format только encode ответа), docs raw-escape. Причинность:
-  тело приходит сырым, парсит адаптер на границе (не клиент/handler).
+  json → devalue/msgpack/formdata сменой кодека (протокол один, без матрицы протокол×формат), formdata
+  нативный кодек (unit form, multipart запрос/ответ), раннее извлечение тела (message-шов), docs
+  raw-escape. Причинность: тело приходит сырым, парсит адаптер на границе (не клиент/handler).
 - 05 websocket — **WS через message-шов в src** (перенос 2026-11-18): fromWs поверх jsonrpc.message,
   фреймы/notification/batch + format-ручка (default json и кастомный msgpack). HTTP-демо убрано
   (SvelteKit/Request не про сокеты, WS идёт через message). `helpers/message` — демо-LoopbackSocket.

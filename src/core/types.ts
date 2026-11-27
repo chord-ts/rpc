@@ -8,6 +8,12 @@ import type { AnySchema, InferOutput, SchemaAdapter, McpMeta } from '../types';
  * wire codes/statuses (jsonrpc: -32601/-32602/-32603; rest: 422/500; …). */
 export type CoreErrorKind = 'not-found' | 'invalid-params' | 'invalid-output';
 
+/** Brand for errors that INTENTIONALLY carry a transport status (RpcError.status, HttpError).
+ * Bindings trust the status only from branded errors: a foreign SDK's `Object.assign(new Error(…),
+ * { status })` must not leak its message/status to the client. Lives in core (below protocol) so
+ * both jsonrpc and rest can read it without importing each other (protocol peers stay decoupled). */
+export const STATUS_ERROR: unique symbol = Symbol('chord.statusError');
+
 /** Core's own error (native throw): pipeline failures only (not found, validation).
  * Handler errors propagate untouched. Protocol-specific errors (RpcError with JSON-RPC
  * codes) live in the protocol layer, not here. */
@@ -125,6 +131,9 @@ export type MethodDesc = {
    * undefined = unclassified (fall back to the bare-array heuristic). Set at compose from the
    * input JSON Schema (prefixItems ⇒ tuple). */
   positional?: boolean;
+  /** Input shape from JSON Schema, for JSON-RPC params tolerance: a void schema accepts omitted /
+   * [] / {} params; an object schema treats omitted / [] as {}. Set at compose. */
+  inputKind?: 'void' | 'object' | 'array' | 'other';
 };
 
 // --- Protocol-neutral core gasket ---

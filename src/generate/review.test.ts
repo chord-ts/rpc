@@ -168,7 +168,7 @@ test('C17: mcpTools keeps user mcp.annotations; REST verbs fall back to spec hin
     annotations?: Record<string, boolean>;
   }>;
   expect(tools.find((t) => t.name === 'ro')!.annotations).toEqual({ readOnlyHint: true, openWorldHint: false });
-  expect(tools.find((t) => t.name === 'List.list')!.annotations).toMatchObject({ readOnlyHint: true });
+  expect(tools.find((t) => t.name === 'List_list')!.annotations).toMatchObject({ readOnlyHint: true });
 });
 
 test('io: ZodAdapter input vs output for .default()', () => {

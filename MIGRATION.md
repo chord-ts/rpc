@@ -515,7 +515,7 @@ class Catalog {
   createItem: typeof Catalog.$createItem.fn = async ({ name }) => ({ id: 'new', name });
 }
 
-const api = rest(compose({ Catalog }));
+const api = rest(compose({ Catalog }), { basePath: '/api' });
 export const GET = (event) => fromSvelteKit(api, event);
 export const POST = (event) => fromSvelteKit(api, event);
 ```
@@ -528,24 +528,24 @@ The handler input is the merge of three slices — `path`, `query`, `body` — e
 > [!NOTE]
 > An **object** body merges flat into the handler input (its fields sit alongside `path`/`query`). A **non-object** body (array or scalar) cannot merge flat, so it travels under the `body` key: `post('/sum', { body: z.array(z.number()) })` gives a handler `async ({ body }) => …`, and the client calls `rpc.Svc.sum({ body: [1, 2, 3] })`. This works with or without `path`/`query` parts.
 
-Mount the REST binding on a catch-all route (`src/routes/api/[...path]/+server.ts` in SvelteKit) — it routes by verb + path internally. Executed responses:
+Mount the REST binding on a catch-all route (`src/routes/api/[...path]/+server.ts` in SvelteKit) — it routes by verb + path internally. The router matches the **full** pathname, so when the binding sits under a mount prefix, pass `basePath` (here `'/api'`): it is stripped before routing and the endpoints stay declared relative to the binding root (`/items/{item_id}`, not `/api/items/{item_id}`). Without `basePath`, a request to `/api/items/42` would 404. Executed responses:
 
 ```text
-GET  /items/42?q=widget   → 200 {"id":"42","name":"item 42 (widget)"}
-POST /items {"name":"widget"} → 201 {"id":"new","name":"widget"}
-POST /items {"name":42}   → 422 {"detail":"Validation error"}
-GET  /nope                → 404 {"detail":"Not found"}
-GET  /boom                → 500 {"detail":"Internal error"}   (handler threw Error('handler exploded'))
+GET  /api/items/42?q=widget   → 200 {"id":"42","name":"item 42 (widget)"}
+POST /api/items {"name":"widget"} → 201 {"id":"new","name":"widget"}
+POST /api/items {"name":42}   → 422 {"detail":"Validation error"}
+GET  /api/nope                → 404 {"detail":"Not found"}
+GET  /api/boom                → 500 {"detail":"Internal error"}   (handler threw Error('handler exploded'))
 ```
 
-Errors map to HTTP statuses, not a JSON-RPC envelope: validation failure → `422`, unknown route → `404`, an unexpected handler throw → `500` with the generic `{"detail":"Internal error"}` (no internal leak). An error carrying an explicit HTTP `status` (e.g. from the `resp` map) keeps its own message in `detail`. The `RpcError` factories and codes from [Step 6](#step-6-throw-json-rpc-errors-with-ready-made-codes) are JSON-RPC vocabulary; under REST, signal failures with the status map in `resp` and thrown errors.
+Errors map to HTTP statuses, not a JSON-RPC envelope: validation failure → `422`, unknown route → `404`, an unexpected handler throw → `500` with the generic `{"detail":"Internal error"}` (no internal leak). To return a deliberate status, throw an `HttpError(status, message, data?)` from `@chord-ts/rpc/rest` (or an `RpcError` with a `status`): the status is honored and `data`, when given, becomes the response body — so it can match the schema you declared in `resp` for that status. Without `data` the body is `{"detail": message}`. A plain `Error` with an attached `status` (e.g. from a third-party SDK) is **not** trusted — it maps to the generic `500`, so foreign messages and statuses never leak. The `RpcError` factories and codes from [Step 6](#step-6-throw-json-rpc-errors-with-ready-made-codes) are JSON-RPC vocabulary; under REST, signal failures with the status map in `resp` and `HttpError`.
 
 > [!WARNING]
 > A class is protocol-consistent: it declares either REST (`get`/`post`) or RPC (`fn`/`stream`), never both. `compose` refuses a mixed class at startup:
 > ```text
 > [chord] Mixed: mixes REST (get/post) and RPC (fn/stream) declarations in one class — split them into separate services
 > ```
-> One registry can still serve both protocols — `jsonrpc(composer)` picks up the `fn` endpoints, `rest(composer)` picks up the REST ones.
+> One registry can still serve both protocols, but each binding stays within its own protocol: `jsonrpc(composer)` dispatches the `fn`/`stream` endpoints, `rest(composer)` the REST ones. A REST-declared method is **not** callable by name through `/rpc` by default (that would bypass the guards/proxy on the REST route); pass `jsonrpc(composer, { includeRest: true })` to opt in explicitly.
 
 ## Step 9. Generate docs instead of getSchema
 

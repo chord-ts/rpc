@@ -11,10 +11,13 @@ type JsonSchemaObj = { type?: string; properties?: Record<string, unknown>; requ
 
 const READ_ONLY = ['GET', 'HEAD', 'OPTIONS'];
 function hintsFor(method: string): Record<string, boolean> {
+  const readOnly = READ_ONLY.includes(method);
   return {
-    readOnlyHint: READ_ONLY.includes(method),
-    destructiveHint: method === 'DELETE',
-    idempotentHint: method === 'PUT' || method === 'DELETE',
+    readOnlyHint: readOnly,
+    // Spec default destructiveHint is true: POST/PATCH/PUT/DELETE may modify state. Only the
+    // safe verbs are non-destructive (the old code marked every POST/PATCH destructive:false).
+    destructiveHint: !readOnly,
+    idempotentHint: readOnly || method === 'PUT' || method === 'DELETE',
   };
 }
 
@@ -39,12 +42,15 @@ export function mcpTools(core: Core<any>, opts: GenOptions = {}): Spec<{ tools: 
       }
 
       return {
-        // mcp.name задаёт плоское имя тула (MCP-провод); иначе Service.method.
-        name: meta?.name ?? `${e.service}.${e.method}`,
+        // mcp.name задаёт плоское имя тула (MCP-провод); иначе Service_method. Подчёркивание, не
+        // точка: OpenAI/Anthropic function-calling отвергают имена с точкой.
+        name: meta?.name ?? `${e.service}_${e.method}`,
         title: meta?.title,
         description: meta?.desc ?? (c.desc as string) ?? '',
         inputSchema,
-        outputSchema,
+        // MCP outputSchema MUST be an object schema; a scalar/array result is omitted (the tool
+        // still returns text content). Advertising {"type":"string"} is invalid per spec.
+        outputSchema: (outputSchema as { type?: string } | undefined)?.type === 'object' ? outputSchema : undefined,
         // User-declared mcp.annotations win; REST verbs fall back to spec hints.
         annotations: meta?.annotations ?? (rest ? hintsFor(rest.method) : undefined),
       };

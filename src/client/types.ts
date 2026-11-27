@@ -62,7 +62,7 @@ export type WireClient<S extends ServiceMap, F extends WireFn> = {
 export interface OpenApiOperation {
   operationId?: string;
   parameters?: { name: string; in: string }[];
-  requestBody?: { content?: Record<string, { schema?: { properties?: Record<string, unknown>; $ref?: string } }> };
+  requestBody?: { content?: Record<string, { schema?: Record<string, unknown> }> };
 }
 export interface OpenApiDoc {
   paths?: Record<string, Record<string, OpenApiOperation>>;
