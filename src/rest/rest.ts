@@ -31,11 +31,14 @@ type PathKeys<S extends string> = S extends `${string}{${infer P}}${infer R}` ? 
 type AutoPath<S extends string> = { [K in PathKeys<S>]: string };
 
 type PartOut<S> = S extends AnySchema<infer O> ? O : unknown;
+// Non-object body (array/scalar) cannot flat-merge into path/query — it lives under the `body` key.
+// Object body merges flat (unchanged). Arrays are objects in TS, so check any[] first.
+type BodyPart<O> = O extends any[] ? { body: O } : O extends object ? O : { body: O };
 type RestIn<C extends RestContract, P extends string> = (C['path'] extends AnySchema<any>
   ? PartOut<C['path']>
   : AutoPath<P>) &
   PartOut<C['query']> &
-  PartOut<C['body']>;
+  (C['body'] extends AnySchema<any> ? BodyPart<PartOut<C['body']>> : unknown);
 
 type SuccessStatus<C extends RestContract> = C['status'] extends number ? C['status'] : 200;
 type RespOut<C extends RestContract> = C['resp'] extends Record<number, AnySchema<any>>
@@ -103,7 +106,10 @@ function composite(c: RestContract, endpoint: string): AnySchema<any> {
           }
           const r = await schema['~standard'].validate(slice);
           if ('issues' in r) issues.push(...r.issues);
-          else mergeSafe(merged, r.value);
+          else if (name === 'body' && (Array.isArray(r.value) || r.value === null || typeof r.value !== 'object')) {
+            // Non-object body → the `body` slot (mirrors the RestIn type); object body merges flat.
+            mergeSafe(merged, { body: r.value });
+          } else mergeSafe(merged, r.value);
         }
         return issues.length > 0 ? { issues } : { value: merged };
       },
@@ -135,6 +141,11 @@ interface RestRoute extends RestMeta {
 }
 
 function compilePath(template: string): { regex: RegExp; params: string[] } {
+  // Adjacent placeholders ({a}{b}) compile to neighbouring ([^/]+) groups — catastrophic
+  // backtracking on a non-matching path (ReDoS), and the split is ambiguous anyway. Reject early.
+  if (/\}\{/.test(template)) {
+    throw new Error(`[chord] REST endpoint "${template}": adjacent placeholders are ambiguous — separate them with a literal segment (e.g. {a}/{b})`);
+  }
   const params: string[] = [];
   // Literal segments are regex-escaped; only {name} placeholders become capture groups.
   // Without escaping, '/items.json' would also match '/itemsXjson'.
@@ -184,10 +195,12 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
       let pathValues: Record<string, string> = {};
       let pathMatched = false;
       let decodeFailed = false;
+      const allowed = new Set<string>();
       for (const r of routes) {
         const m = url.pathname.match(r.regex);
         if (!m) continue;
         pathMatched = true;
+        allowed.add(r.method);
         if (r.method !== req.method) continue;
         route = r;
         try {
@@ -199,9 +212,9 @@ export function rest<S extends ServiceMap, F extends WireFn = JsonWire>(
       }
       if (decodeFailed) return { status: 400, body: { detail: 'Malformed path' } };
       if (!route) {
-        // path matched another verb → 405; no path at all → 404.
+        // path matched another verb → 405 (RFC 9110: Allow is required); no path at all → 404.
         return pathMatched
-          ? { status: 405, body: { detail: 'Method not allowed' } }
+          ? { status: 405, headers: { allow: [...allowed].join(', ') }, body: { detail: 'Method not allowed' } }
           : { status: 404, body: { detail: 'Not found' } };
       }
 

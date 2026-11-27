@@ -2,7 +2,7 @@
 // agentTools (tools) и mcp-handler (protocol/mcp) оба потребляют mcpTools. protocol/mcp/tools.ts
 // реэкспортит для co-location. Tools для всех unary-эндпоинтов со схемой (REST + fn; stream — не тул).
 
-import type { AnySchema, RestMeta } from '../types';
+import type { AnySchema, McpMeta, RestMeta } from '../types';
 import type { Core } from '../core/types';
 import { flatToolJson } from '../schemas';
 import { converter, serveSpec, type GenOptions, type Spec } from './core';
@@ -25,7 +25,7 @@ export function mcpTools(core: Core<any>, opts: GenOptions = {}): Spec<{ tools: 
     .filter((e) => e.contract && !e.contract.event)
     .map((e) => {
       const c = e.contract!;
-      const meta = c.mcp as { name?: string; desc?: string; title?: string } | undefined;
+      const meta = c.mcp as McpMeta | undefined;
       const rest = c.rest as RestMeta | undefined;
 
       // Плоский inputSchema — общий метод с flatToolSchema (MCP/tools), без дублирования.
@@ -45,7 +45,8 @@ export function mcpTools(core: Core<any>, opts: GenOptions = {}): Spec<{ tools: 
         description: meta?.desc ?? (c.desc as string) ?? '',
         inputSchema,
         outputSchema,
-        annotations: rest ? hintsFor(rest.method) : undefined,
+        // User-declared mcp.annotations win; REST verbs fall back to spec hints.
+        annotations: meta?.annotations ?? (rest ? hintsFor(rest.method) : undefined),
       };
     });
   return serveSpec({ tools });

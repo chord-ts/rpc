@@ -28,7 +28,8 @@ export function agentTools(core: Core<any>, opts: GenOptions = {}): AgentTool[] 
       ...descriptors[i],
       schema: flatToolSchema(c, schemas),
       invoke,
-      func: async (args: unknown) => JSON.stringify(await invoke(args)),
+      // JSON.stringify(undefined) === undefined — void/204 must still yield a string (Promise<string>).
+      func: async (args: unknown) => JSON.stringify(await invoke(args)) ?? '',
     };
   });
 }

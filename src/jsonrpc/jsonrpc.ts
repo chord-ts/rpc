@@ -102,7 +102,7 @@ const invalidRequest = (id: RPCId): RPCResponse => ({
  * Parse errors (raw decode) belong to the adapter. */
 export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
   core: Core<S>,
-  opts?: { format?: Format<any, F>; jsonSchema?: (s: AnySchema) => unknown; info?: { title: string; version: string; description?: string } },
+  opts?: { format?: Format<any, F>; jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown; info?: { title: string; version: string; description?: string } },
 ): MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
   const format = (opts?.format ?? json) as Format<any, F>;
   let discovery: object | undefined; // lazy, generated once

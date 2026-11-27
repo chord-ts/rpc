@@ -75,7 +75,7 @@ export interface McpServerLike {
 export interface RegisterMcpOptions {
   /** Per-request DI ctx из сырого HTTP-запроса (обработчик тула получает ctx.http.req). */
   ctx?: (req: Request) => unknown;
-  jsonSchema?: (s: AnySchema) => unknown;
+  jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown;
 }
 
 /** Регистрирует MCP-тулы composer'а на сервере пользователя (opt-in: только эндпоинты с mcp-карманом).

@@ -14,14 +14,13 @@
 // (Service.method); default minifiers keep property names, but property mangling breaks addressing
 // (same class of risk as server DI paramNames) — keep property mangling off or use explicit keys.
 
-import type { ServiceMap } from '../core/types';
 import type { Socket } from '../transport';
 import type { Format } from '../format/types';
 import { json } from '../format';
 import { RpcError, ErrorCode } from '@/jsonrpc';
 import type {
   HttpClientBinding, MessageClientBinding, JsonRpcProfile, CallFn,
-  FetchClientInit, WsClientInit, ClientInit, BindingServices, BindingFormat,
+  FetchClientInit, ClientInit, BindingServices, BindingFormat,
   RpcBinding, RestBinding, WireClient, OpenApiDoc,
 } from './types';
 
@@ -77,14 +76,17 @@ interface RestRoute {
   path: string[];
   query: string[];
   body: string[];
+  // Non-object body (array/scalar): the whole request body is the client's `body` arg, not a
+  // field-pick from properties (which an array/scalar schema does not have).
+  wholeBody: boolean;
 }
 function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
   const components = doc.components?.schemas ?? {};
   // Recursive/reused body schemas are hoisted to components.schemas — resolve a bare $ref root.
-  const deref = (s: { properties?: Record<string, unknown>; $ref?: string } | undefined) => {
+  const deref = (s: { properties?: Record<string, unknown>; type?: string; $ref?: string } | undefined) => {
     const ref = s?.$ref;
     if (typeof ref === 'string' && ref.startsWith('#/components/schemas/')) {
-      return components[ref.slice('#/components/schemas/'.length)] as { properties?: Record<string, unknown> } | undefined;
+      return components[ref.slice('#/components/schemas/'.length)] as { properties?: Record<string, unknown>; type?: string } | undefined;
     }
     return s;
   };
@@ -94,12 +96,14 @@ function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
       if (!op.operationId) continue;
       const params = op.parameters ?? [];
       const bodySchema = deref(op.requestBody?.content?.['application/json']?.schema);
+      const isObjectBody = bodySchema?.type === 'object' || bodySchema?.properties !== undefined;
       routes[op.operationId] = {
         method: verb.toUpperCase(),
         endpoint,
         path: params.filter((p) => p.in === 'path').map((p) => p.name),
         query: params.filter((p) => p.in === 'query').map((p) => p.name),
         body: Object.keys(bodySchema?.properties ?? {}),
+        wholeBody: bodySchema !== undefined && !isObjectBody,
       };
     }
   }
@@ -110,7 +114,12 @@ function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
         if (!route) throw new Error(`No REST route for ${method}`);
         const flat = (input ?? {}) as Record<string, unknown>;
         let path = route.endpoint;
-        for (const name of route.path) path = path.replace(`{${name}}`, encodeURIComponent(String(flat[name])));
+        for (const name of route.path) {
+          const v = flat[name];
+          // Missing path param must not silently become the literal "undefined" in the URL.
+          if (v === undefined) throw new Error(`Missing path parameter "${name}" for ${method}`);
+          path = path.replace(`{${name}}`, encodeURIComponent(String(v)));
+        }
         const qs = new URLSearchParams();
         for (const name of route.query) {
           const v = flat[name];
@@ -119,10 +128,16 @@ function restProfile(doc: OpenApiDoc): { http: HttpClientBinding } {
           if (Array.isArray(v)) for (const item of v) qs.append(name, String(item));
           else qs.set(name, String(v));
         }
-        const body: Record<string, unknown> = {};
-        for (const name of route.body) if (flat[name] !== undefined) body[name] = flat[name];
         const query = qs.toString();
-        return { method: route.method, url: query ? `${path}?${query}` : path, body: route.body.length ? body : undefined };
+        let body: unknown;
+        if (route.wholeBody) {
+          body = flat['body']; // array/scalar body travels under the `body` key
+        } else if (route.body.length) {
+          const obj: Record<string, unknown> = {};
+          for (const name of route.body) if (flat[name] !== undefined) obj[name] = flat[name];
+          body = obj;
+        }
+        return { method: route.method, url: query ? `${path}?${query}` : path, body };
       },
       // REST error — HTTP status + {detail}, not a JSON-RPC envelope. Native throw with status;
       // headers/raw body attached v1-style (an HTML error page stays readable in error.body).
@@ -158,21 +173,28 @@ function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, 
       // Сетевой сбой (до ответа): нативная ошибка fetch, обёрнутая с сообщением и причиной.
       throw RpcError.serverError(e instanceof Error ? e.message : String(e), e);
     }
-    // Редирект: fetch следует ему сам (follow), res.redirected/res.url дают цель. В браузере
-    // переход через location.assign; в Node (SSR) location нет — ошибка с целью в data.
-    if (res.redirected || (res.status >= 300 && res.status < 400)) {
+    // Редирект: fetch следует ему сам (follow). Редирект на ВАЛИДНЫЙ API-ответ (http→https,
+    // trailing slash, балансировщик) — это обычный ответ: возвращаем результат. Навигация
+    // (location.assign в браузере, ошибка с целью в SSR) — только когда финальный ответ не является
+    // форматом эндпоинта (login-страница, HTML): явный 3xx без тела или decode-сбой redirected 2xx.
+    const navigate = (): never => {
       if (typeof location !== 'undefined' && typeof location.assign === 'function') location.assign(res.url);
       throw Object.assign(new Error(`Redirected to ${res.url}`), {
         status: res.status,
         data: { status: res.status, location: res.url, redirected: true },
       });
-    }
+    };
+    if (res.status >= 300 && res.status < 400) navigate();
     const raw = format.unit === 'bytes' ? new Uint8Array(await res.arrayBuffer()) : await res.text();
     if (!res.ok) {
       const resHeaders = Object.fromEntries(res.headers.entries());
       const text = typeof raw === 'string' ? raw : new TextDecoder().decode(raw);
       const preview = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
-      console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${url}\nheaders: ${JSON.stringify(resHeaders)}\npreview: ${preview}`);
+      // set-cookie/authorization не пишем в лог (SSR-утечка сессии); в error.data они остаются.
+      const safeHeaders = Object.fromEntries(
+        Object.entries(resHeaders).filter(([k]) => !['set-cookie', 'authorization'].includes(k.toLowerCase())),
+      );
+      console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${url}\nheaders: ${JSON.stringify(safeHeaders)}\npreview: ${preview}`);
       let value: unknown = text;
       try {
         value = raw ? format.decode(raw) : undefined;
@@ -185,6 +207,7 @@ function fetchCall(endpoint: string, format: Format<any>, b: HttpClientBinding, 
     try {
       value = raw ? format.decode(raw) : undefined;
     } catch (e) {
+      if (res.redirected) navigate(); // 2xx после редиректа, но тело — не формат эндпоинта
       throw RpcError.parseError('Invalid response', { status: res.status, cause: e instanceof Error ? e.message : String(e) });
     }
     return b.parse({ status: res.status, body: value });
@@ -242,7 +265,14 @@ function wsCall(socket: Socket, format: Format<any>, b: MessageClientBinding, ti
           reject(e);
         },
       });
-      socket.send(format.encode(value));
+      // A throwing send must not leave the slot pending forever (leak) — reject and clean up.
+      try {
+        socket.send(format.encode(value));
+      } catch (e) {
+        pending.delete(value.id);
+        clear();
+        reject(e);
+      }
     });
 }
 

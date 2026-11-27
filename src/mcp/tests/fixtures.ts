@@ -15,7 +15,9 @@
 // различаются meta-полями `mcp.resource` / `mcp.prompt` и в tools/list не попадают.
 
 import { z } from 'zod';
-import { fn } from '../../..';
+// From src/core, not the package root: the root resolves through exports to gitignored dist/,
+// so a fresh clone without a build could not run the conformance gate.
+import { fn } from '../../core';
 
 // 1×1 PNG и минимальный WAV — те же константы, что у апстрима.
 const TEST_IMAGE_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';

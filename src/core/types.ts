@@ -156,7 +156,7 @@ export interface Core<S extends ServiceMap> {
 /** inject обязателен только когда у сервисов есть зависимости (DepKeys); для сервисов без
  * зависимостей его можно опустить: `compose({ Service })`. */
 export type ComposeOptions<S extends ServiceMap> = {
-  use?: MaybeArray<Middleware>;
+  use?: MaybeArray<Middleware<any>>;
   schemas?: SchemaAdapter;
   /** Opt-in runtime validation of handler output against `out` (default false).
    * `out` always provides the return type; this flag gates the runtime check. */

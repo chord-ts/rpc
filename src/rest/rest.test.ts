@@ -160,3 +160,54 @@ test('review2: __proto__ in query does not set the prototype (schema length stay
   expect(res.body).toEqual({ length: null });
   expect((Object.prototype as { length?: unknown }).length).toBeUndefined();
 });
+
+test('S13: 405 carries the Allow header (RFC 9110)', async () => {
+  const res = await api.http.handle(req('GET', '/things'));
+  expect(res.status).toBe(405);
+  expect(res.headers?.allow).toBe('POST');
+});
+
+test('C25: adjacent placeholders are rejected at binding (ambiguous split + ReDoS)', () => {
+  class Bad {
+    static $x = get('/x/{a}{b}', {});
+    x = Bad.$x(async () => ({}));
+  }
+  expect(() => rest(compose({ Bad }))).toThrow(/adjacent placeholders/);
+});
+
+// --- C24: non-object body (array/scalar) → the `body` slot, not a {0:…} spread ---
+
+class Batch {
+  static $sum = post('/sum', { body: z.array(z.number()), resp: { 200: z.number() } });
+  sum = Batch.$sum(async ({ body }) => body.reduce((a, b) => a + b, 0));
+}
+class Scalar {
+  static $upper = post('/scalar', { body: z.string(), resp: { 200: z.string() } });
+  upper = Scalar.$upper(async ({ body }) => body.toUpperCase());
+}
+class Tagged {
+  static $put = post('/items/{id}/tags', {
+    body: z.array(z.string()),
+    resp: { 200: z.object({ id: z.string(), tags: z.array(z.string()) }) },
+  });
+  put = Tagged.$put(async ({ id, body }) => ({ id, tags: body }));
+}
+const api3 = rest(compose({ Batch, Scalar, Tagged }));
+
+test('C24: array body reaches the handler under the body slot (not {0:…})', async () => {
+  const res = await api3.http.handle(req('POST', '/sum', [1, 2, 3]));
+  expect(res.status).toBe(200);
+  expect(res.body).toBe(6);
+});
+
+test('C24: scalar body reaches the handler under the body slot', async () => {
+  const res = await api3.http.handle(req('POST', '/scalar', 'hi'));
+  expect(res.status).toBe(200);
+  expect(res.body).toBe('HI');
+});
+
+test('C24: array body combines with a path param (body slot + authoritative path)', async () => {
+  const res = await api3.http.handle(req('POST', '/items/7/tags', ['a', 'b']));
+  expect(res.status).toBe(200);
+  expect(res.body).toEqual({ id: '7', tags: ['a', 'b'] });
+});

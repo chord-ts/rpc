@@ -1,6 +1,6 @@
 // Client layer contracts: protocol-specific constructors, the inverse composition of the server.
 //   server: const api = jsonrpc(composer, { format }); fromSvelteKit(api, event)
-//   client: clientJsonRPC<typeof api>({ endpoint, format })  /  ({ socket, format })
+//   client: jsonrpc<typeof api>({ endpoint, format })  /  ({ socket, format })
 // The generic argument is the SERVER binding type (protocol + services + format). The constructor
 // derives services and format from it, guards the protocol (B extends projection) and the format
 // (init.format must match the endpoint format), and wire-transforms return types by the endpoint format.

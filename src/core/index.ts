@@ -61,15 +61,16 @@ export function stream<C extends StreamContract>(c: C): StreamFn<C> {
 }
 
 // Dependency keys match constructor parameter names (parsing ctor.toString()).
-// Locate `constructor(` specifically — the first '(' may belong to a static fn() field
-// when the class has no explicit constructor (then there are no deps → []).
+// Locate the real `constructor(` — not a substring of another method (`reconstructor(`) or a
+// `$constructor(` field: the preceding char must be a non-word, non-`$` boundary. `\s*` tolerates
+// `constructor (`. A class without an explicit constructor has no deps → [].
 // Minified bundles mangle parameter names — depKeys() then falls back to the explicit
 // `static $constructor` annotation; compose guards and points to it on mismatch.
 export function paramNames(ctor: AnyCtor): string[] {
   const src: string = ctor.toString();
-  const idx = src.indexOf('constructor(');
-  if (idx === -1) return [];
-  const start = idx + 'constructor('.length;
+  const m = /(?:^|[^\w$])constructor\s*\(/.exec(src);
+  if (!m) return [];
+  const start = m.index + m[0].length;
   const head = src.slice(start, src.indexOf(')', start));
   return head.match(/([^\s,]+)/g) ?? [];
 }

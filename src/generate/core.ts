@@ -7,7 +7,9 @@ import type { Core } from '../core/types';
 import { resolveSchemas } from '../schemas';
 
 export interface GenOptions {
-  jsonSchema?: (s: AnySchema) => unknown;
+  /** io selects the schema side ('input' for params/args, 'output' for results); honor it so
+   * transforms/defaults land on the right side. Omitting io defaults to 'output'. */
+  jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown;
   info?: { title: string; version: string; description?: string };
 }
 

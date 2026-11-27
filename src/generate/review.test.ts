@@ -4,7 +4,8 @@ import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { fn, compose } from '../index';
 import { openrpc } from '@/jsonrpc';
-import { post, openapi } from '@/rest';
+import { get, post, openapi } from '@/rest';
+import { mcpTools } from '../generate';
 import { registerMcpTools } from '../mcp/vercel';
 import { ZodAdapter } from '../schemas/zod';
 
@@ -152,6 +153,23 @@ test('H6: advertised inputSchema jsonSchema does not throw on void/Date (adapter
 });
 
 // --- средний io: input описывает .default() как необязательное, output — как обязательное ---
+
+test('C17: mcpTools keeps user mcp.annotations; REST verbs fall back to spec hints', () => {
+  class Ro {
+    static $ro = fn({ in: z.void(), out: z.string(), mcp: { name: 'ro', annotations: { readOnlyHint: true, openWorldHint: false } } });
+    ro = Ro.$ro(async () => 'x');
+  }
+  class List {
+    static $list = get('/list', { resp: { 200: z.string() } });
+    list = List.$list(async () => 'x');
+  }
+  const tools = mcpTools(compose({ Ro, List }, { schemas: new ZodAdapter() })).document.tools as Array<{
+    name: string;
+    annotations?: Record<string, boolean>;
+  }>;
+  expect(tools.find((t) => t.name === 'ro')!.annotations).toEqual({ readOnlyHint: true, openWorldHint: false });
+  expect(tools.find((t) => t.name === 'List.list')!.annotations).toMatchObject({ readOnlyHint: true });
+});
 
 test('io: ZodAdapter input vs output for .default()', () => {
   const s = z.object({ n: z.number().default(5) });

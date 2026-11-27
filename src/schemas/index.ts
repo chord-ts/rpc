@@ -12,7 +12,7 @@ const std = (s: AnySchema) =>
 /** Разрешает адаптер схемы: зарегистрированный (core.schemas) или generic default, с точечным
  * override конвертера JSON Schema. Генераторы/биндинги читают core.schemas — override встроен сюда,
  * а не протаскивается вручную через { jsonSchema } в каждый вызов. */
-export function resolveSchemas(core: Core<any>, override?: (s: AnySchema) => unknown): SchemaAdapter {
+export function resolveSchemas(core: Core<any>, override?: (s: AnySchema, io?: 'input' | 'output') => unknown): SchemaAdapter {
   const base = core.schemas ?? defaultSchemas;
   return override ? { ...base, jsonSchema: override } : base;
 }
@@ -93,6 +93,26 @@ export function stringSchema(): AnySchema {
   };
 }
 
+/** Non-object REST body (array/scalar): no properties and not type:object → it travels under the
+ * `body` key (mirrors rest.ts RestIn/composite), not as flat-merged fields. */
+const nonObjectBody = (j: { type?: string; properties?: unknown } | undefined): boolean =>
+  j !== undefined && j.type !== 'object' && j.properties === undefined;
+
+/** Validate the `body` slot of flat tool args and keep the parsed value under `body`, so flatObject
+ * merges it as one key (an array body must not be spread into {0:…}). */
+function bodySlotSchema(s: AnySchema): AnySchema {
+  return {
+    '~standard': {
+      version: 1,
+      vendor: 'chord',
+      async validate(value) {
+        const r = await s['~standard'].validate((value as { body?: unknown })?.body);
+        return 'issues' in r ? r : { value: { body: r.value } };
+      },
+    },
+  };
+}
+
 /** Плоский JSON Schema тула (object-форма) — общий для mcpTools-дескриптора и flatToolSchema.
  * fn: object как есть, скаляр → { value: T }. REST: path/query/body части + auto-path из шаблона. */
 export function flatToolJson(
@@ -109,12 +129,19 @@ export function flatToolJson(
   for (const part of ['path', 'query', 'body'] as const) {
     const s = contract[part] as AnySchema | undefined;
     if (!s) continue;
-    const pj = toJson(s) as { properties?: Record<string, unknown>; required?: string[] };
+    const pj = toJson(s) as { properties?: Record<string, unknown>; required?: string[]; type?: string };
+    if (part === 'body' && nonObjectBody(pj)) {
+      properties.body = pj;
+      required.push('body');
+      continue;
+    }
     Object.assign(properties, pj.properties ?? {});
     required.push(...(pj.required ?? []));
   }
   for (const m of rest.endpoint.matchAll(/\{([^}]+)\}/g)) {
-    if (!(m[1] in properties)) {
+    // Own-key check, not `in`: a path param named toString/constructor is inherited from
+    // Object.prototype, so `in` would skip it and the advertised schema would lose the field.
+    if (!Object.hasOwn(properties, m[1])) {
       properties[m[1]] = { type: 'string' };
       required.push(m[1]);
     }
@@ -146,9 +173,9 @@ export function flatToolSchema(
   for (const part of ['path', 'query', 'body'] as const) {
     const s = contract[part] as AnySchema | undefined;
     if (!s) continue;
-    parts.push(s);
-    const props = (toJson(s) as { properties?: Record<string, unknown> }).properties ?? {};
-    for (const name of Object.keys(props)) covered.add(name);
+    const pj = toJson(s) as { properties?: Record<string, unknown>; type?: string };
+    parts.push(part === 'body' && nonObjectBody(pj) ? bodySlotSchema(s) : s);
+    for (const name of Object.keys(pj.properties ?? {})) covered.add(name);
   }
   const extra: Record<string, AnySchema> = {};
   for (const m of rest.endpoint.matchAll(/\{([^}]+)\}/g)) {
@@ -186,8 +213,10 @@ export function packToolArgs(
   toJson: (s: AnySchema) => unknown,
 ): unknown {
   if (contract.rest) {
-    const flat = args ?? {};
-    return { path: flat, query: flat, body: flat };
+    const flat = (args ?? {}) as Record<string, unknown>;
+    const bodySchema = contract.body as AnySchema | undefined;
+    const whole = bodySchema !== undefined && nonObjectBody(toJson(bodySchema) as { type?: string; properties?: unknown });
+    return { path: flat, query: flat, body: whole ? flat.body : flat };
   }
   const rawIn = toJson(contract.in) as { type?: string };
   return rawIn.type !== 'object' ? (args as { value?: unknown } | undefined)?.value : args;

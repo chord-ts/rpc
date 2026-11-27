@@ -139,6 +139,7 @@ v1 still ships (deprecated) and the root re-exports it, so existing imports keep
 ```typescript
 import { Composer, rpc } from '@chord-ts/rpc';
 import { sveltekitMiddleware } from '@chord-ts/rpc/middlewares';
+import { json } from '@sveltejs/kit';
 
 class Say {
   @rpc()
@@ -146,7 +147,7 @@ class Say {
 }
 const composer = Composer.init({ Say: new Say() });
 composer.use(sveltekitMiddleware());
-export const POST = (event) => composer.exec(event);
+export const POST = async (event) => json(await composer.exec(event));
 ```
 
 **After (v2):**

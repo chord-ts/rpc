@@ -258,27 +258,42 @@ describe('v1-parity: HTTP transport errors', () => {
     await expect(call(rpc)).rejects.toMatchObject({ code: -32000, message: 'ECONNREFUSED', data: cause });
   });
 
-  it('redirect without location (SSR) → throw with the target in data', async () => {
-    const rpc = jsonrpc<typeof api>({
-      endpoint: 'http://localhost/rpc',
-      fetch: async () => ({ redirected: true, url: 'http://localhost/login', status: 200 }) as unknown as Response,
-    });
+  // Редирект на login-страницу: финальный ответ — HTML, не формат эндпоинта (decode падает) →
+  // навигация. Редирект на валидный API-ответ — обычный результат (тест ниже).
+  const loginPage = () =>
+    ({ redirected: true, url: 'http://localhost/login', status: 200, ok: true, headers: new Headers(), text: async () => '<html><body>login</body></html>' }) as unknown as Response;
+
+  it('redirect to a non-API page without location (SSR) → throw with the target in data', async () => {
+    const rpc = jsonrpc<typeof api>({ endpoint: 'http://localhost/rpc', fetch: async () => loginPage() });
     await expect(call(rpc)).rejects.toMatchObject({
       message: 'Redirected to http://localhost/login',
       data: { status: 200, location: 'http://localhost/login', redirected: true },
     });
   });
 
-  it('redirect in the browser → location.assign to the final URL', async () => {
+  it('redirect to a non-API page in the browser → location.assign to the final URL', async () => {
+    const assign = vi.fn();
+    vi.stubGlobal('location', { assign });
+    try {
+      const rpc = jsonrpc<typeof api>({ endpoint: 'http://localhost/rpc', fetch: async () => loginPage() });
+      await expect(call(rpc)).rejects.toThrow('Redirected');
+      expect(assign).toHaveBeenCalledWith('http://localhost/login');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('C30: redirect followed by a valid RPC 200 → returns the result, no navigation', async () => {
     const assign = vi.fn();
     vi.stubGlobal('location', { assign });
     try {
       const rpc = jsonrpc<typeof api>({
         endpoint: 'http://localhost/rpc',
-        fetch: async () => ({ redirected: true, url: 'http://localhost/login', status: 200 }) as unknown as Response,
+        fetch: async () =>
+          ({ redirected: true, url: 'http://localhost/rpc', status: 200, ok: true, headers: new Headers(), text: async () => JSON.stringify({ jsonrpc: '2.0', id: 1, result: 2 }) }) as unknown as Response,
       });
-      await expect(call(rpc)).rejects.toThrow('Redirected');
-      expect(assign).toHaveBeenCalledWith('http://localhost/login');
+      expect(await call(rpc)).toBe(2);
+      expect(assign).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
@@ -365,5 +380,51 @@ describe('review2: WS client ids and timeout', () => {
     const ids = c.sent.map((f) => (JSON.parse(f as string) as { id: unknown }).id);
     expect(typeof ids[0]).toBe('string');
     expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it('C08: a throwing send rejects the call (no forever-pending slot)', async () => {
+    const c = makeSocket();
+    c.send = () => {
+      throw new Error('send failed');
+    };
+    const rpc = jsonrpc<typeof api>({ socket: c });
+    await expect(rpc.Math.add({ a: 1, b: 1 })).rejects.toThrow('send failed');
+  });
+});
+
+describe('S11: rest client path params', () => {
+  class Items {
+    static $get = get('/items/{id}', {});
+    get = Items.$get(async ({ id }) => ({ id }));
+  }
+  const restApi = bindRest(compose({ Items }));
+  const doc = openapi(compose({ Items })).document as OpenApiDoc;
+
+  it('missing path parameter throws, not the literal "undefined" in the URL', async () => {
+    const rpc = rest<typeof restApi>({
+      endpoint: 'http://localhost',
+      doc,
+      fetch: async () => new Response('{}', { status: 200 }),
+    });
+    await expect(rpc.Items.get({} as never)).rejects.toThrow(/Missing path parameter "id"/);
+  });
+});
+
+describe('C24: rest client non-object body', () => {
+  class Batch {
+    static $sum = post('/sum', { body: z.array(z.number()), resp: { 200: z.number() } });
+    sum = Batch.$sum(async ({ body }) => body.reduce((a, b) => a + b, 0));
+  }
+  const restApi = bindRest(compose({ Batch }));
+  const doc = openapi(compose({ Batch })).document as OpenApiDoc;
+
+  it('array body travels under the body key and round-trips through the server', async () => {
+    const REST = (e: { request: Request }) => fromSvelteKit(restApi, e);
+    const rpc = rest<typeof restApi>({
+      endpoint: 'http://localhost',
+      doc,
+      fetch: (input, init) => REST({ request: new Request(input, init) }),
+    });
+    expect(await rpc.Batch.sum({ body: [1, 2, 3] })).toBe(6);
   });
 });

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { compose, type AnySchema } from '../index';
-import { defaultSchemas, resolveSchemas, flatToolSchema, packToolArgs, wrapScalar, flatObject, stringSchema } from '@/schemas';
+import { defaultSchemas, resolveSchemas, flatToolSchema, flatToolJson, packToolArgs, wrapScalar, flatObject, stringSchema } from '@/schemas';
 import { ZodAdapter } from './zod';
 
 const adapter = new ZodAdapter();
@@ -80,4 +80,11 @@ test('resolveSchemas: зарегистрированный адаптер + то
   const override = () => ({ type: 'string' });
   expect(resolveSchemas(core, override).jsonSchema).toBe(override);
   expect(resolveSchemas(compose({}, { inject: {} })).jsonSchema).toBe(defaultSchemas.jsonSchema);
+});
+
+test('C26: auto-path field named toString/constructor is advertised (own-key check, not `in`)', () => {
+  const contract = { in: z.object({}), rest: { endpoint: '/x/{toString}/{constructor}' } };
+  const json = flatToolJson(contract, () => ({})) as { properties: Record<string, unknown>; required: string[] };
+  expect(Object.keys(json.properties)).toEqual(['toString', 'constructor']);
+  expect(json.required).toEqual(['toString', 'constructor']);
 });

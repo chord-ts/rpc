@@ -34,7 +34,11 @@ export const defaultTransport: Transport = async<T, K>({ route, body, format }: 
     const text = await res.text();
     const headers = Object.fromEntries(res.headers.entries());
     const preview = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
-    console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${route}\nheaders: ${JSON.stringify(headers)}\npreview: ${preview}`);
+    // set-cookie/authorization не пишем в лог (SSR-утечка сессии); в error.data они остаются.
+    const safeHeaders = Object.fromEntries(
+      Object.entries(headers).filter(([k]) => !['set-cookie', 'authorization'].includes(k.toLowerCase())),
+    );
+    console.error(`[chord] HTTP ${res.status} ${res.statusText} from ${route}\nheaders: ${JSON.stringify(safeHeaders)}\npreview: ${preview}`);
     return { error: { code: res.status, message: res.statusText || `HTTP ${res.status}`, data: { status: res.status, headers, body: text } } } as spec.FailedResponse as K;
   }
 

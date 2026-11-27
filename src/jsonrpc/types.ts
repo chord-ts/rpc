@@ -13,11 +13,11 @@ export interface RPCRequest {
   id?: RPCId;
 }
 
-export interface RPCResponse {
+/** Spec §5: a response carries EITHER result (success) OR error (failure) — never both, never
+ * neither. The union makes the invalid "no result and no error" shape unrepresentable. */
+export type RPCResponse = {
   jsonrpc: '2.0';
   id: RPCId;
-  result?: unknown;
-  error?: ErrorObject;
-}
+} & ({ result: unknown; error?: never } | { error: ErrorObject; result?: never });
 
 export type RPCBody = RPCRequest | RPCRequest[];

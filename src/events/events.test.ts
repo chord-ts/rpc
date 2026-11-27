@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { stream, compose, fromSvelteKit } from '../index';
-import { events } from '@/events';
+import { events, asyncapi } from '@/events';
+import { ZodAdapter } from '../schemas/zod';
 
 class Ticker {
   static $countdown = stream({ in: z.object({ from: z.number() }), event: z.object({ n: z.number() }) });
@@ -26,6 +27,27 @@ test('events: подписка {method,params} → поток; только stre
 test('events: неизвестный метод → нативный CoreError', async () => {
   const it = events(composer).stream.handle({ method: 'Ticker.nope' });
   await expect(it[Symbol.asyncIterator]().next()).rejects.toMatchObject({ kind: 'not-found' });
+});
+
+test('C13/C14: AsyncAPI params use the input side; channel $ref escapes / and ~', () => {
+  class Ch {
+    static $s = stream({
+      in: z.object({ n: z.number().default(1) }),
+      event: z.object({ v: z.number() }),
+      stream: { channel: 'room/42~x' },
+    });
+    s = Ch.$s(async function* () {
+      yield { v: 1 };
+    });
+  }
+  const doc = asyncapi(compose({ Ch }, { schemas: new ZodAdapter() })).document as {
+    channels: Record<string, { messages: { params: { payload: { required?: string[] } } } }>;
+    operations: Record<string, { channel: { $ref: string } }>;
+  };
+  // input side: .default() makes n optional (output side would mark it required).
+  expect(doc.channels['room/42~x'].messages.params.payload.required ?? []).not.toContain('n');
+  // JSON Pointer: '~' → '~0', '/' → '~1'.
+  expect(doc.operations['room/42~x.send'].channel.$ref).toBe('#/channels/room~142~0x');
 });
 
 // Пересечение моделей на этапе типов (страховка, не исполняется):

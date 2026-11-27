@@ -9,7 +9,7 @@
 // нельзя тихо устареть: закрыл пробел → убери строку. Так набор становится ratchet'ом.
 
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -58,6 +58,7 @@ describe(`MCP conformance · официальный рефери · frozen ${REQ
         const parsed = JSON.parse(readFileSync(join(out, file), 'utf8'));
         console.log(`[conformance] ${file}:`, JSON.stringify(parsed).slice(0, 4000));
       }
+      rmSync(out, { recursive: true, force: true }); // не оставляем отчёт в /tmp
 
       if (REPORT_ONLY) {
         expect(run.stdout.length + run.stderr.length).toBeGreaterThan(0);

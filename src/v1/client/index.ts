@@ -18,7 +18,7 @@ import { buildRequest } from '../specs';
  *
  * const rpc = client<Client>({ endpoint: '/<path to endpoint>' });
  * ```
- * @deprecated Устарело в v2: используйте `jsonrpc<typeof api>({ endpoint })` из '@chord-ts/rpc/client'. v1-клиент — '@chord-ts/rpc/v1/client'.
+ * @deprecated Устарело в v2: используйте `jsonrpc<typeof api>({ endpoint })` из '@chord-ts/rpc/client'. v1-клиент реэкспортируется оттуда же.
  */
 
 export function client<T>(init: IRPC.Init): IRPC.Builder<T> {
@@ -35,7 +35,7 @@ export function client<T>(init: IRPC.Init): IRPC.Builder<T> {
  * const fn = async (a: number, b: string) => a + b;
  * type Sum = Returned<typeof fn>; // string
  * ```
- * @deprecated Устарело в v2: клиентские конструкторы `jsonrpc`/`rest` из '@chord-ts/rpc/client'. v1 — '@chord-ts/rpc/v1/client'.
+ * @deprecated Устарело в v2: клиентские конструкторы `jsonrpc`/`rest` из '@chord-ts/rpc/client'. v1-клиент реэкспортируется оттуда же.
  */
 
 export class RPC<T extends IRPC.Schema> implements IRPC.Client<T> {

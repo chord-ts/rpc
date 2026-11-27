@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { fn, stream, compose } from '../index';
-import { get } from '@/rest';
+import { get, post } from '@/rest';
 import { agentTools } from '@/tools';
 import { ZodAdapter } from '../schemas/zod';
 
@@ -53,6 +53,30 @@ test('review2: transform schema — framework validate + invoke applies the tran
   expect(await len.invoke((parsed as { value: unknown }).value)).toBe(3);
   // прямой вызов с сырыми аргументами (плоская форма тула) тоже работает — валидация в core.call
   expect(await len.invoke({ value: 'abc' })).toBe(3);
+});
+
+test('C24: REST array-body tool — schema advertises body, invoke packs the body slot', async () => {
+  class Batch {
+    constructor() {}
+    static $sum = post('/sum', { body: z.array(z.number()), resp: { 200: z.number() } });
+    sum = Batch.$sum(async ({ body }) => body.reduce((a, b) => a + b, 0));
+  }
+  const c = compose({ Batch }, { inject: {}, schemas: new ZodAdapter() });
+  const sum = agentTools(c).find((t) => t.name === 'Batch.sum')!;
+  const parsed = await sum.schema['~standard'].validate({ body: [1, 2, 3] });
+  expect('value' in parsed).toBe(true);
+  expect(await sum.invoke({ body: [1, 2, 3] })).toBe(6);
+});
+
+test('C28: void handler — func returns "" (Promise<string> honored, not undefined)', async () => {
+  class Void {
+    constructor() {}
+    static $ping = fn({ in: z.void(), out: z.void() });
+    ping: typeof Void.$ping.fn = async () => {};
+  }
+  const c = compose({ Void }, { inject: {}, schemas: new ZodAdapter() });
+  const ping = agentTools(c).find((t) => t.name === 'Void.ping')!;
+  expect(await ping.func({})).toBe('');
 });
 
 test('agentTools: stream-эндпоинты не тулы (unary only)', () => {

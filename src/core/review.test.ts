@@ -3,6 +3,7 @@
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { fn, stream, compose, type Middleware } from '../index';
+import { paramNames } from '../core';
 import { ZodAdapter } from '../schemas/zod';
 
 class Arrays {
@@ -80,6 +81,49 @@ test('review2: simple endpoint — positional [5] reaches echo(x) as 5, [[…]] 
   expect(await c.call('Simple.echo', [5])).toBe(5);
   expect(await c.call('Simple.echo', [[1, 2]])).toEqual([1, 2]);
   expect(await c.call('Simple.echo', 5)).toBe(5);
+});
+
+test('C02: compose accepts a ctx-typed middleware (Middleware<{user?}>)', async () => {
+  const auth: Middleware<{ user?: string }> = async (ctx, next) => {
+    if (!ctx.user) throw new Error('unauthorized');
+    return next(ctx);
+  };
+  class Svc {
+    static $ping = fn({ in: z.void(), out: z.string() });
+    ping = Svc.$ping(async () => 'pong');
+  }
+  const c = compose({ Svc }, { use: auth });
+  expect(await c.call('Svc.ping', undefined, { ctx: { user: 'ada' } })).toBe('pong');
+  await expect(c.call('Svc.ping', undefined, { ctx: {} })).rejects.toThrow('unauthorized');
+});
+
+test('C10: paramNames finds the real constructor, not reconstructor() / $constructor', () => {
+  class Svc {
+    reconstructor(noise: string) {
+      return noise;
+    }
+    constructor(public readonly user: string) {}
+  }
+  expect(paramNames(Svc)).toEqual(['user']);
+  class NoCtor {
+    reconstructor(x: string) {
+      return x;
+    }
+  }
+  expect(paramNames(NoCtor)).toEqual([]);
+});
+
+test('C10: DI injects correctly when a method name contains "constructor"', async () => {
+  class Svc {
+    reconstructor() {
+      return 'noise';
+    }
+    constructor(public readonly user: string) {}
+    static $whoami = fn({ in: z.void(), out: z.string() });
+    whoami = Svc.$whoami(async () => this.user);
+  }
+  const c = compose({ Svc }, { inject: { user: () => 'ada' } });
+  expect(await c.call('Svc.whoami', undefined)).toBe('ada');
 });
 
 test('H1: per-stream use middleware runs around the iterable', async () => {

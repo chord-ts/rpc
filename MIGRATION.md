@@ -16,7 +16,7 @@ v2 splits the same job into four layers, each with its own import:
 1. **Declaration** — `fn({ in, out })` describes a method with a schema. Types, validation and docs all come from this one declaration.
 2. **Registry** — `compose({ Service })` collects classes, wires dependency injection and middleware.
 3. **Protocol** — `jsonrpc(composer)` or `rest(composer)` turns the registry into a protocol binding.
-4. **Transport** — `fromSvelteKit(api, event)`, `fromExpress(api, req, res)` adapt a binding to a platform.
+4. **Transport** — `fromSvelteKit(rpcEndpoint, event)`, `fromExpress(rpcEndpoint, req, res)` adapt a binding to a platform.
 
 The correspondence, in one table:
 
@@ -31,7 +31,7 @@ The correspondence, in one table:
 | `composer.exec(event)` + `json(...)` | `fromSvelteKit(jsonrpc(composer), event)` |
 | `buildError({ code, message })` returns | `throw RpcError.invalidParams(...)` — factories with ready-made codes, or `new RpcError(code, ...)` for custom ones |
 | `typeof composer.clientType` | `typeof jsonrpc(composer)` |
-| `client<Client>({ endpoint })` | `jsonrpc<typeof api>({ endpoint })` from `@chord-ts/rpc/client` |
+| `client<Client>({ endpoint })` | `jsonrpc<typeof rpcEndpoint>({ endpoint })` from `@chord-ts/rpc/client` |
 | `composer.getSchema(route)` | `openrpc(composer)` / `openapi(composer)` bindings, plus built-in `rpc.discover` |
 | `experimentalDecorators` + `emitDecoratorMetadata` + SWC | none of it |
 
@@ -81,7 +81,7 @@ class Say {
 }
 
 const composer = Composer.init({ Say: new Say() });
-export type ClientType = typeof clientType
+export type ClientType = typeof composer.clientType;
 composer.use(sveltekitMiddleware());
 export async function POST(event) {
   return json(await composer.exec(event));
@@ -99,9 +99,9 @@ class Say {
   hello = Say.$hello(async (name) => `Hello, ${name}!`);
 }
 
-const api = jsonrpc(compose({ Say }));
-export type ClientType = typeof api;
-export const POST = (event) => fromSvelteKit(api, event);
+const rpcEndpoint = jsonrpc(compose({ Say }));
+export type ClientType = typeof rpcEndpoint;
+export const POST = (event) => fromSvelteKit(rpcEndpoint, event);
 ```
 
 The declaration is callable: `Say.$hello(handler)` types the handler from the schema and returns it unchanged. The annotation style does the same job — pick either, they coexist even in one class:
@@ -203,7 +203,8 @@ The full wiring, with the options you will actually use:
 import { compose, fn, jsonrpc } from '@chord-ts/rpc';
 import { ZodAdapter } from '@chord-ts/rpc/schemas/zod';
 
-const composer = compose(
+// '_' prefix: SvelteKit allows only HTTP handlers, config and '_'-prefixed exports from +server.ts.
+export const _composer = compose(
   { Say, Math },
   {
     schemas: new ZodAdapter(), // JSON Schema conversion for docs generation
@@ -213,9 +214,11 @@ const composer = compose(
   },
 );
 
-const api = jsonrpc(composer);
-export type ClientType = typeof api;
+const rpcEndpoint = jsonrpc(_composer);
+export type ClientType = typeof rpcEndpoint;
 ```
+
+The `_composer` export is what the docs route in [Step 9](#step-9-generate-docs-instead-of-getschema) imports — SvelteKit rejects plain value exports from `+server.ts`, hence the `_` prefix.
 
 - `compose({ Say })` with no options is valid when services have no constructor dependencies.
 - The **registry key is the object key**, not the class name. v1 required `Composer.init({ Say: new Say() })` to match the class name exactly (the decorator registered under `constructor.name`). v2 never reads the class name, so minified bundles keep addressing intact.
@@ -240,10 +243,10 @@ In v1 the platform adapter was a middleware (`sveltekitMiddleware()`, `expressMi
 ```typescript
 // v1
 composer.use(sveltekitMiddleware());
-export const POST = (event) => json(await composer.exec(event));
+export const POST = async (event) => json(await composer.exec(event));
 
 // v2
-export const POST = (event) => fromSvelteKit(api, event);
+export const POST = (event) => fromSvelteKit(rpcEndpoint, event);
 ```
 
 `event.locals` becomes the call context (`ctx`) that DI factories and middleware receive.
@@ -258,7 +261,7 @@ app.post('/rpc', async (req, res) => res.send(await composer.exec(req)));
 
 // v2
 import { fromExpress } from '@chord-ts/rpc';
-app.post('/rpc', (req, res) => fromExpress(api, req, res));
+app.post('/rpc', (req, res) => fromExpress(rpcEndpoint, req, res));
 ```
 
 `express.json()` upstream is fine — an already-parsed body is passed through as a value; a raw body (`express.raw()`) is decoded by the adapter. For DI on Express, attach the context as `req.ctx` in your own middleware before the route; `fromExpress` passes it to the binding.
@@ -304,7 +307,7 @@ class Session {
   whoami: typeof Session.$whoami.fn = async () => this.user;
 }
 
-const api = jsonrpc(
+const rpcEndpoint = jsonrpc(
   compose(
     { Session },
     { inject: { user: (ctx: { user: string }) => ctx.user } },
@@ -441,14 +444,15 @@ class Calc {
 }
 ```
 
-Executed responses — a business error keeps its code and data; a plain `Error` becomes `-32603`:
+Executed responses — a business error keeps its code and data; a plain `Error` becomes `-32603`
+with a **generic** message (internal detail such as connection strings or stacks never leaks):
 
 ```json
 {"jsonrpc":"2.0","id":1,"error":{"code":-32000,"message":"Division by zero","data":{"a":1,"b":0}}}
-{"jsonrpc":"2.0","id":2,"error":{"code":-32603,"message":"Negative input: -1"}}
+{"jsonrpc":"2.0","id":2,"error":{"code":-32603,"message":"Internal error"}}
 ```
 
-You rarely construct the standard errors yourself: the core already throws them for you — an unknown method answers `-32601`, invalid input answers `-32602` (both shown in [Step 1](#what-a-validation-failure-looks-like)). Reach for the factories when *your* handler needs to signal one of these conditions explicitly; reach for the constructor for domain codes. Any other thrown value (a plain `Error`, a rejected promise) becomes `-32603` with its message.
+You rarely construct the standard errors yourself: the core already throws them for you — an unknown method answers `-32601`, invalid input answers `-32602` (both shown in [Step 1](#what-a-validation-failure-looks-like)). Reach for the factories when *your* handler needs to signal one of these conditions explicitly; reach for the constructor for domain codes. Any other thrown value (a plain `Error`, a rejected promise) becomes `-32603` with the generic message `"Internal error"` — throw an `RpcError` (or an `Error` with a `status`) when you need the message to reach the client.
 
 `RpcError` also accepts an optional HTTP `status` for transports that use it. The `onError` hook is gone — errors flow untouched; if you need central logging, wrap `next(ctx)` in a composer middleware with `try/catch`. The REST binding maps these same throws to HTTP statuses instead of a JSON-RPC envelope ([Step 8](#step-8-serve-rest-endpoints)).
 
@@ -521,6 +525,9 @@ The handler input is the merge of three slices — `path`, `query`, `body` — e
 > [!TIP]
 > Query values arrive as strings. Declare numeric query fields with `z.coerce.number()`.
 
+> [!NOTE]
+> An **object** body merges flat into the handler input (its fields sit alongside `path`/`query`). A **non-object** body (array or scalar) cannot merge flat, so it travels under the `body` key: `post('/sum', { body: z.array(z.number()) })` gives a handler `async ({ body }) => …`, and the client calls `rpc.Svc.sum({ body: [1, 2, 3] })`. This works with or without `path`/`query` parts.
+
 Mount the REST binding on a catch-all route (`src/routes/api/[...path]/+server.ts` in SvelteKit) — it routes by verb + path internally. Executed responses:
 
 ```text
@@ -528,10 +535,10 @@ GET  /items/42?q=widget   → 200 {"id":"42","name":"item 42 (widget)"}
 POST /items {"name":"widget"} → 201 {"id":"new","name":"widget"}
 POST /items {"name":42}   → 422 {"detail":"Validation error"}
 GET  /nope                → 404 {"detail":"Not found"}
-GET  /boom                → 500 {"detail":"handler exploded"}   (handler threw Error('handler exploded'))
+GET  /boom                → 500 {"detail":"Internal error"}   (handler threw Error('handler exploded'))
 ```
 
-Errors map to HTTP statuses, not a JSON-RPC envelope: validation failure → `422`, unknown route → `404`, anything the handler throws → `500` — each with a `{"detail":"..."}` body. The `RpcError` factories and codes from [Step 6](#step-6-throw-json-rpc-errors-with-ready-made-codes) are JSON-RPC vocabulary; under REST, signal failures with the status map in `resp` and thrown errors.
+Errors map to HTTP statuses, not a JSON-RPC envelope: validation failure → `422`, unknown route → `404`, an unexpected handler throw → `500` with the generic `{"detail":"Internal error"}` (no internal leak). An error carrying an explicit HTTP `status` (e.g. from the `resp` map) keeps its own message in `detail`. The `RpcError` factories and codes from [Step 6](#step-6-throw-json-rpc-errors-with-ready-made-codes) are JSON-RPC vocabulary; under REST, signal failures with the status map in `resp` and thrown errors.
 
 > [!WARNING]
 > A class is protocol-consistent: it declares either REST (`get`/`post`) or RPC (`fn`/`stream`), never both. `compose` refuses a mixed class at startup:
@@ -548,10 +555,10 @@ v1's `composer.getSchema(route)` needed a configured route and decorator metadat
 // src/routes/rpc/spec/+server.ts
 import { fromSvelteKit } from '@chord-ts/rpc';
 import { openrpc } from '@chord-ts/rpc/jsonrpc';
-import { composer } from '../+server';
+import { _composer } from '../+server';
 
 export const GET = (event) =>
-  fromSvelteKit(openrpc(composer, { info: { title: 'My API', version: '1.0.0' } }), event);
+  fromSvelteKit(openrpc(_composer, { info: { title: 'My API', version: '1.0.0' } }), event);
 ```
 
 | Generator | Import | Serves |
