@@ -74,8 +74,9 @@ export interface McpServerLike {
 }
 
 export interface RegisterMcpOptions {
-  /** Per-request DI ctx из сырого HTTP-запроса (обработчик тула получает ctx.http.req). */
-  ctx?: (req: Request) => unknown;
+  /** Per-request DI ctx из сырого HTTP-запроса (обработчик тула получает ctx.http.req).
+   * Async-фабрика ожидается (await) до вызова метода; бросок или отсутствие req → тул не вызывается. */
+  ctx?: (req: Request) => unknown | Promise<unknown>;
   jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown;
 }
 
@@ -105,7 +106,15 @@ export function registerMcpTools(server: McpServerLike, core: Core<any>, opts: R
       async (args, ctx) => {
         try {
           const req = ctx.http?.req;
-          const chordCtx = opts.ctx && req ? opts.ctx(req) : {};
+          // The ctx factory is an auth/session boundary: it must settle BEFORE the handler runs.
+          // Await it (an async factory used to pass a Promise as ctx and its rejection crashed the
+          // process). A configured factory without an HTTP request, or a throwing factory, aborts
+          // the call here — zero handler invocations.
+          let chordCtx: unknown = {};
+          if (opts.ctx) {
+            if (!req) throw new Error('[chord] mcp: ctx factory requires an HTTP request');
+            chordCtx = await opts.ctx(req);
+          }
           const params = packToolArgs(contract, args, toJson);
           const value = await core.call(path, params, { ctx: chordCtx });
           return toCallToolResult(value, meta);

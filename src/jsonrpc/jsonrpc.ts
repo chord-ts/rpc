@@ -73,6 +73,13 @@ export function toError(e: unknown): ErrorObject {
     return e.data === undefined ? { code: e.code, message: e.message } : { code: e.code, message: e.message, data: e.data };
   }
   if (e instanceof CoreError) {
+    // invalid-output issues can embed the FULL returned object (e.g. valibot's `input`), including
+    // fields outside the schema. Never send them to the client — log server-side, return the generic
+    // message only (mirrors REST's 500). CoreError.data keeps the issues for in-process callers.
+    if (e.kind === 'invalid-output') {
+      console.error('[chord] invalid-output:', e.data);
+      return { code: CORE_CODES[e.kind], message: e.message };
+    }
     return e.data === undefined
       ? { code: CORE_CODES[e.kind], message: e.message }
       : { code: CORE_CODES[e.kind], message: e.message, data: e.data };
@@ -104,9 +111,13 @@ const invalidRequest = (id: RPCId): RPCResponse => ({
  * Parse errors (raw decode) belong to the adapter. */
 export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
   core: Core<S>,
-  opts?: { format?: Format<any, F>; includeRest?: boolean; jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown; info?: { title: string; version: string; description?: string } },
+  opts?: { format?: Format<any, F>; includeRest?: boolean; jsonSchema?: (s: AnySchema, io?: 'input' | 'output') => unknown; info?: { title: string; version: string; description?: string }; maxBatch?: number; concurrency?: number },
 ): MessageProtocol & ServiceTag<S> & FormatTag<F> & { format: Format<any, F> } {
   const format = (opts?.format ?? json) as Format<any, F>;
+  // Batch DoS guards (on by default): an oversized batch is rejected before any dispatch, and at
+  // most `concurrency` methods run at once. Infinity disables either limit explicitly.
+  const maxBatch = opts?.maxBatch ?? 100;
+  const concurrency = Math.max(1, opts?.concurrency ?? 10);
   // Binding boundary: jsonrpc serves its own (fn/stream) endpoints. REST-declared methods are
   // reachable by name only with explicit includeRest — otherwise a /rpc call would bypass the
   // guards/proxy mounted on the REST route. OpenRPC already lists only fn endpoints.
@@ -155,10 +166,22 @@ export function jsonrpc<S extends ServiceMap, F extends WireFn = JsonWire>(
       const isBatch = Array.isArray(value);
       // Empty batch → a single Invalid Request error object (spec §6), not null.
       if (isBatch && value.length === 0) return invalidRequest(null);
+      // Oversized batch → rejected before any dispatch (zero handler runs), single Invalid Request.
+      if (isBatch && value.length > maxBatch) {
+        return { jsonrpc: '2.0', id: null, error: { code: ErrorCode.InvalidRequest, message: 'Batch too large' } };
+      }
       const items = isBatch ? value : [value];
-      // Concurrent dispatch (spec §6 allows any response order); Promise.all preserves request
-      // order in the output array. A slow call no longer serializes the whole batch.
-      const results = await Promise.all(items.map((item) => handleOne(item, baseCtx)));
+      // Bounded concurrent dispatch (spec §6 allows any response order); results stay in request
+      // order. A worker pool caps in-flight methods at `concurrency` (Infinity → all at once).
+      const results: (RPCResponse | null)[] = new Array(items.length);
+      let cursor = 0;
+      const worker = async (): Promise<void> => {
+        while (cursor < items.length) {
+          const i = cursor++;
+          results[i] = await handleOne(items[i], baseCtx);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
       const out = results.filter((r): r is RPCResponse => r !== null);
       // A batch of only notifications gets no response (not an empty array).
       if (isBatch) return out.length ? out : null;

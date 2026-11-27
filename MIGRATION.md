@@ -121,6 +121,8 @@ Three things happened here:
 
 > [!NOTE]
 > Public prototype methods *without* a `$method` declaration are also exposed — as "simple" endpoints with no validation. Handy for internal tools, but prefer `fn` for anything a client calls. Arrow-function fields are only registered when they have a matching `$method` declaration.
+>
+> **Privacy:** TypeScript `private` / `protected` are compile-time only — they disappear in the emitted JavaScript, so such helpers are *still published* as simple endpoints and can be called by any client, without validation or method-level guards. For internal helpers that must never be exposed, use native `#private` methods/fields: they are absent from the prototype walk and stay private at runtime.
 
 **Check:** run your dev server and call the endpoint:
 
@@ -233,6 +235,8 @@ The `_composer` export is what the docs route in [Step 9](#step-9-generate-docs-
 ```
 
 A request without `id` is a notification: the handler runs, and the HTTP response is `204 No Content` with an empty body.
+
+Batches are guarded by default: at most `maxBatch` items (**100**) are accepted — a larger batch is rejected with a single `-32600` *before any handler runs* — and at most `concurrency` methods (**10**) execute at once. Tune them with `jsonrpc(composer, { maxBatch, concurrency })`; pass `Infinity` to disable either limit.
 
 ## Step 3. Replace middleware adapters with transport adapters
 
@@ -467,10 +471,10 @@ const composer = compose({ Math }, { validateOut: true });
 With `validateOut: true`, a handler returning the wrong type answers (executed):
 
 ```json
-{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"Response validation error",
- "data":[{"expected":"number","code":"invalid_type","path":[],
-          "message":"Invalid input: expected number, received string"}]}}
+{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"Response validation error"}}
 ```
+
+Unlike invalid *input*, the output error carries **no `data`**: validator issues can embed the whole returned object (including fields outside the schema), so they are logged server-side (`[chord] invalid-output:`) and never sent to the client.
 
 **Any Standard Schema library works for validation** — zod 4, valibot and arktype are consumed natively through their `~standard` interface, no adapter needed:
 

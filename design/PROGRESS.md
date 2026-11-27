@@ -5,6 +5,27 @@
 > намерениям. Два трека: **src** — фактический рантайм; **спайк** — compile-checked примеры в
 > `design/` (проверены `tsc --strict` и живым прогоном, но в src не перенесены, форма не одобрена).
 
+## Ревью безопасности — v2-находки (2026-11-27)
+
+По `REVIEW_SECURITY.md` (коммит `0e0de22`). Правим **только v2**; v1-находки (#3 cache, #4 middleware
+без next, #5 @rpc in, #7 внутренние ошибки, #9 коллизия классов) — вне scope. Регрессии:
+`src/mcp/vercel/ctx.test.ts`, `src/jsonrpc/security.test.ts` (критерий — счётчик вызовов обработчика).
+Гейты: typecheck чистый, **256/256** unit, MCP-conformance baseline passed.
+
+- **#1 (P0) MCP ctx без await:** `opts.ctx(req)` ожидался → async-фабрика больше не передаёт Promise
+  как ctx и не роняет процесс unhandled rejection. Фабрика настроена, но `req` нет, или бросила →
+  тул не вызывается (0 вызовов), isError. Тип `ctx` документирован как async-aware.
+- **#2 (P0) авто-публикация методов:** **решение пользователя — оставить как есть** (утверждённые
+  simple-эндпоинты, приватность через нативный `#`). В MIGRATION (Step 1 NOTE) добавлено предупреждение:
+  TS `private`/`protected` стираются → хелперы публикуются; для внутренних — `#private`.
+- **#6 (P1) утечка invalid-output:** `toError` в jsonrpc срезает `data` для `CoreError.kind ===
+  'invalid-output'` (issues могут содержать весь объект, включая поля вне схемы — valibot `input`);
+  issues → `console.error('[chord] invalid-output:')`. `CoreError.data` сохранён для in-process.
+  Stream/WS-путь уже отдаёт только message (`ws.ts`), REST — generic 500, MCP-мост — message.
+- **#8 (P1) batch без лимитов:** дефолты включены — `maxBatch: 100` (больше → один `-32600` «Batch too
+  large» до диспетчеризации, 0 вызовов) и `concurrency: 10` (worker-пул, порядок сохранён). Опции
+  `jsonrpc(core, { maxBatch, concurrency })`, `Infinity` отключает. Закрывает отложенный #17 раунда 4.
+
 ## Ревью раунд 4 — закрытые находки (2026-11-27)
 
 По `REVIEW_CLAUDE_R4.md` (коммит `d5d6550`). Спорные моменты согласованы с пользователем до правок.
